@@ -5,8 +5,14 @@
 // /api/upload/complete, then polls /api/upload/status until the background worker
 // has produced the draft. Returns the new lesson id to navigate to.
 //
+// Each track is silence-trimmed first (see lib/audio-trim): it is a large cut in
+// the Deepgram bill, and the smaller upload is a free bonus. The resulting trim
+// maps travel with /complete so the worker can undo the compression.
+//
 // The capture extension implements the same three-step flow in plain JS against
 // the same endpoints (see extension/offscreen.js) — keep them in sync.
+
+import { trimSilence, type TrimMap } from "@/lib/audio-trim";
 
 const CHUNK_SIZE = 4 * 1024 * 1024; // 4 MB — comfortably under the 6 MB limit.
 const UPLOAD_CONCURRENCY = 4;
@@ -80,8 +86,21 @@ export type UploadLessonAudioOptions = {
 export async function uploadLessonAudio(
   opts: UploadLessonAudioOptions,
 ): Promise<{ lessonId: string }> {
-  const { studentId, durationMin, student, tutor, authToken, signal } = opts;
+  const { studentId, durationMin, authToken, signal } = opts;
   const uploadId = crypto.randomUUID();
+
+  // Trim before slicing: every byte of silence we drop here is a byte we do not
+  // upload and a second Deepgram does not bill. One track at a time — decoding a
+  // long lesson holds a few hundred MB, and doing both at once has no upside
+  // (it is CPU-bound, not IO-bound) beyond doubling the peak.
+  const studentTrim = await trimSilence(opts.student);
+  const tutorTrim = await trimSilence(opts.tutor);
+  const student = studentTrim.blob;
+  const tutor = tutorTrim.blob;
+  const trimMaps: { student?: TrimMap; tutor?: TrimMap } = {
+    student: studentTrim.map,
+    tutor: tutorTrim.map,
+  };
   const authHeader: Record<string, string> = authToken
     ? { authorization: `Bearer ${authToken}` }
     : {};
@@ -116,7 +135,7 @@ export async function uploadLessonAudio(
     {
       method: "POST",
       headers: { "content-type": "application/json", ...authHeader },
-      body: JSON.stringify({ uploadId, studentId, durationMin, parts }),
+      body: JSON.stringify({ uploadId, studentId, durationMin, parts, trimMaps }),
       signal,
     },
     signal,

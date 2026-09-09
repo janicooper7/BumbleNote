@@ -118,7 +118,15 @@ const handler = async (req: Request): Promise<Response> => {
         `[process] audio assembled student=${studentAudio.length}B tutor=${tutorAudio.length}B — calling Deepgram`,
       );
 
-      transcript = await transcribeLesson({ studentAudio, tutorAudio });
+      // trimMaps put the word timestamps of each silence-trimmed track back onto
+      // real lesson time; without them the two speakers are interleaved against
+      // two different compressed clocks. Absent for untrimmed (or pre-trimming)
+      // jobs, where the timestamps are already real.
+      transcript = await transcribeLesson({
+        studentAudio,
+        tutorAudio,
+        trimMaps: job.trimMaps,
+      });
       await store.set(transcriptKey(uploadId), transcript);
       console.log(`[process] transcript ready (${transcript.length} chars) — cached`);
     }

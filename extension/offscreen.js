@@ -4,9 +4,11 @@
 // For a 1-on-1 browser call this cleanly separates the two speakers without any
 // AI diarization, on ANY web-based platform (Zoom web, Meet, Preply, etc.).
 //
-// On stop, both tracks are chunk-uploaded to {appUrl}/api/upload/* (Netlify's 6 MB
-// request limit means we can't POST a whole lesson at once), then a background
-// worker transcribes them and drafts the lesson. Nothing is saved to disk.
+// On stop, each track is silence-trimmed (audio-trim.js — Deepgram bills the
+// duration we submit, and each track is mostly the other person talking), then
+// both are chunk-uploaded to {appUrl}/api/upload/* (Netlify's 6 MB request limit
+// means we can't POST a whole lesson at once), then a background worker
+// transcribes them and drafts the lesson. Nothing is saved to disk.
 //
 // Mirrors the web app's src/lib/upload-client.ts — keep the two in sync.
 
@@ -76,27 +78,42 @@ async function upload() {
     const base = appUrl.replace(/\/+$/, "");
     const uploadId = crypto.randomUUID();
 
-    // 1. Chunk-upload both tracks.
+    // 1. Cut the silence out of each track, keeping the map that says what was
+    //    cut. Uploading less is a bonus; the point is the Deepgram bill.
+    const trimmed = {
+      student: await BumbleNoteTrim.trimSilence(blobs.student),
+      tutor: await BumbleNoteTrim.trimSilence(blobs.tutor),
+    };
+    for (const track of ["student", "tutor"]) {
+      const t = trimmed[track];
+      console.log(
+        `[capture] ${track}: ${t.originalSec.toFixed(0)}s -> ${t.trimmedSec.toFixed(0)}s` +
+          `${t.map ? "" : " (untrimmed)"}`,
+      );
+    }
+    const trimMaps = { student: trimmed.student.map, tutor: trimmed.tutor.map };
+
+    // 2. Chunk-upload both tracks.
     const parts = {
-      student: await uploadTrack(base, captureToken, uploadId, "student", blobs.student),
-      tutor: await uploadTrack(base, captureToken, uploadId, "tutor", blobs.tutor),
+      student: await uploadTrack(base, captureToken, uploadId, "student", trimmed.student.blob),
+      tutor: await uploadTrack(base, captureToken, uploadId, "tutor", trimmed.tutor.blob),
     };
 
-    // 2. Finalize — kicks the background worker.
+    // 3. Finalize — kicks the background worker.
     const completeRes = await fetch(`${base}/api/upload/complete`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${captureToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ uploadId, studentId, durationMin, parts }),
+      body: JSON.stringify({ uploadId, studentId, durationMin, parts, trimMaps }),
     });
     const completeData = await completeRes.json().catch(() => ({}));
     if (!completeRes.ok) {
       throw new Error(completeData.error || `Couldn't start processing (${completeRes.status}).`);
     }
 
-    // 3. Poll until the draft is ready.
+    // 4. Poll until the draft is ready.
     const deadline = Date.now() + POLL_TIMEOUT_MS;
     let lessonId = "";
     while (Date.now() < deadline) {

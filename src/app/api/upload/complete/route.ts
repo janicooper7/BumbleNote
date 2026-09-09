@@ -14,6 +14,7 @@ import {
   uploadStore,
   jobKey,
   statusKey,
+  type TrimMaps,
   type UploadJob,
   type UploadStatus,
 } from "@/lib/upload-store";
@@ -30,6 +31,39 @@ function json(body: unknown, status = 200): Response {
 
 const ID_RE = /^[A-Za-z0-9_-]{8,100}$/;
 
+// Trim maps drive the timestamp arithmetic that reassembles the dialogue, so they
+// get validated rather than trusted. A malformed map would not fail loudly — it
+// would quietly deal the two speakers' words into the wrong order — so a bad one
+// is rejected outright instead of being dropped, which would be just as wrong
+// given the audio really was trimmed. The cap mirrors MAX_SPANS in lib/audio-trim.
+const MAX_TRIM_NUMBERS = 4000 * 2;
+
+function parseTrimMap(value: unknown, track: string): number[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) throw new Error(`Bad ${track} trim map.`);
+  if (value.length === 0) return undefined;
+  if (value.length % 2 !== 0 || value.length > MAX_TRIM_NUMBERS) {
+    throw new Error(`Bad ${track} trim map.`);
+  }
+
+  let prevEnd = -1;
+  for (let i = 0; i < value.length; i += 2) {
+    const start = value[i];
+    const dur = value[i + 1];
+    if (typeof start !== "number" || typeof dur !== "number") {
+      throw new Error(`Bad ${track} trim map.`);
+    }
+    // Spans must be finite, forward-going, positive, and strictly ordered — the
+    // binary search in makeTimeMapper assumes exactly that.
+    if (!Number.isFinite(start) || !Number.isFinite(dur) || start < 0 || dur <= 0) {
+      throw new Error(`Bad ${track} trim map.`);
+    }
+    if (start < prevEnd) throw new Error(`Bad ${track} trim map.`);
+    prevEnd = start + dur;
+  }
+  return value as number[];
+}
+
 export function OPTIONS(): Response {
   return new Response(null, { status: 204, headers: CORS });
 }
@@ -43,6 +77,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     studentId?: string;
     durationMin?: number;
     parts?: { student?: number; tutor?: number };
+    trimMaps?: { student?: unknown; tutor?: unknown };
   };
   try {
     body = await req.json();
@@ -63,6 +98,15 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
   if (!Number.isInteger(tutorParts) || tutorParts < 1) {
     return json({ error: "No tutor audio was uploaded." }, 400);
+  }
+
+  let trimMaps: TrimMaps | undefined;
+  try {
+    const student = parseTrimMap(body.trimMaps?.student, "student");
+    const tutor = parseTrimMap(body.trimMaps?.tutor, "tutor");
+    if (student || tutor) trimMaps = { student, tutor };
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Bad trim map." }, 400);
   }
 
   // Validate the student up front so a bad id doesn't burn a paid transcription.
@@ -87,6 +131,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     studentId,
     durationMin: Number.isFinite(durationMin) && durationMin > 0 ? durationMin : 45,
     parts: { student: studentParts, tutor: tutorParts },
+    trimMaps,
     startedAt: Date.now(),
   };
   const processing: UploadStatus = { state: "processing" };

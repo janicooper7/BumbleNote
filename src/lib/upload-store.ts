@@ -9,6 +9,7 @@
 // transcribes + drafts, writes the final `status`, and deletes the audio.
 
 import { getStore } from "@netlify/blobs";
+import type { TrimMap } from "./audio-trim";
 
 export const UPLOAD_STORE = "lesson-uploads";
 
@@ -17,12 +18,24 @@ export type Track = "student" | "tutor";
 /** Per-track part counts for one upload. */
 export type Parts = { student: number; tutor: number };
 
+/**
+ * Per-track silence-trim maps (see lib/audio-trim). The browser trims each track
+ * before upload so Deepgram bills speech rather than wall-clock, which leaves the
+ * word timestamps in a compressed timeline; the worker needs these to put them
+ * back on real lesson time before interleaving the two speakers. A missing entry
+ * means that track was uploaded untrimmed.
+ *
+ * Type-only import, so the Netlify worker never pulls the browser module in.
+ */
+export type TrimMaps = { student?: TrimMap; tutor?: TrimMap };
+
 /** Authoritative job description written by /api/upload/complete (post-auth). */
 export type UploadJob = {
   tutorId: string;
   studentId: string;
   durationMin: number;
   parts: Parts;
+  trimMaps?: TrimMaps;
   /**
    * Epoch ms the worker was (re)triggered. The worker can be killed outright —
    * platform timeout, OOM, a deploy mid-run — and a killed process runs no catch
