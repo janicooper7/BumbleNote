@@ -10,6 +10,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { sessions, students } from "@/db/schema";
 import { generateLessonFeedback } from "@/lib/ai";
+import { buildJourney, journeyPromptBlock } from "@/lib/journey";
 import { insertWithUniqueId } from "@/lib/unique-id";
 
 export type CreateDraftLessonInput = {
@@ -48,6 +49,23 @@ export async function createDraftLessonCore(
     .limit(1);
   if (!student) throw new Error("Student not found.");
 
+  // Every prior lesson for this student, read once and used twice: it builds the
+  // journey handed to Claude, and it numbers this lesson. Only the columns the
+  // journey folds are selected — a transcript is never stored, but the vocab and
+  // notes of a long-running student still add up.
+  const priorSessions = await db
+    .select({
+      status: sessions.status,
+      isoDate: sessions.isoDate,
+      observedLevel: sessions.observedLevel,
+      vocab: sessions.vocab,
+      focus: sessions.focus,
+      title: sessions.title,
+      lessonEndedAt: sessions.lessonEndedAt,
+    })
+    .from(sessions)
+    .where(and(eq(sessions.tutorId, tutorId), eq(sessions.studentId, student.id)));
+
   const feedback = await generateLessonFeedback(transcript, {
     studentName: student.name,
     native: student.native,
@@ -55,16 +73,13 @@ export async function createDraftLessonCore(
     goal: student.goal,
     focus: student.focus,
     interests: student.interests ?? undefined,
+    // Undefined for a first lesson, which keeps that prompt free of empty headings.
+    journey: journeyPromptBlock(buildJourney(priorSessions)),
   });
 
-  // Lesson number = how many sessions this student already has, plus one.
-  const priorCount = (
-    await db
-      .select({ id: sessions.id })
-      .from(sessions)
-      .where(and(eq(sessions.tutorId, tutorId), eq(sessions.studentId, student.id)))
-  ).length;
-  const lessonNo = priorCount + 1;
+  // Lesson number counts drafts too — the tutor taught the lesson whether or not
+  // they have reviewed it yet, so numbering must not jump when one is confirmed.
+  const lessonNo = priorSessions.length + 1;
 
   const now = new Date();
   const isoDate = now.toISOString().slice(0, 10);

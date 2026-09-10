@@ -11,9 +11,11 @@ export const LEGAL = {
    * on a contract — the trading name alone is not enough to identify a data
    * controller under UK GDPR Art. 13.
    *
-   * TODO: replace the placeholder before these pages go public.
+   * If BumbleNote ever incorporates, this becomes the company name and both
+   * pages need their "a sole trader based in the United Kingdom" wording
+   * changed to name the registrar and company number alongside it.
    */
-  operator: "[YOUR FULL LEGAL NAME]",
+  operator: "Dzhani Cooper",
 
   /** Trading name — what the product is called. */
   tradingName: "BumbleNote",
@@ -29,7 +31,14 @@ export const LEGAL = {
   addressNote: "A postal address is available on request by email.",
 
   /** Shown at the top of both documents, and cited in the change clauses. */
-  lastUpdated: "14 August 2026",
+  lastUpdated: "10 September 2026",
+
+  /**
+   * The same date, machine-readable, for the sitemap's <lastmod>. Kept next to
+   * the display string above because the two must always name the same day —
+   * change one and change the other.
+   */
+  lastUpdatedISO: "2026-09-10",
 
   /**
    * Retention window for lesson audio that a failed or abandoned upload leaves

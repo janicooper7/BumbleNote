@@ -6,7 +6,8 @@ import GoogleAuthForm from "@/components/auth/GoogleAuthForm";
 import SignupForm from "@/components/auth/SignupForm";
 
 export const metadata: Metadata = {
-  title: "Create your account · BumbleNote",
+  title: "Create your account",
+  alternates: { canonical: "/signup" },
   description: "Start free — no card required. Better feedback for every student.",
 };
 

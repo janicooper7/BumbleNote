@@ -24,3 +24,18 @@ export async function appOrigin(): Promise<string> {
     h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   return `${proto}://${host}`;
 }
+
+/**
+ * The canonical origin, resolved without touching request headers.
+ *
+ * `appOrigin()` above is the right call inside a request — it can fall back to
+ * the Host header. Metadata, robots.txt and the sitemap are built at render time
+ * for a fixed public URL and must not depend on who is asking: reading headers
+ * there would opt those routes out of static generation and, worse, let a
+ * spoofed Host rewrite the canonical URL and the sitemap's own entries.
+ *
+ * The literal is the production domain, used when APP_URL is unset (local dev,
+ * and preview deploys where an absolute URL is cosmetic).
+ */
+export const SITE_URL =
+  process.env.APP_URL?.trim().replace(/\/+$/, "") || "https://bumblenote.com";

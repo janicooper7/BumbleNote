@@ -5,7 +5,7 @@ import ResetPasswordForm from "@/components/auth/ResetPasswordForm";
 import { checkResetToken } from "@/lib/reset-tokens";
 
 export const metadata: Metadata = {
-  title: "Choose a new password · BumbleNote",
+  title: "Choose a new password",
   robots: { index: false, follow: false },
 };
 

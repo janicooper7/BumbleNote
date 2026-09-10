@@ -20,7 +20,7 @@ export default function HeroVisual() {
   const enabled = useRef(true); // pointer tilt active?
   const frame = useRef(0);
 
-  const [phase, setPhase] = useState<number>(PHASE.READY);
+  const [rawPhase, setPhase] = useState<number>(PHASE.READY);
   const [cycle, setCycle] = useState(0); // remounts the animated content each loop
   const [sec, setSec] = useState(38);
   const [inView, setInView] = useState(false);
@@ -54,12 +54,15 @@ export default function HeroVisual() {
     return () => io.disconnect();
   }, []);
 
-  // phase clock
+  // phase clock. Off-screen, or with reduced motion on, the card freezes on the
+  // finished recap — derived here during render rather than pushed through
+  // setPhase from inside the effect, which would cascade an extra render every
+  // time the card scrolls in or out of view.
+  const frozen = reduced || !inView;
+  const phase = frozen ? PHASE.READY : rawPhase;
+
   useEffect(() => {
-    if (reduced || !inView) {
-      setPhase(PHASE.READY); // freeze on the finished recap
-      return;
-    }
+    if (frozen) return;
     const id = setTimeout(() => {
       setPhase((p) => {
         const next = (p + 1) % 3;
@@ -68,7 +71,7 @@ export default function HeroVisual() {
       });
     }, DUR[phase]);
     return () => clearTimeout(id);
-  }, [phase, inView, reduced]);
+  }, [phase, frozen]);
 
   // elapsed-lesson ticker (only meaningful while listening)
   useEffect(() => {
@@ -387,7 +390,7 @@ function Recap({ instant }: { instant: boolean }) {
           Caught for you
         </div>
         <p className="min-h-[1.4rem] text-[.92rem] text-ink">
-          <Typewriter text={CORRECTION} startDelay={1000} instant={instant} />
+          <Typewriter key={CORRECTION} text={CORRECTION} startDelay={1000} instant={instant} />
         </p>
       </div>
 
@@ -409,16 +412,15 @@ function Recap({ instant }: { instant: boolean }) {
   );
 }
 
-/* types `text` one character at a time; renders it whole when `instant` */
+/* types `text` one character at a time; renders it whole when `instant`.
+   `n` is only ever advanced from inside the interval callback — the finished and
+   restart-from-zero cases are derived during render instead, so the effect body
+   never calls setState. Callers key this on `text` so a change starts over. */
 function Typewriter({ text, startDelay, instant }: { text: string; startDelay: number; instant: boolean }) {
-  const [n, setN] = useState(instant ? text.length : 0);
+  const [n, setN] = useState(0);
 
   useEffect(() => {
-    if (instant) {
-      setN(text.length);
-      return;
-    }
-    setN(0);
+    if (instant) return;
     let i = 0;
     let tick: ReturnType<typeof setInterval>;
     const start = setTimeout(() => {
@@ -434,10 +436,11 @@ function Typewriter({ text, startDelay, instant }: { text: string; startDelay: n
     };
   }, [text, startDelay, instant]);
 
-  const done = n >= text.length;
+  const shown = instant ? text.length : n;
+  const done = shown >= text.length;
   return (
     <>
-      {text.slice(0, n)}
+      {text.slice(0, shown)}
       {!done && <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-[3px] bg-ink ct-caret" />}
     </>
   );

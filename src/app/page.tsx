@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import BeeFlight from "@/components/BeeFlight";
 import SiteHeader from "@/components/SiteHeader";
@@ -11,6 +12,14 @@ import PrivacyBadge from "@/components/sections/PrivacyBadge";
 import Pricing from "@/components/sections/Pricing";
 import CtaBand from "@/components/sections/CtaBand";
 import SiteFooter from "@/components/sections/SiteFooter";
+
+// Title and description are inherited from the root layout — this exists only to
+// declare the canonical, which has to be set per page rather than once in the
+// layout (a layout-level canonical is inherited verbatim, so every page would
+// claim to be the homepage).
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default async function Home() {
   const session = await auth();

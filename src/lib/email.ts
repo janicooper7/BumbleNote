@@ -172,6 +172,52 @@ export async function sendPasswordResetGoogleEmail(args: {
 }
 
 /**
+ * The operator alert — "a lesson failed to process", "a page threw". Plain and
+ * dense on purpose: it's read on a phone, at a glance, to decide whether to open
+ * a laptop. See src/lib/alerts.ts, which is what callers actually use (it adds
+ * the throttling and swallows failures).
+ *
+ * `fields` is rendered verbatim, so callers must keep student names and email
+ * addresses out of it and pass opaque ids instead. The privacy policy names
+ * Resend as a processor of report emails; routing student identities through it
+ * a second time, into an ops mailbox that outlives the lesson, isn't something
+ * the tutor agreed to.
+ */
+export async function sendOperatorAlertEmail(args: {
+  to: string;
+  subject: string;
+  summary: string;
+  fields: Record<string, string>;
+}): Promise<void> {
+  const { to, subject, summary, fields } = args;
+
+  const rows = Object.entries(fields)
+    .map(
+      ([key, value]) =>
+        `<tr>
+           <td style="padding:6px 14px 6px 0;color:#8b909a;white-space:nowrap;vertical-align:top;">${escapeHtml(key)}</td>
+           <td style="padding:6px 0;color:#1f2430;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-word;">${escapeHtml(value)}</td>
+         </tr>`,
+    )
+    .join("");
+
+  const html = shell(
+    subject,
+    `<p style="margin:0 0 18px;color:#3f4750;">${escapeHtml(summary)}</p>
+     <table style="width:100%;border-collapse:collapse;font-size:13px;">${rows}</table>`,
+  );
+
+  const { error } = await getClient().emails.send({
+    from: env.EMAIL_FROM,
+    to,
+    subject: `[BumbleNote] ${subject}`,
+    html,
+  });
+
+  if (error) throw new Error(explainSendError(error.message));
+}
+
+/**
  * Turn Resend's API errors into something a tutor can act on.
  *
  * The big one: with the default sandbox sender (onboarding@resend.dev) Resend

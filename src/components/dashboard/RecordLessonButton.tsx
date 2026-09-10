@@ -5,7 +5,7 @@
 // shared recorder hook. Recording/processing shows a modal overlay so the tutor
 // keeps control from anywhere in the dashboard.
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Avatar from "./Avatar";
@@ -34,11 +34,6 @@ export default function RecordLessonButton({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [chosen, setChosen] = useState<PickStudent | null>(null);
   const [query, setQuery] = useState("");
-  const [mounted, setMounted] = useState(false);
-
-  // The overlay is portaled to <body> so it centres on the whole viewport — the
-  // sidebar's `backdrop-blur` would otherwise trap a `fixed` child inside it.
-  useEffect(() => setMounted(true), []);
 
   const open = pickerOpen || status !== "idle";
   const firstName = chosen?.name.split(" ")[0] ?? "the student";
@@ -73,7 +68,13 @@ export default function RecordLessonButton({
         <RecDot /> Record a lesson
       </button>
 
-      {open && mounted && createPortal(
+      {/* The overlay is portaled to <body> so it centres on the whole viewport — the
+          sidebar's `backdrop-blur` would otherwise trap a `fixed` child inside it.
+          `open` is false on the server and on the first client render (nothing is
+          picked and the recorder is idle), so the portal never runs during
+          hydration and needs no "have I mounted yet" flag — just a guard for the
+          server pass, where `document` doesn't exist. */}
+      {open && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-7 shadow-soft-md">
             {status === "idle" && (

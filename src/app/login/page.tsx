@@ -6,7 +6,8 @@ import GoogleAuthForm from "@/components/auth/GoogleAuthForm";
 import LoginForm from "@/components/auth/LoginForm";
 
 export const metadata: Metadata = {
-  title: "Log in · BumbleNote",
+  title: "Log in",
+  alternates: { canonical: "/login" },
   description: "Welcome back to BumbleNote.",
 };
 

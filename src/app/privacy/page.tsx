@@ -21,7 +21,8 @@ import { Callout, Clause, LegalShell, Points } from "@/components/legal/LegalPag
 import { LEGAL, SUBPROCESSORS } from "@/lib/legal";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy · BumbleNote",
+  title: "Privacy Policy",
+  alternates: { canonical: "/privacy" },
   description:
     "What BumbleNote does with lesson recordings, student records, and tutor account data — and what it never does.",
 };

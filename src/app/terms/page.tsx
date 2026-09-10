@@ -17,7 +17,8 @@ import { Callout, Clause, LegalShell, Points } from "@/components/legal/LegalPag
 import { LEGAL } from "@/lib/legal";
 
 export const metadata: Metadata = {
-  title: "Terms of Service · BumbleNote",
+  title: "Terms of Service",
+  alternates: { canonical: "/terms" },
   description:
     "The agreement between BumbleNote and the tutors who use it — what we provide, what we ask of you, and where responsibility sits.",
 };

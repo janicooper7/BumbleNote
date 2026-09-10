@@ -4,7 +4,7 @@ import AuthLayout from "@/components/auth/AuthLayout";
 import ForgotPasswordForm from "@/components/auth/ForgotPasswordForm";
 
 export const metadata: Metadata = {
-  title: "Reset your password · BumbleNote",
+  title: "Reset your password",
   robots: { index: false, follow: false },
 };
 

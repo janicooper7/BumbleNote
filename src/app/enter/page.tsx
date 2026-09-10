@@ -4,7 +4,7 @@ import AuthLayout from "@/components/auth/AuthLayout";
 import { safeReturnPath } from "@/lib/site-gate";
 
 export const metadata: Metadata = {
-  title: "BumbleNote",
+  title: { absolute: "BumbleNote" },
   // Nothing behind the gate should be indexed while the site is private.
   robots: { index: false, follow: false },
 };

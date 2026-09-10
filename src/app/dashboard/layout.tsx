@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import { auth, currentTutorId } from "@/auth";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { getStudents, getTutor } from "@/db/queries";
 import { lessonUsage } from "@/lib/quota";
+
+// Everything under /dashboard is one tutor's own data and sits behind auth, so a
+// crawler can't reach it anyway — this just keeps the sign-in redirects out of
+// Search Console as soft-404s.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function DashboardLayout({
   children,

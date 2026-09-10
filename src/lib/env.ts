@@ -36,6 +36,19 @@ export const env = {
   get SITE_PASSWORD() {
     return process.env.SITE_PASSWORD ?? "";
   },
+  /**
+   * Where operator alerts go when something breaks (src/lib/alerts.ts).
+   *
+   * Falls back to the first address on ADMIN_EMAILS, since whoever operates the
+   * recovery tools is the person who needs to know a lesson failed. Empty means
+   * alerting is off — deliberately not `required()`, because a missing alert
+   * address must never be the thing that takes the site down.
+   */
+  get ALERT_EMAIL() {
+    const explicit = process.env.ALERT_EMAIL?.trim();
+    if (explicit) return explicit;
+    return (process.env.ADMIN_EMAILS ?? "").split(",")[0]?.trim() ?? "";
+  },
   // The From address for lesson-report emails. Resend's shared sandbox address
   // works for testing (only delivers to your own account email); set a verified
   // domain sender for real students.

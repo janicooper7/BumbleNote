@@ -50,6 +50,16 @@ export type LessonContext = {
   goal: string;
   focus: string[]; // known weaknesses / areas being worked on
   interests?: string[];
+  /**
+   * The student's history as a rendered text block — vocabulary already taught,
+   * recurring areas to improve, level trajectory, recent lessons. Built by
+   * `journeyPromptBlock` (src/lib/journey.ts) and omitted for a first lesson.
+   *
+   * This is what separates BumbleNote's feedback from a one-off transcript
+   * summary: without it the model re-teaches words the student learned a month
+   * ago and reports the same weakness every week as though it were news.
+   */
+  journey?: string;
 };
 
 /** The structured feedback Claude returns for one lesson. */
@@ -125,6 +135,15 @@ const SYSTEM_PROMPT = `You are an expert English-language tutor writing structur
 
 Produce feedback that is warm, specific, and grounded ONLY in what the transcript shows — never invent achievements or vocabulary that didn't come up. Write in the second person where the field is shown to the student (additionalInfo, homework), and as private notes to the tutor for tutorNotes.
 
+Using the learning journey:
+When the prompt includes a "Learning journey so far" block, this student has been taught before and you are writing the next entry in a continuing record — not a standalone summary. Use it as follows:
+- The journey is context, NEVER evidence. Only the transcript can show what happened in this lesson. If the journey says a weakness is open but the transcript shows no sign of it, say nothing about it rather than repeating it on faith.
+- Vocabulary already taught should not be re-introduced as new. If such a term recurs in the transcript, include it only when the student is now using it noticeably better or still getting it wrong — and say which. Otherwise spend the list on genuinely new language.
+- Prefer areas to improve that connect to an open theme in the journey, phrased so the tutor sees the thread ("still dropping articles before abstract nouns — third lesson running"). Raise a brand-new weakness only when the transcript shows one that matters more.
+- If the transcript shows real improvement in something the journey lists as open or recently resolved, that is the strongest thing you can put in wentWell. Name it explicitly as progress.
+- nextLesson should move the student along the trajectory the journey shows, and should not repeat an activity the recent lessons already covered.
+- tutorNotes is where the long view belongs: whether the student is genuinely progressing or plateauing across the lessons on record, and the single most useful thing to work on next.
+
 Field guidance:
 - topic: a short 2–5 word lesson topic drawn from the main theme (e.g. "Negotiating deadlines").
 - observedLevel: the CEFR level (A1–C2) the student actually demonstrated this lesson, based on their output — not their target.
@@ -156,6 +175,9 @@ export async function generateLessonFeedback(
     `- Goal: ${context.goal}`,
     context.focus.length ? `- Currently working on: ${context.focus.join(", ")}` : "",
     context.interests?.length ? `- Interests: ${context.interests.join(", ")}` : "",
+    // History last within the context block, closest to the transcript it should
+    // be read against.
+    context.journey ? `\nLearning journey so far:\n${context.journey}` : "",
     "",
     "Lesson transcript:",
     transcript.trim(),

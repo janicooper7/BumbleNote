@@ -17,6 +17,7 @@
 // and the function never throws.
 
 import type { Config } from "@netlify/functions";
+import { alertOperator } from "@/lib/alerts";
 import { transcribeLesson } from "@/lib/stt";
 // Import the Next-free core directly (NOT @/lib/lessons) so this bundle never
 // pulls in `next/cache`, which isn't resolvable in a standalone function.
@@ -76,6 +77,11 @@ const handler = async (req: Request): Promise<Response> => {
   // store is created inside the try so a Blobs failure is caught + logged, not an
   // uncaught crash (a background function has already returned 202 by then).
   let store: ReturnType<typeof uploadStore> | undefined;
+  // Hoisted out of the try purely so the operator alert in the catch can say
+  // whose lesson this was. Empty until the job blob is read, which is itself one
+  // of the steps that can fail.
+  let tutorId = "";
+  let studentId = "";
 
   try {
     ({ uploadId } = (await req.json()) as { uploadId: string });
@@ -93,6 +99,7 @@ const handler = async (req: Request): Promise<Response> => {
       console.error(`[process] job blob not found for ${uploadId}`);
       return new Response("Unknown job", { status: 404 });
     }
+    ({ tutorId, studentId } = job);
     console.log(
       `[process] job loaded student=${job.studentId} parts=${job.parts.student}/${job.parts.tutor}`,
     );
@@ -167,6 +174,27 @@ const handler = async (req: Request): Promise<Response> => {
         } satisfies UploadStatus)
         .catch((e) => console.error("[process] could not write error status:", e));
     }
+
+    // The alert that matters most: the tutor is staring at a failed lesson they
+    // can't fix themselves, and the audio is recoverable only until the
+    // retention sweep takes it. Fingerprinted on the error text alone — one
+    // broken upstream shouldn't send one email per lesson — so the uploadId in
+    // the body is an example of the failure, not necessarily the only one.
+    await alertOperator({
+      subject: "Lesson processing failed",
+      summary:
+        "A lesson finished uploading but the background worker couldn't turn it " +
+        "into a draft. The audio is still in storage and can be re-run from " +
+        "/api/admin/recover, until the retention sweep deletes it.",
+      fingerprint: `process:${error}`,
+      fields: {
+        Error: error,
+        "Upload id": uploadId,
+        "Tutor id": tutorId,
+        "Student id": studentId,
+        Recover: "GET /api/admin/recover to list, POST ?uploadId=… to re-run",
+      },
+    });
   }
 
   // Always 202: never throw, or Netlify retries and we double-insert.

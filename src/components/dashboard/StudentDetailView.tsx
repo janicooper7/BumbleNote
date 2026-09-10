@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Avatar from "./Avatar";
@@ -8,6 +8,7 @@ import SessionRecorder from "./SessionRecorder";
 import StatusBadge from "./StatusBadge";
 import { ChevronRightIcon } from "./icons";
 import { sortSessions, splitLessonTitle, type Session, type Student } from "@/lib/mock";
+import { buildJourney, warmUpTerms, type JourneyFocus, type Trajectory } from "@/lib/journey";
 import {
   deleteStudent,
   setStudentActive,
@@ -81,19 +82,21 @@ export default function StudentDetailView({
 
   const firstName = student.name.split(" ")[0];
   const sortedHistory = sortSessions(history, "date");
-  // Only confirmed/sent lessons count as "taught" — a draft is still in review,
-  // so it shouldn't drive the lesson count or the recommendation yet.
-  const taughtLessons = sortSessions(
-    history.filter((s) => s.status === "confirmed" || s.status === "sent"),
-    "date",
-  );
-  const lessonsTaught = taughtLessons.length;
-  // The recommendation leans on the most recent completed lesson's focus,
-  // falling back to the focus captured on the student profile.
-  const recommendedFocus = taughtLessons[0]?.focus?.[0] ?? student.focus[0];
-  // Most recent completed lesson drives the warm-up suggestion.
-  const latestLesson = taughtLessons[0];
-  const warmUpTerms = latestLesson?.vocab.map((v) => v.term).filter(Boolean).slice(0, 3) ?? [];
+
+  // The cumulative view across every taught lesson — recurring themes, the vocab
+  // bank, the level trend. Derived here rather than fetched: the page already
+  // holds the full history, and `history` is local state (lesson titles are
+  // edited in place below), so recomputing keeps the panel honest after an edit.
+  const journey = useMemo(() => buildJourney(history), [history]);
+  const lessonsTaught = journey.lessonsTaught;
+
+  // Lead with the most persistent open theme, since that's the one costing the
+  // student most. Before any lesson is taught, fall back to the tutor's own
+  // starting notes from the student profile.
+  const leadFocus = journey.activeFocus[0];
+  const recommendedFocus = leadFocus?.label ?? student.focus[0];
+  const warmUp = warmUpTerms(journey);
+  const recurringVocab = journey.vocab.filter((v) => v.lessons > 1).slice(0, 8);
 
   return (
     <div className="px-6 py-8 lg:px-10">
@@ -257,26 +260,29 @@ export default function StudentDetailView({
               {lessonsTaught === 0 ? (
                 <>Record your first lesson with {firstName} and BumbleNote will start building their journey — vocabulary, areas to improve, and what to work on next.</>
               ) : recommendedFocus ? (
-                <>Based on {lessonsTaught} lesson{lessonsTaught === 1 ? "" : "s"}, BumbleNote recommends focusing on{" "}
-                <span className="font-semibold text-white">{recommendedFocus}</span> before moving
-                deeper into {student.goal.toLowerCase()} material.</>
+                <>Across {lessonsTaught} lesson{lessonsTaught === 1 ? "" : "s"}, the area costing {firstName} most is{" "}
+                <span className="font-semibold text-white">{recommendedFocus}</span>
+                {leadFocus && leadFocus.lessons > 1 ? (
+                  <>, which has come up in {leadFocus.lessons} of them</>
+                ) : null}
+                . Worth clearing before moving deeper into {student.goal.toLowerCase()} material.</>
               ) : (
                 <>Based on {lessonsTaught} lesson{lessonsTaught === 1 ? "" : "s"}, BumbleNote recommends
                 continuing to build {firstName}&rsquo;s confidence with {student.goal.toLowerCase()} material.</>
               )}
             </p>
 
-            {warmUpTerms.length > 0 && (
+            {warmUp.length > 0 && (
               <div className="mt-4 rounded-xl border border-white/15 bg-white/10 p-4">
                 <div className="text-xs font-bold uppercase tracking-wide text-brand-lit">
                   Warm-up exercise
                 </div>
                 <p className="mt-1.5 text-[var(--panel-text)]">
                   Recap last lesson: ask {firstName} to make a sentence with{" "}
-                  {warmUpTerms.map((t, i) => (
-                    <span key={t} className="font-semibold text-white">
-                      &ldquo;{t}&rdquo;
-                      {i < warmUpTerms.length - 1 ? (i === warmUpTerms.length - 2 ? " and " : ", ") : ""}
+                  {warmUp.map((v, i) => (
+                    <span key={v.term} className="font-semibold text-white">
+                      &ldquo;{v.term}&rdquo;
+                      {i < warmUp.length - 1 ? (i === warmUp.length - 2 ? " and " : ", ") : ""}
                     </span>
                   ))}
                   .
@@ -284,6 +290,89 @@ export default function StudentDetailView({
               </div>
             )}
           </section>
+
+          {lessonsTaught > 0 && (
+            <section className="rounded-2xl border border-line bg-surface p-6 shadow-soft-sm">
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="font-display text-xl font-medium text-ink">The journey so far</h2>
+                <TrajectoryChip trajectory={journey.trajectory} />
+              </div>
+
+              <dl className="grid grid-cols-3 gap-3">
+                <Stat k="Lessons" v={String(lessonsTaught)} />
+                <Stat k="Words taught" v={String(journey.vocabCount)} />
+                <Stat
+                  k="Level"
+                  v={
+                    journey.levelFirst && journey.levelLatest && journey.levelFirst !== journey.levelLatest
+                      ? `${journey.levelFirst} → ${journey.levelLatest}`
+                      : (journey.levelLatest ?? "—")
+                  }
+                />
+              </dl>
+
+              {journey.activeFocus.length > 0 && (
+                <div className="mt-6">
+                  <div className="text-xs font-bold uppercase tracking-wide text-muted">
+                    Still working on
+                  </div>
+                  <ul className="mt-3 flex flex-col gap-2">
+                    {journey.activeFocus.map((f) => (
+                      <FocusRow key={f.label} focus={f} />
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {journey.resolvedFocus.length > 0 && (
+                <div className="mt-6">
+                  <div className="text-xs font-bold uppercase tracking-wide text-muted">
+                    Stopped coming up
+                  </div>
+                  {/* Not proof of mastery — only that it hasn't appeared lately —
+                      so the copy stays careful about what it claims. */}
+                  <p className="mt-1 text-xs text-muted">
+                    Last flagged a few lessons ago, and not since.
+                  </p>
+                  <ul className="mt-3 flex flex-col gap-2">
+                    {journey.resolvedFocus.slice(0, 4).map((f) => (
+                      <li
+                        key={f.label}
+                        className="flex items-center gap-2.5 rounded-xl border border-line bg-white/60 px-3.5 py-2.5 text-sm text-ink-soft"
+                      >
+                        <span className="flex-none text-success-deep" aria-hidden>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 6L9 17l-5-5" />
+                          </svg>
+                        </span>
+                        <span className="min-w-0 flex-1">{f.label}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {recurringVocab.length > 0 && (
+                <div className="mt-6">
+                  <div className="text-xs font-bold uppercase tracking-wide text-muted">
+                    Words that keep coming back
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {recurringVocab.map((v) => (
+                      <span
+                        key={v.term}
+                        title={v.meaning}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-3 py-1.5 text-xs font-semibold text-brand-deep"
+                      >
+                        {v.term}
+                        <span className="font-normal text-brand-deep/70">×{v.lessons}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
 
           <section className="rounded-2xl border border-line bg-surface p-6 shadow-soft-sm">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -365,5 +454,61 @@ function Row({ k, v }: { k: string; v: string }) {
       <dt className="text-ink-soft">{k}</dt>
       <dd className="text-right font-semibold text-ink">{v}</dd>
     </div>
+  );
+}
+
+/** One headline number in the journey panel. */
+function Stat({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="rounded-xl border border-line bg-white/60 px-3.5 py-3">
+      <dt className="text-xs font-medium text-muted">{k}</dt>
+      <dd className="mt-1 font-display text-lg font-medium text-ink">{v}</dd>
+    </div>
+  );
+}
+
+/**
+ * How the level trend reads to the tutor. `early` is shown rather than hidden:
+ * "not enough lessons yet" is a more useful answer than an empty space, and it
+ * explains why no trend is claimed.
+ */
+const TRAJECTORY_COPY: Record<Trajectory, { label: string; className: string }> = {
+  rising: { label: "Progressing", className: "bg-success/12 text-success-deep" },
+  holding: { label: "Holding steady", className: "bg-brand-soft text-brand-deep" },
+  dipping: { label: "Slipping", className: "bg-[#fdf1f1] text-[#a23b38]" },
+  early: { label: "Early days", className: "bg-line text-ink-soft" },
+};
+
+function TrajectoryChip({ trajectory }: { trajectory: Trajectory }) {
+  const { label, className } = TRAJECTORY_COPY[trajectory];
+  return (
+    <span className={`rounded-full px-3 py-1 text-[.82rem] font-semibold ${className}`}>
+      {label}
+    </span>
+  );
+}
+
+/**
+ * An open area to improve. The lesson count is the whole point of the journey —
+ * it turns "articles" from a note into "this has come up six times".
+ */
+function FocusRow({ focus }: { focus: JourneyFocus }) {
+  const recurring = focus.lessons > 1;
+  return (
+    <li
+      className="flex items-center gap-3 rounded-xl border border-line bg-white/60 px-3.5 py-2.5 transition-colors duration-200 hover:border-brand-line"
+      // The variant phrasings are what got folded together; surfacing them on
+      // hover is how a tutor checks the grouping is sane rather than trusting it.
+      title={focus.phrasings.length > 1 ? focus.phrasings.join("\n") : undefined}
+    >
+      <span className="min-w-0 flex-1 text-sm text-ink">{focus.label}</span>
+      <span
+        className={`flex-none rounded-full px-2.5 py-1 text-xs font-semibold ${
+          recurring ? "bg-brand-soft text-brand-deep" : "bg-line text-ink-soft"
+        }`}
+      >
+        {recurring ? `${focus.lessons} lessons` : "new"}
+      </span>
+    </li>
   );
 }
