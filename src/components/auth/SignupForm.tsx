@@ -4,14 +4,16 @@ import { useActionState } from "react";
 import { signUpWithPassword, type AuthFormState } from "@/app/actions/auth";
 import { MIN_PASSWORD_LENGTH, PASSWORD_HINT } from "@/lib/password-policy";
 import AuthField from "./AuthField";
+import PlanIntentFields, { type PlanIntent } from "./PlanIntentFields";
 
 const initial: AuthFormState = {};
 
-export default function SignupForm() {
+export default function SignupForm({ intent }: { intent?: PlanIntent }) {
   const [state, action, pending] = useActionState(signUpWithPassword, initial);
 
   return (
     <form action={action} className="flex flex-col gap-5">
+      <PlanIntentFields {...intent} />
       <div className="grid gap-5 sm:grid-cols-2">
         <AuthField
           label="First name"

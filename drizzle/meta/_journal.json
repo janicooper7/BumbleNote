@@ -57,6 +57,13 @@
       "when": 1789374635712,
       "tag": "0007_trial_lesson_counter",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789380372840,
+      "tag": "0008_graceful_ego",
+      "breakpoints": true
     }
   ]
 }

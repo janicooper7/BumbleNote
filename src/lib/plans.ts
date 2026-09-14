@@ -1,11 +1,10 @@
 // Plan definitions — the single source of truth for what each tier allows.
 //
 // These numbers are the ones advertised on the pricing page
-// (src/components/sections/Pricing.tsx); if you change one, change both. Billing
-// isn't wired up yet, so nothing here charges anyone — the limits exist so that
-// public signup can't turn into unbounded Deepgram + Anthropic spend on lessons
-// nobody is paying for. Stripe will later set `tutors.plan`; today every new
-// tutor lands on `free`.
+// (src/components/sections/Pricing.tsx); if you change one, change both — and
+// the USD amounts live in PLAN_PRICES_USD in src/lib/billing.ts. The limits bound
+// Deepgram + Anthropic spend per tutor. Every new tutor lands on `free`; after
+// that `tutors.plan` is set only by Stripe, via syncSubscription().
 
 // `legacy` is never sold: it's the tier tutors who predate billing were
 // grandfathered onto, so the September 2026 repricing didn't cap anyone who was

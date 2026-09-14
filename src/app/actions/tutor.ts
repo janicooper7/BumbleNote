@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { tutors } from "@/db/schema";
 import { currentTutorId, signOut } from "@/auth";
+import { cancelSubscriptionForDeletion } from "@/lib/billing";
 import { MAX_NAME_LENGTH, normalizeTutorName } from "@/lib/tutor";
 
 /**
@@ -47,6 +48,12 @@ export async function updateTutorName(input: string): Promise<UpdateNameResult> 
  */
 export async function deleteAccount(): Promise<void> {
   const tutorId = await currentTutorId();
+
+  // Stop billing first. If Stripe is unreachable this throws and the account
+  // stays — deleting the row would orphan a subscription that keeps charging a
+  // card with no account behind it, and no way for the tutor to cancel it.
+  await cancelSubscriptionForDeletion(tutorId);
+
   await db.delete(tutors).where(eq(tutors.id, tutorId));
 
   // Clear the cookie last: the JWT still carries the now-dangling tutorId, and

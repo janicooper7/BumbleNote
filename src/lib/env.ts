@@ -30,6 +30,16 @@ export const env = {
   get INTERNAL_TASK_SECRET() {
     return required("INTERNAL_TASK_SECRET");
   },
+  // Stripe billing (src/lib/billing.ts). Use the sk_test_ key everywhere except
+  // the production Netlify site.
+  get STRIPE_SECRET_KEY() {
+    return required("STRIPE_SECRET_KEY");
+  },
+  // Signing secret for /api/stripe/webhook (whsec_…). Each webhook endpoint —
+  // and each `stripe listen` session — has its own.
+  get STRIPE_WEBHOOK_SECRET() {
+    return required("STRIPE_WEBHOOK_SECRET");
+  },
   // Shared password for the pre-launch site gate (src/lib/site-gate.ts). This
   // one is deliberately optional: unset means the gate is off and the site is
   // public, which is the safe failure mode for a live site.

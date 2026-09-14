@@ -46,6 +46,16 @@ export const tutors = pgTable("tutors", {
   // once billing lands. Tutors that predate the column were grandfathered to
   // `unlimited` by the migration that added it, since renamed to `legacy`.
   plan: tutorPlan("plan").notNull().default("free"),
+  // Stripe billing (src/lib/billing.ts). `plan` above stays the one column quota
+  // reads; these mirror the subscription that set it, and are written only by
+  // syncSubscription() so the webhook and the checkout return can't disagree.
+  stripeCustomerId: text("stripe_customer_id").unique(),
+  stripeSubscriptionId: text("stripe_subscription_id").unique(),
+  // Stripe's own status string (active, past_due, canceled, …). Null = never subscribed.
+  subscriptionStatus: text("subscription_status"),
+  billingInterval: text("billing_interval").$type<"month" | "year">(),
+  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
   // Lessons ever processed for this tutor. Only goes up — unlike counting
   // `sessions` rows, deleting a lesson doesn't lower it, so the free plan's
   // one-lesson trial can't be reset by deleting the trial lesson.

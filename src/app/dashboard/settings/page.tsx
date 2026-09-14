@@ -2,11 +2,14 @@ import { notFound } from "next/navigation";
 import Topbar from "@/components/dashboard/Topbar";
 import ProfileSettings from "@/components/dashboard/ProfileSettings";
 import DeleteAccountCard from "@/components/dashboard/DeleteAccountCard";
+import BillingCard, { isBillingNotice } from "@/components/dashboard/BillingCard";
 import { currentTutorId } from "@/auth";
 import { getLessonTotal, getTutor } from "@/db/queries";
 import { lessonUsage, studentUsage } from "@/lib/quota";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: PageProps<"/dashboard/settings">) {
+  // ?billing=success|pending|cancelled|error, set by the billing routes on the way back.
+  const { billing } = await searchParams;
   const tutorId = await currentTutorId();
   const [tutor, lessons, students, lessonTotal] = await Promise.all([
     getTutor(),
@@ -48,9 +51,7 @@ export default async function SettingsPage() {
 
             {/* Right column: the plan, then the billing that will govern it. */}
             <div className="grid gap-4">
-              {/* Plan & usage — the real numbers. Everything else on this page is
-                  still a placeholder, and is labelled as such rather than
-                  pretending to be wired up. */}
+              {/* Plan & usage — what quota.ts will actually enforce. */}
               <div className="rounded-2xl border border-line bg-surface p-6 shadow-soft-sm">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <div className="font-semibold text-ink">Plan &amp; usage</div>
@@ -103,9 +104,10 @@ export default async function SettingsPage() {
                 </div>
               </div>
 
-              <ComingSoon
-                title="Billing"
-                detail="Payments aren't set up yet — plans are managed manually."
+              <BillingCard
+                tutor={tutor}
+                plan={lessons.plan}
+                notice={isBillingNotice(billing) ? billing : undefined}
               />
             </div>
           </div>
@@ -119,20 +121,5 @@ export default async function SettingsPage() {
         </div>
       </div>
     </>
-  );
-}
-
-/** A settings section that exists in the UI but isn't wired up yet. */
-function ComingSoon({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-6 opacity-70 shadow-soft-sm">
-      <div className="min-w-[12rem] flex-1">
-        <div className="font-semibold text-ink">{title}</div>
-        <div className="text-sm text-ink-soft">{detail}</div>
-      </div>
-      <span className="flex-none rounded-lg border border-line bg-white/60 px-4 py-2 text-sm font-semibold text-muted">
-        Coming soon
-      </span>
-    </div>
   );
 }

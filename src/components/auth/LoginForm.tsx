@@ -4,14 +4,16 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { logInWithPassword, type AuthFormState } from "@/app/actions/auth";
 import AuthField from "./AuthField";
+import PlanIntentFields, { type PlanIntent } from "./PlanIntentFields";
 
 const initial: AuthFormState = {};
 
-export default function LoginForm() {
+export default function LoginForm({ intent }: { intent?: PlanIntent }) {
   const [state, action, pending] = useActionState(logInWithPassword, initial);
 
   return (
     <form action={action} className="flex flex-col gap-5">
+      <PlanIntentFields {...intent} />
       <AuthField
         label="Email"
         name="email"

@@ -113,11 +113,11 @@ export default function RecordLessonButton({
                       </>
                     )}
                     <Link
-                      href="/#pricing"
+                      href="/dashboard/settings"
                       onClick={closeIdle}
                       className="mt-3 block rounded-lg bg-brand px-4 py-2 text-center font-semibold text-ink"
                     >
-                      See plans
+                      {quota.trial ? "Choose a plan" : "Upgrade plan"}
                     </Link>
                   </div>
                 ) : students.length === 0 ? (

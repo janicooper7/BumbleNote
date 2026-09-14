@@ -6,6 +6,7 @@ import { signIn, signOut } from "@/auth";
 import { db } from "@/db";
 import { tutors } from "@/db/schema";
 import { appOrigin } from "@/lib/app-url";
+import { checkoutPath } from "@/lib/billing";
 import { sendPasswordResetEmail, sendPasswordResetGoogleEmail } from "@/lib/email";
 import { hashPassword } from "@/lib/password";
 import { passwordProblem } from "@/lib/password-policy";
@@ -15,8 +16,18 @@ import {
   RESET_TTL_MINUTES,
 } from "@/lib/reset-tokens";
 
-export async function signInWithGoogle() {
-  await signIn("google", { redirectTo: "/dashboard" });
+/**
+ * Where to land after signing in: Checkout for the plan picked on the pricing
+ * page, if one came through the form (see PlanIntentFields), else the dashboard.
+ * Built from the validated plan, never from a caller-supplied path, so it can't
+ * be turned into an open redirect.
+ */
+function afterAuth(formData: FormData): string {
+  return checkoutPath(formData.get("plan"), formData.get("billing")) ?? "/dashboard";
+}
+
+export async function signInWithGoogle(formData: FormData) {
+  await signIn("google", { redirectTo: afterAuth(formData) });
 }
 
 export async function signOutAction() {
@@ -108,7 +119,7 @@ export async function signUpWithPassword(
   }
 
   try {
-    await signIn("credentials", { email, password, redirectTo: "/dashboard" });
+    await signIn("credentials", { email, password, redirectTo: afterAuth(formData) });
   } catch (error) {
     // The tutor exists at this point, so send them to the login form rather
     // than leaving them on a signup that looks like it failed outright.
@@ -137,7 +148,7 @@ export async function logInWithPassword(
   }
 
   try {
-    await signIn("credentials", { email, password, redirectTo: "/dashboard" });
+    await signIn("credentials", { email, password, redirectTo: afterAuth(formData) });
   } catch (error) {
     if (error instanceof AuthError) {
       // Same message for every failure — see InvalidLogin in src/auth.ts.

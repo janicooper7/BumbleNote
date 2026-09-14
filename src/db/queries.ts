@@ -166,6 +166,11 @@ export type TutorProfile = {
   name: string;
   email: string;
   createdAt: Date;
+  stripeCustomerId: string | null;
+  subscriptionStatus: string | null;
+  billingInterval: "month" | "year" | null;
+  currentPeriodEnd: Date | null;
+  cancelAtPeriodEnd: boolean;
 };
 
 /**
@@ -182,6 +187,11 @@ export async function getTutor(): Promise<TutorProfile | undefined> {
       name: tutors.name,
       email: tutors.email,
       createdAt: tutors.createdAt,
+      stripeCustomerId: tutors.stripeCustomerId,
+      subscriptionStatus: tutors.subscriptionStatus,
+      billingInterval: tutors.billingInterval,
+      currentPeriodEnd: tutors.currentPeriodEnd,
+      cancelAtPeriodEnd: tutors.cancelAtPeriodEnd,
     })
     .from(tutors)
     .where(eq(tutors.id, tutorId))
