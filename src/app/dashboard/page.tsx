@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Topbar from "@/components/dashboard/Topbar";
+import Greeting from "@/components/dashboard/Greeting";
 import Avatar from "@/components/dashboard/Avatar";
 import PendingQueue from "@/components/dashboard/PendingQueue";
 import { ArrowUpIcon } from "@/components/dashboard/icons";
@@ -58,7 +59,7 @@ export default async function DashboardHome() {
 
   return (
     <>
-      <Topbar title={`Good afternoon, ${firstName}`} subtitle="Here's what's happened since your last lessons." />
+      <Topbar title={<Greeting name={firstName} />}subtitle="Here's what's happened since your last lessons." />
 
       <div className="px-6 py-8 lg:px-10">
         {/* stats */}

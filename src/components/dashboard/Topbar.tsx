@@ -2,7 +2,7 @@ export default function Topbar({
   title,
   subtitle,
 }: {
-  title: string;
+  title: React.ReactNode;
   subtitle?: string;
 }) {
   return (
