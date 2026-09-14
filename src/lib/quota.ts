@@ -17,8 +17,10 @@
 // the fact protects nobody. The two entry points above are the complete set of
 // callers that reach paid work, so guarding them bounds the spend exactly.
 //
-// Usage is counted per calendar month (UTC) from `sessions.created_at` — when we
-// did the work, not the lesson's nominal date, which the tutor can edit.
+// Monthly plans count per calendar month (UTC) from `sessions.created_at` — when
+// we did the work, not the lesson's nominal date, which the tutor can edit. The
+// free trial is lifetime and counts `tutors.lessons_created` instead, which
+// deleting a lesson doesn't lower.
 
 import { and, count, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
@@ -52,13 +54,17 @@ function monthStart(now = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
-async function planOf(tutorId: string): Promise<Plan> {
+async function tutorPlanRow(tutorId: string) {
   const [row] = await db
-    .select({ plan: tutors.plan })
+    .select({ plan: tutors.plan, lessonsCreated: tutors.lessonsCreated })
     .from(tutors)
     .where(eq(tutors.id, tutorId))
     .limit(1);
-  return planFor(row?.plan);
+  return { plan: planFor(row?.plan), lessonsCreated: row?.lessonsCreated ?? 0 };
+}
+
+async function planOf(tutorId: string): Promise<Plan> {
+  return (await tutorPlanRow(tutorId)).plan;
 }
 
 export type LessonUsage = {
@@ -69,18 +75,20 @@ export type LessonUsage = {
   allowed: boolean;
 };
 
-/** How many lessons this tutor has processed this month, against their plan. */
+/** How many lessons this tutor has used in their plan's window, against its limit. */
 export async function lessonUsage(tutorId: string): Promise<LessonUsage> {
-  const [plan, [row]] = await Promise.all([
-    planOf(tutorId),
-    db
+  const { plan, lessonsCreated } = await tutorPlanRow(tutorId);
+
+  let used = lessonsCreated;
+  if (plan.lessonWindow === "month") {
+    const [row] = await db
       .select({ n: count() })
       .from(sessions)
-      .where(and(eq(sessions.tutorId, tutorId), gte(sessions.createdAt, monthStart()))),
-  ]);
+      .where(and(eq(sessions.tutorId, tutorId), gte(sessions.createdAt, monthStart())));
+    used = row?.n ?? 0;
+  }
 
-  const used = row?.n ?? 0;
-  const limit = plan.lessonsPerMonth;
+  const limit = plan.lessons;
   return {
     plan,
     used,
@@ -90,13 +98,15 @@ export async function lessonUsage(tutorId: string): Promise<LessonUsage> {
   };
 }
 
-/** Throws QuotaError if this tutor may not process another lesson this month. */
+/** Throws QuotaError if this tutor may not process another lesson. */
 export async function assertLessonQuota(tutorId: string): Promise<LessonUsage> {
   const usage = await lessonUsage(tutorId);
   if (!usage.allowed) {
     throw new QuotaError(
-      `You've used all ${usage.limit} lessons on the ${usage.plan.name} plan this month. ` +
-        `Your allowance resets on the 1st — upgrade to keep recording before then.`,
+      usage.plan.lessonWindow === "lifetime"
+        ? `You've used your free trial lesson. Choose a plan to keep recording lessons.`
+        : `You've used all ${usage.limit} lessons on the ${usage.plan.name} plan this month. ` +
+            `Your allowance resets on the 1st — upgrade to keep recording before then.`,
       usage.plan,
       usage.used,
       usage.limit,
@@ -129,8 +139,11 @@ export async function assertStudentQuota(tutorId: string): Promise<void> {
   const usage = await studentUsage(tutorId);
   if (!usage.allowed && usage.limit !== null) {
     throw new QuotaError(
-      `The ${usage.plan.name} plan includes ${usage.limit} student profiles, and you're using all of them. ` +
-        `Upgrade for unlimited students, or archive a student you're no longer teaching.`,
+      (usage.limit === 1
+        ? `The ${usage.plan.name} plan includes 1 student profile, and you're already using it. ` +
+          `Choose a plan for unlimited students.`
+        : `The ${usage.plan.name} plan includes ${usage.limit} student profiles, and you're using all of them. ` +
+          `Upgrade for unlimited students, or archive a student you're no longer teaching.`),
       usage.plan,
       usage.used,
       usage.limit,

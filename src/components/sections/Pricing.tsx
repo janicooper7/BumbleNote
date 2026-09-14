@@ -7,7 +7,7 @@ import Reveal from "../Reveal";
 type Plan = {
   name: string;
   desc: string;
-  monthly: number | null; // null = free plan
+  monthly: number;
   lessons: string;
   features: string[];
   cta: string;
@@ -17,22 +17,12 @@ type Plan = {
 
 const plans: Plan[] = [
   {
-    name: "Free",
-    desc: "For tutors trying BumbleNote out.",
-    monthly: null,
-    lessons: "4 lessons / mo",
-    features: ["Student & tutor feedback", "PDF export", "3 student profiles"],
-    cta: "Get started",
-    plan: "free",
-    featured: false,
-  },
-  {
     name: "Starter",
     desc: "Your part-time roster, a few lessons a week.",
-    monthly: 12,
-    lessons: "Up to 40 lessons / mo",
+    monthly: 19,
+    lessons: "Up to 30 lessons / mo",
     features: [
-      "Everything in Free",
+      "Student & tutor feedback",
       "Full student journey & history",
       "Branded PDF + email delivery",
       "Unlimited student profiles",
@@ -42,33 +32,32 @@ const plans: Plan[] = [
     featured: false,
   },
   {
-    name: "Pro",
+    name: "Advanced",
     desc: "For committed tutors teaching most days.",
-    monthly: 29,
-    lessons: "Up to 120 lessons / mo",
+    monthly: 45,
+    lessons: "Up to 75 lessons / mo",
     features: [
       "Everything in Starter",
       "Priority processing",
       "Deeper per-student insights",
       "Email support",
     ],
-    cta: "Choose Pro",
-    plan: "pro",
+    cta: "Choose Advanced",
+    plan: "advanced",
     featured: true,
   },
   {
-    name: "Unlimited",
+    name: "Pro",
     desc: "For full-time tutors teaching every day.",
-    monthly: 49,
-    lessons: "Unlimited lessons*",
+    monthly: 79,
+    lessons: "Up to 130 lessons / mo",
     features: [
-      "Everything in Pro",
+      "Everything in Advanced",
       "Fastest processing",
       "Priority support",
-      "Fair use ~250 lessons / mo",
     ],
-    cta: "Choose Unlimited",
-    plan: "unlimited",
+    cta: "Choose Pro",
+    plan: "pro",
     featured: false,
   },
 ];
@@ -88,7 +77,7 @@ export default function Pricing() {
             Plans that scale with your teaching week.
           </h2>
           <p className="mt-4 text-lg text-ink-soft">
-            Start free with 4 lessons a month. No card required. Cancel anytime.
+            Try it free with 1 student and 1 lesson. No card required. Cancel anytime.
           </p>
         </Reveal>
 
@@ -99,12 +88,12 @@ export default function Pricing() {
           </div>
         </Reveal>
 
-        <div className="mx-auto grid max-w-md grid-cols-1 items-stretch gap-6 sm:max-w-none sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mx-auto grid max-w-md grid-cols-1 items-stretch gap-6 lg:max-w-[1040px] lg:grid-cols-3">
           {plans.map((p, i) => {
             const isAnnual = !!annual[p.plan];
             // Annual billing = pay for 10 months, get 12 (2 months free).
-            const annualTotal = p.monthly != null ? p.monthly * 10 : null;
-            const href = `/signup?plan=${p.plan}${p.monthly != null && isAnnual ? "&billing=annual" : ""}`;
+            const annualTotal = p.monthly * 10;
+            const href = `/signup?plan=${p.plan}${isAnnual ? "&billing=annual" : ""}`;
 
             return (
               <Reveal key={p.name} delay={i * 80} className="h-full">
@@ -120,51 +109,55 @@ export default function Pricing() {
                       Most popular
                     </span>
                   )}
-                  <div className="font-display text-[1.35rem] font-semibold">{p.name}</div>
+                  <div className="font-display text-[1.35rem] font-semibold">
+                    {p.name}
+                  </div>
                   <div className="mb-4 mt-1.5 min-h-[3.3rem] text-[.92rem] text-ink-soft">
                     {p.desc}
                   </div>
 
-                  {/* per-card billing toggle — reserves the same height on Free so prices align */}
-                  <div className="mb-3 min-h-[2.1rem]">
-                    {p.monthly != null && (
-                      <div className="inline-flex items-center gap-0.5 rounded-full border border-line bg-brand-soft/30 p-0.5 text-[.76rem] font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => setAnnual((s) => ({ ...s, [p.plan]: false }))}
-                          className={`rounded-full px-3 py-1 transition-all duration-300 ${
-                            !isAnnual ? "bg-brand text-ink shadow-soft-sm" : "text-ink-soft hover:text-ink"
+                  {/* per-card billing toggle */}
+                  <div className="mb-3">
+                    <div className="inline-flex items-center gap-0.5 rounded-full border border-line bg-brand-soft/30 p-0.5 text-[.76rem] font-semibold">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAnnual((s) => ({ ...s, [p.plan]: false }))
+                        }
+                        className={`rounded-full px-3 py-1 transition-all duration-300 ${
+                          !isAnnual
+                            ? "bg-brand text-ink shadow-soft-sm"
+                            : "text-ink-soft hover:text-ink"
+                        }`}
+                      >
+                        Monthly
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAnnual((s) => ({ ...s, [p.plan]: true }))
+                        }
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 transition-all duration-300 ${
+                          isAnnual
+                            ? "bg-brand text-ink shadow-soft-sm"
+                            : "text-ink-soft hover:text-ink"
+                        }`}
+                      >
+                        Annual
+                        <span
+                          className={`rounded-full px-1.5 py-0.5 text-[.62rem] font-bold uppercase tracking-wide ${
+                            isAnnual
+                              ? "bg-white/20 text-white"
+                              : "bg-brand-soft text-brand-deep"
                           }`}
                         >
-                          Monthly
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAnnual((s) => ({ ...s, [p.plan]: true }))}
-                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 transition-all duration-300 ${
-                            isAnnual ? "bg-brand text-ink shadow-soft-sm" : "text-ink-soft hover:text-ink"
-                          }`}
-                        >
-                          Annual
-                          <span
-                            className={`rounded-full px-1.5 py-0.5 text-[.62rem] font-bold uppercase tracking-wide ${
-                              isAnnual ? "bg-white/20 text-white" : "bg-brand-soft text-brand-deep"
-                            }`}
-                          >
-                            2 mo free
-                          </span>
-                        </button>
-                      </div>
-                    )}
+                          2 mo free
+                        </span>
+                      </button>
+                    </div>
                   </div>
 
-                  {p.monthly == null ? (
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="font-display text-[2.6rem] font-semibold tracking-tight">
-                        Free
-                      </span>
-                    </div>
-                  ) : isAnnual ? (
+                  {isAnnual ? (
                     <div className="flex items-baseline gap-1.5">
                       <span className="font-display text-[2.6rem] font-semibold tracking-tight">
                         ${annualTotal}
@@ -182,7 +175,8 @@ export default function Pricing() {
 
                   {/* billing sub-line — reserves height so cards stay aligned */}
                   <div className="mt-1 min-h-[1.25rem] text-[.82rem] font-medium text-brand-deep">
-                    {p.monthly != null && isAnnual && `$${p.monthly}/mo billed annually · 2 months free`}
+                    {isAnnual &&
+                      `$${p.monthly}/mo billed annually · 2 months free`}
                   </div>
 
                   <div className="mb-6 mt-3 inline-flex w-fit rounded-full bg-brand-soft px-3 py-1 text-[.82rem] font-semibold text-brand-deep">
@@ -190,7 +184,10 @@ export default function Pricing() {
                   </div>
                   <ul className="mb-7 flex flex-col gap-3">
                     {p.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2.5 text-[.94rem] text-ink-soft">
+                      <li
+                        key={f}
+                        className="flex items-start gap-2.5 text-[.94rem] text-ink-soft"
+                      >
                         <span className="mt-0.5 grid h-5 w-5 flex-none place-items-center rounded-[7px] bg-brand-soft text-[.68rem] text-brand-deep">
                           ✓
                         </span>
@@ -213,7 +210,9 @@ export default function Pricing() {
                   >
                     {p.cta}
                     {p.featured && (
-                      <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+                      <span className="transition-transform duration-300 group-hover:translate-x-1">
+                        →
+                      </span>
                     )}
                   </Link>
                 </div>
@@ -221,13 +220,6 @@ export default function Pricing() {
             );
           })}
         </div>
-
-        <Reveal className="mx-auto mt-6 max-w-2xl text-center">
-          <p className="text-[.86rem] text-muted">
-            *Unlimited is fair-use, capped around 250 lessons / month to keep pricing
-            sustainable for everyone.
-          </p>
-        </Reveal>
       </div>
     </section>
   );

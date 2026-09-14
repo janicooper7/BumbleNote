@@ -44,8 +44,12 @@ export const tutors = pgTable("tutors", {
   // Subscription tier. Governs the monthly lesson quota and student cap enforced
   // in src/lib/quota.ts. New tutors start on `free`; Stripe will own this column
   // once billing lands. Tutors that predate the column were grandfathered to
-  // `unlimited` by the migration that added it.
+  // `unlimited` by the migration that added it, since renamed to `legacy`.
   plan: tutorPlan("plan").notNull().default("free"),
+  // Lessons ever processed for this tutor. Only goes up — unlike counting
+  // `sessions` rows, deleting a lesson doesn't lower it, so the free plan's
+  // one-lesson trial can't be reset by deleting the trial lesson.
+  lessonsCreated: integer("lessons_created").notNull().default(0),
   // Bearer token the capture browser extension uses to upload lessons.
   captureToken: text("capture_token").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -6,9 +6,9 @@
 // The Next.js callers use `createDraftLesson` from ./lessons (which wraps this and
 // calls revalidatePath); the worker imports `createDraftLessonCore` from here.
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { sessions, students } from "@/db/schema";
+import { sessions, students, tutors } from "@/db/schema";
 import { generateLessonFeedback } from "@/lib/ai";
 import { buildJourney, journeyPromptBlock } from "@/lib/journey";
 import { insertWithUniqueId } from "@/lib/unique-id";
@@ -122,6 +122,14 @@ export async function createDraftLessonCore(
       tutorNotes: feedback.tutorNotes,
     }),
   );
+
+  // Feeds the free trial's lifetime limit (src/lib/quota.ts). Counted only once
+  // the lesson exists, so an upload that fails before this point doesn't use up
+  // the tutor's one trial.
+  await db
+    .update(tutors)
+    .set({ lessonsCreated: sql`${tutors.lessonsCreated} + 1` })
+    .where(eq(tutors.id, tutorId));
 
   return { id };
 }

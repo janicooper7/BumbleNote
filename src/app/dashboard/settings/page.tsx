@@ -25,10 +25,10 @@ export default async function SettingsPage() {
     year: "numeric",
   });
 
-  // On Unlimited there is no allowance to count down, so the "x of y" line and
-  // its bar are just noise. The 250 is a real fair-use ceiling though, so it
-  // surfaces once the tutor is actually close enough to hit it.
-  const unlimited = lessons.plan.id === "unlimited";
+  // Grandfathered (legacy) tutors were sold "unlimited", so there's no allowance
+  // to count down and the "x of y" line and its bar are just noise. The 250 is a
+  // real fair-use ceiling though, so it surfaces once they're close to hitting it.
+  const unlimited = lessons.plan.id === "legacy";
   const nearFairUse = unlimited && pct >= 80;
 
   return (
@@ -67,7 +67,7 @@ export default async function SettingsPage() {
                     </div>
                     {nearFairUse && (
                       <p className="mt-2 text-[.82rem] text-muted">
-                        Fair use caps Unlimited at {lessons.limit} lessons a month,
+                        Fair use caps your plan at {lessons.limit} lessons a month,
                         resetting on the 1st.
                       </p>
                     )}
@@ -78,7 +78,9 @@ export default async function SettingsPage() {
                       <span className="font-semibold text-ink">
                         {lessons.used} of {lessons.limit}
                       </span>{" "}
-                      lessons used this month
+                      {lessons.plan.lessonWindow === "lifetime"
+                        ? "free trial lesson used"
+                        : "lessons used this month"}
                     </div>
                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-brand-soft">
                       <div
@@ -87,7 +89,9 @@ export default async function SettingsPage() {
                       />
                     </div>
                     <p className="mt-2 text-[.82rem] text-muted">
-                      Resets on the 1st of each month.
+                      {lessons.plan.lessonWindow === "lifetime"
+                        ? "The trial doesn't reset — choose a plan to keep recording."
+                        : "Resets on the 1st of each month."}
                     </p>
                   </>
                 )}

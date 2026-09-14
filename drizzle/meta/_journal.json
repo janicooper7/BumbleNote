@@ -43,6 +43,20 @@
       "when": 1786746798052,
       "tag": "0005_shiny_newton_destine",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789373663956,
+      "tag": "0006_reprice_plans",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789374635712,
+      "tag": "0007_trial_lesson_counter",
+      "breakpoints": true
     }
   ]
 }

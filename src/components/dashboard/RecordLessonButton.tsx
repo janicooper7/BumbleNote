@@ -14,13 +14,15 @@ import { useSessionRecorder, formatElapsed } from "./useSessionRecorder";
 
 type PickStudent = { id: string; name: string; initial: string };
 
-/** This month's lesson allowance, resolved on the server (src/lib/quota.ts). */
+/** The tutor's lesson allowance, resolved on the server (src/lib/quota.ts). */
 export type LessonQuotaView = {
   used: number;
   limit: number;
   remaining: number;
   allowed: boolean;
   planName: string;
+  /** Free trial: a lifetime allowance that never resets. */
+  trial: boolean;
 };
 
 export default function RecordLessonButton({
@@ -89,13 +91,27 @@ export default function RecordLessonButton({
                   // would reject the upload anyway, and finding that out having
                   // just taught for an hour is the worst possible moment.
                   <div className="rounded-xl border border-brand-line bg-brand-soft/50 p-4 text-sm text-ink-soft">
-                    <div className="font-semibold text-ink">
-                      You&apos;ve used all {quota.limit} lessons this month
-                    </div>
-                    <p className="mt-1">
-                      The {quota.planName} plan includes {quota.limit} lessons a month. Your
-                      allowance resets on the 1st.
-                    </p>
+                    {quota.trial ? (
+                      <>
+                        <div className="font-semibold text-ink">
+                          You&apos;ve used your free trial lesson
+                        </div>
+                        <p className="mt-1">
+                          Choose a plan to keep recording lessons and building each
+                          student&apos;s journey.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="font-semibold text-ink">
+                          You&apos;ve used all {quota.limit} lessons this month
+                        </div>
+                        <p className="mt-1">
+                          The {quota.planName} plan includes {quota.limit} lessons a month. Your
+                          allowance resets on the 1st.
+                        </p>
+                      </>
+                    )}
                     <Link
                       href="/#pricing"
                       onClick={closeIdle}
@@ -151,10 +167,17 @@ export default function RecordLessonButton({
                 )}
 
                 {/* Only worth the space once the allowance is nearly gone. */}
-                {quota.allowed && quota.remaining <= 3 && (
+                {quota.allowed && quota.trial ? (
                   <p className="mt-3 text-center text-xs text-muted">
-                    {quota.remaining} of {quota.limit} lessons left this month on {quota.planName}.
+                    This is your free trial lesson.
                   </p>
+                ) : (
+                  quota.allowed &&
+                  quota.remaining <= 3 && (
+                    <p className="mt-3 text-center text-xs text-muted">
+                      {quota.remaining} of {quota.limit} lessons left this month on {quota.planName}.
+                    </p>
+                  )
                 )}
 
                 <button

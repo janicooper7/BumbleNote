@@ -139,9 +139,10 @@ export default function TermsPage() {
 
       <Clause id="plans" heading="Plans and payment">
         <p>
-          BumbleNote has a free plan with a monthly lesson allowance, and paid plans
-          with higher allowances. Current prices and limits are shown on our pricing
-          page, and your allowance resets on the 1st of each month.
+          BumbleNote has a free trial of one lesson with one student, and paid plans
+          with monthly lesson allowances. Current prices and limits are shown on our
+          pricing page. Paid allowances reset on the 1st of each month; the free trial
+          does not reset.
         </p>
         <p>
           Paid plans are billed in advance for the period you choose. You can cancel at
@@ -150,8 +151,8 @@ export default function TermsPage() {
           prices, we will give you at least 30 days&apos; notice before it affects you.
         </p>
         <p>
-          Reaching your monthly limit stops new lessons being recorded until the limit
-          resets or you upgrade. It never deletes work you have already done.
+          Reaching your limit stops new lessons being recorded until the limit resets
+          or you upgrade. It never deletes work you have already done.
         </p>
       </Clause>
 
