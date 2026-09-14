@@ -73,6 +73,76 @@ async function runPool<T>(items: T[], limit: number, fn: (item: T) => Promise<vo
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
 }
 
+/**
+ * A failed upload, with enough context to retry it the right way:
+ *
+ *   "reupload"  — the audio never finished reaching the server (network, 5xx).
+ *                 The recording is still in the browser, so send it again.
+ *   "reprocess" — the audio arrived and the server kept it, but turning it into a
+ *                 draft failed. Re-run processing on the stored audio: re-uploading
+ *                 would bill transcription twice and could draft the lesson twice.
+ *   null        — retrying won't help (out of lessons, student deleted, …).
+ */
+export class UploadError extends Error {
+  constructor(
+    message: string,
+    readonly retry: "reupload" | "reprocess" | null,
+    readonly uploadId?: string,
+  ) {
+    super(message);
+    this.name = "UploadError";
+  }
+}
+
+async function pollUntilDone(
+  uploadId: string,
+  authHeader: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<{ lessonId: string }> {
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    if (signal?.aborted) throw new UploadError("Upload cancelled.", null);
+
+    // A transient network error mid-poll must not kill a job that's still
+    // processing (or already done) — swallow it and poll again next tick.
+    let res: Response;
+    try {
+      res = await fetch(`/api/upload/status?uploadId=${uploadId}`, {
+        headers: authHeader,
+        signal,
+      });
+    } catch {
+      if (signal?.aborted) throw new UploadError("Upload cancelled.", null);
+      continue;
+    }
+    if (!res.ok) continue; // transient (e.g. eventual-consistency 404); keep polling.
+    const status = await res.json();
+    if (status.state === "done") return { lessonId: status.lessonId };
+    if (status.state === "error") {
+      throw new UploadError(status.error || "Processing failed.", "reprocess", uploadId);
+    }
+  }
+  // The job may still finish; the server keeps the audio either way.
+  throw new UploadError("Processing is taking longer than expected.", "reprocess", uploadId);
+}
+
+/** Re-run processing for an upload whose audio the server already has. */
+export async function retryLessonProcessing(uploadId: string): Promise<{ lessonId: string }> {
+  const res = await fetchRetry(`/api/upload/retry?uploadId=${encodeURIComponent(uploadId)}`, {
+    method: "POST",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    // 409 "already processing" is worth following; anything else is final.
+    if (res.status === 409 && /already being processed/.test(data.error ?? "")) {
+      return pollUntilDone(uploadId, {});
+    }
+    throw new UploadError(data.error || `Couldn't retry (${res.status}).`, null, uploadId);
+  }
+  return pollUntilDone(uploadId, {});
+}
+
 export type UploadLessonAudioOptions = {
   studentId: string;
   durationMin: number;
@@ -117,56 +187,51 @@ export async function uploadLessonAudio(
     }
   }
 
-  await runPool(jobs, UPLOAD_CONCURRENCY, async ({ track, part, blob }) => {
-    const url = `/api/upload/chunk?uploadId=${uploadId}&track=${track}&part=${part}`;
-    const res = await fetchRetry(
-      url,
-      { method: "POST", headers: authHeader, body: blob, signal },
+  // Everything up to a successful /complete is "reupload": the server has no
+  // usable job yet, so the only retry is sending the recording again. A 4xx is a
+  // real refusal (quota, unknown student) that resending won't change.
+  const refusal = (status: number) => (status >= 500 || status === 429 ? "reupload" : null);
+
+  try {
+    await runPool(jobs, UPLOAD_CONCURRENCY, async ({ track, part, blob }) => {
+      const url = `/api/upload/chunk?uploadId=${uploadId}&track=${track}&part=${part}`;
+      const res = await fetchRetry(
+        url,
+        { method: "POST", headers: authHeader, body: blob, signal },
+        signal,
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new UploadError(data.error || `Upload failed (${res.status}).`, refusal(res.status));
+      }
+    });
+
+    const completeRes = await fetchRetry(
+      "/api/upload/complete",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", ...authHeader },
+        body: JSON.stringify({ uploadId, studentId, durationMin, parts, trimMaps }),
+        signal,
+      },
       signal,
     );
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || `Upload failed (${res.status}).`);
+    const completeData = await completeRes.json().catch(() => ({}));
+    if (!completeRes.ok) {
+      throw new UploadError(
+        completeData.error || `Couldn't start processing (${completeRes.status}).`,
+        refusal(completeRes.status),
+      );
     }
-  });
-
-  const completeRes = await fetchRetry(
-    "/api/upload/complete",
-    {
-      method: "POST",
-      headers: { "content-type": "application/json", ...authHeader },
-      body: JSON.stringify({ uploadId, studentId, durationMin, parts, trimMaps }),
-      signal,
-    },
-    signal,
-  );
-  const completeData = await completeRes.json().catch(() => ({}));
-  if (!completeRes.ok) {
-    throw new Error(completeData.error || `Couldn't start processing (${completeRes.status}).`);
+  } catch (err) {
+    if (err instanceof UploadError) throw err;
+    if (signal?.aborted) throw new UploadError("Upload cancelled.", null);
+    // Network failure that outlasted fetchRetry's backoff.
+    throw new UploadError(
+      "We couldn't upload the recording — check your connection.",
+      "reupload",
+    );
   }
 
-  // Poll until the worker reports done or error.
-  const deadline = Date.now() + POLL_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-    if (signal?.aborted) throw new Error("Upload cancelled.");
-
-    // A transient network error mid-poll must not kill a job that's still
-    // processing (or already done) — swallow it and poll again next tick.
-    let res: Response;
-    try {
-      res = await fetch(`/api/upload/status?uploadId=${uploadId}`, {
-        headers: authHeader,
-        signal,
-      });
-    } catch {
-      if (signal?.aborted) throw new Error("Upload cancelled.");
-      continue;
-    }
-    if (!res.ok) continue; // transient (e.g. eventual-consistency 404); keep polling.
-    const status = await res.json();
-    if (status.state === "done") return { lessonId: status.lessonId };
-    if (status.state === "error") throw new Error(status.error || "Processing failed.");
-  }
-  throw new Error("Processing timed out — please try again.");
+  return pollUntilDone(uploadId, authHeader, signal);
 }

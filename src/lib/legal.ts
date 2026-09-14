@@ -31,14 +31,14 @@ export const LEGAL = {
   addressNote: "A postal address is available on request by email.",
 
   /** Shown at the top of both documents, and cited in the change clauses. */
-  lastUpdated: "10 September 2026",
+  lastUpdated: "14 September 2026",
 
   /**
    * The same date, machine-readable, for the sitemap's <lastmod>. Kept next to
    * the display string above because the two must always name the same day —
    * change one and change the other.
    */
-  lastUpdatedISO: "2026-09-10",
+  lastUpdatedISO: "2026-09-14",
 
   /**
    * Retention window for lesson audio that a failed or abandoned upload leaves
@@ -79,6 +79,11 @@ export const SUBPROCESSORS: { name: string; role: string; data: string }[] = [
     name: "Resend",
     role: "Email delivery",
     data: "The student's name and email address, and the lesson report attached to the message.",
+  },
+  {
+    name: "Stripe",
+    role: "Payments",
+    data: "The tutor's name, email address, billing address and payment details, for paid plans.",
   },
   {
     name: "Google",

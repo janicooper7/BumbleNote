@@ -32,7 +32,7 @@ export default function RecordLessonButton({
   students: PickStudent[];
   quota: LessonQuotaView;
 }) {
-  const { status, elapsed, error, start, stop, reset } = useSessionRecorder();
+  const { status, elapsed, error, canRetry, start, stop, retry, reset } = useSessionRecorder();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [chosen, setChosen] = useState<PickStudent | null>(null);
   const [query, setQuery] = useState("");
@@ -226,11 +226,30 @@ export default function RecordLessonButton({
 
             {status === "error" && (
               <div className="text-center">
-                <div className="mb-1 font-semibold text-[#c0524e]">Recording didn’t go through</div>
-                <p className="mb-5 text-sm text-ink-soft">{error}</p>
+                <div className="mb-1 font-semibold text-[#c0524e]">
+                  {canRetry ? "The lesson didn’t finish processing" : "Recording didn’t go through"}
+                </div>
+                <p className="text-sm text-ink-soft">{error}</p>
+                {canRetry && (
+                  <p className="mt-1 text-xs text-muted">
+                    Your recording is safe — try again without re-recording.
+                  </p>
+                )}
+                {canRetry && (
+                  <button
+                    onClick={() => void retry()}
+                    className="mt-5 w-full rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5"
+                  >
+                    Try again
+                  </button>
+                )}
                 <button
                   onClick={closeIdle}
-                  className="w-full rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5"
+                  className={
+                    canRetry
+                      ? "mt-2 w-full rounded-xl border border-line px-6 py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink"
+                      : "mt-5 w-full rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5"
+                  }
                 >
                   Close
                 </button>

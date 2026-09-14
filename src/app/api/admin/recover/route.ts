@@ -17,8 +17,8 @@
 // (createDraftLessonCore), so it lands in the correct tutor's review queue.
 
 import type { NextRequest } from "next/server";
-import { env } from "@/lib/env";
 import { currentAdminEmail } from "@/lib/admin";
+import { restartProcessing } from "@/lib/failed-lessons";
 import { getStudentByIdForTutor } from "@/db/queries";
 import {
   uploadStore,
@@ -112,46 +112,9 @@ export async function POST(req: NextRequest): Promise<Response> {
   const uploadId = req.nextUrl.searchParams.get("uploadId")?.trim();
   if (!uploadId) return json({ error: "Missing uploadId." }, 400);
 
-  const store = uploadStore();
-  const job = (await store.get(jobKey(uploadId), {
-    type: "json",
-    consistency: "strong",
-  })) as UploadJob | null;
-  if (!job) return json({ error: "No job found for that uploadId." }, 404);
-
-  if (!(await audioPresent(store, uploadId, job.parts))) {
-    return json(
-      { error: "The audio for this upload is no longer in storage — it can't be recovered." },
-      409,
-    );
-  }
-
-  // Flip status back to processing so the client poll (and the list above) reflect
-  // the retry, then re-trigger the same background worker /api/upload/complete uses.
-  // Restamp startedAt too, or the stall check in /api/upload/status would judge the
-  // retry against the original attempt's clock and call it dead on arrival.
-  await Promise.all([
-    store.setJSON(jobKey(uploadId), { ...job, startedAt: Date.now() } satisfies UploadJob),
-    store.setJSON(statusKey(uploadId), { state: "processing" } satisfies UploadStatus),
-  ]);
-
-  try {
-    const res = await fetch(`${req.nextUrl.origin}/.netlify/functions/process`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-internal-secret": env.INTERNAL_TASK_SECRET,
-      },
-      body: JSON.stringify({ uploadId }),
-    });
-    if (!res.ok && res.status !== 202) {
-      throw new Error(`Processing worker returned ${res.status}.`);
-    }
-  } catch (err) {
-    const error = err instanceof Error ? err.message : "Couldn't start processing.";
-    await store.setJSON(statusKey(uploadId), { state: "error", error } satisfies UploadStatus);
-    return json({ error }, 502);
-  }
+  // Same rules as the tutor's own Retry button, minus the ownership check.
+  const result = await restartProcessing(uploadId, null, req.nextUrl.origin);
+  if (!result.ok) return json({ error: result.error }, result.status);
 
   return json({
     ok: true,

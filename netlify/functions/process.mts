@@ -29,6 +29,8 @@ import {
   statusKey,
   transcriptKey,
   allChunkKeys,
+  clearLessonFailed,
+  markLessonFailed,
   type Track,
   type UploadJob,
   type UploadStatus,
@@ -82,6 +84,7 @@ const handler = async (req: Request): Promise<Response> => {
   // of the steps that can fail.
   let tutorId = "";
   let studentId = "";
+  let durationMin = 0;
 
   try {
     ({ uploadId } = (await req.json()) as { uploadId: string });
@@ -99,7 +102,7 @@ const handler = async (req: Request): Promise<Response> => {
       console.error(`[process] job blob not found for ${uploadId}`);
       return new Response("Unknown job", { status: 404 });
     }
-    ({ tutorId, studentId } = job);
+    ({ tutorId, studentId, durationMin } = job);
     console.log(
       `[process] job loaded student=${job.studentId} parts=${job.parts.student}/${job.parts.tutor}`,
     );
@@ -152,12 +155,13 @@ const handler = async (req: Request): Promise<Response> => {
     } satisfies UploadStatus);
 
     // Drop the audio and the cached transcript; keep the tiny job + status blobs
-    // for the client's poll.
-    await Promise.all(
-      [...allChunkKeys(uploadId, job.parts), transcriptKey(uploadId)].map((key) =>
+    // for the client's poll. A retried lesson also leaves the tutor's Retry list.
+    await Promise.all([
+      ...[...allChunkKeys(uploadId, job.parts), transcriptKey(uploadId)].map((key) =>
         store!.delete(key),
       ),
-    );
+      clearLessonFailed(job.tutorId, uploadId),
+    ]);
     console.log(`[process] complete uploadId=${uploadId}`);
   } catch (err) {
     const error = err instanceof Error ? err.message : "Processing failed.";
@@ -174,6 +178,10 @@ const handler = async (req: Request): Promise<Response> => {
         } satisfies UploadStatus)
         .catch((e) => console.error("[process] could not write error status:", e));
     }
+    if (uploadId && tutorId) {
+      // Surfaces the lesson on the tutor's dashboard with a Retry button.
+      await markLessonFailed(uploadId, { tutorId, studentId, durationMin });
+    }
 
     // The alert that matters most: the tutor is staring at a failed lesson they
     // can't fix themselves, and the audio is recoverable only until the
@@ -184,8 +192,9 @@ const handler = async (req: Request): Promise<Response> => {
       subject: "Lesson processing failed",
       summary:
         "A lesson finished uploading but the background worker couldn't turn it " +
-        "into a draft. The audio is still in storage and can be re-run from " +
-        "/api/admin/recover, until the retention sweep deletes it.",
+        "into a draft. The audio is still in storage: the tutor sees a Retry button " +
+        "on their dashboard, and /api/admin/recover can re-run it too, until the " +
+        "retention sweep deletes it.",
       fingerprint: `process:${error}`,
       fields: {
         Error: error,

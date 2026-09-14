@@ -60,6 +60,10 @@ export const tutors = pgTable("tutors", {
   // `sessions` rows, deleting a lesson doesn't lower it, so the free plan's
   // one-lesson trial can't be reset by deleting the trial lesson.
   lessonsCreated: integer("lessons_created").notNull().default(0),
+  // When the tutor accepted the Terms, and which version (src/lib/terms.ts).
+  // A version other than the current one sends them to /accept-terms.
+  termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
+  termsVersion: text("terms_version"),
   // Bearer token the capture browser extension uses to upload lessons.
   captureToken: text("capture_token").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

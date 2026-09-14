@@ -4,7 +4,11 @@ import Greeting from "@/components/dashboard/Greeting";
 import Avatar from "@/components/dashboard/Avatar";
 import PendingQueue from "@/components/dashboard/PendingQueue";
 import { ArrowUpIcon } from "@/components/dashboard/icons";
+import FailedLessons, { type FailedLessonItem } from "@/components/dashboard/FailedLessons";
+import { currentTutorId } from "@/auth";
 import { getPendingSessions, getSessions, getStudents, getTutor } from "@/db/queries";
+import { listFailedLessons } from "@/lib/failed-lessons";
+import { AUDIO_RETENTION_MS } from "@/lib/upload-store";
 
 // Monday 00:00 of the week containing `d`.
 function startOfWeek(d: Date): Date {
@@ -17,13 +21,39 @@ function startOfWeek(d: Date): Date {
 
 type StatTone = "up" | "down" | "muted";
 
+/**
+ * Failed lessons for the Retry banner. Best-effort: Netlify Blobs isn't available
+ * under plain `next dev`, and a storage hiccup must never take the dashboard
+ * down with it.
+ */
+async function failedLessonsFor(
+  tutorId: string,
+  studentNames: Map<string, string>,
+): Promise<FailedLessonItem[]> {
+  try {
+    const failed = await listFailedLessons(tutorId);
+    return failed.map((f) => ({
+      uploadId: f.uploadId,
+      studentName: studentNames.get(f.studentId) ?? "a student",
+      durationMin: f.durationMin,
+      failedAt: f.failedAt,
+      daysLeft: Math.max(1, Math.ceil((f.failedAt + AUDIO_RETENTION_MS - Date.now()) / 86_400_000)),
+    }));
+  } catch (err) {
+    console.error("could not load failed lessons", err);
+    return [];
+  }
+}
+
 export default async function DashboardHome() {
+  const tutorId = await currentTutorId();
   const [tutor, pending, students, sessions] = await Promise.all([
     getTutor(),
     getPendingSessions(),
     getStudents(),
     getSessions(),
   ]);
+  const failed = await failedLessonsFor(tutorId, new Map(students.map((s) => [s.id, s.name])));
 
   // The tutor row, not the JWT — the name is editable in Settings.
   const firstName = tutor?.name.trim().split(/\s+/)[0] || "there";
@@ -62,6 +92,8 @@ export default async function DashboardHome() {
       <Topbar title={<Greeting name={firstName} />}subtitle="Here's what's happened since your last lessons." />
 
       <div className="px-6 py-8 lg:px-10">
+        <FailedLessons items={failed} />
+
         {/* stats */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {stats.map((s) => (

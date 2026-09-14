@@ -117,6 +117,59 @@ export function transcriptKey(uploadId: string): string {
   return `${uploadId}/transcript`;
 }
 
+/**
+ * Per-tutor index of lessons whose processing failed, so the dashboard can offer
+ * a Retry without scanning every upload in the store. A separate store on
+ * purpose: the retention sweep treats every top-level directory of
+ * UPLOAD_STORE as an upload, and an index living there would be swept as one.
+ *
+ * The index is a hint, not the truth. Entries are written when a job fails and
+ * removed when it succeeds, but the upload's own status and audio are always
+ * re-checked before anything is shown or retried (see lib/failed-lessons).
+ */
+export const FAILED_STORE = "failed-lessons";
+
+export type FailedLesson = {
+  uploadId: string;
+  studentId: string;
+  durationMin: number;
+  failedAt: number;
+};
+
+export function failedStore() {
+  return getStore(FAILED_STORE);
+}
+
+export function failedKey(tutorId: string, uploadId: string): string {
+  return `${tutorId}/${uploadId}`;
+}
+
+/** Record a failure for the tutor's Retry list. Never throws — it's bookkeeping. */
+export async function markLessonFailed(
+  uploadId: string,
+  job: Pick<UploadJob, "tutorId" | "studentId" | "durationMin">,
+): Promise<void> {
+  try {
+    await failedStore().setJSON(failedKey(job.tutorId, uploadId), {
+      uploadId,
+      studentId: job.studentId,
+      durationMin: job.durationMin,
+      failedAt: Date.now(),
+    } satisfies FailedLesson);
+  } catch (err) {
+    console.error(`could not index failed upload ${uploadId}:`, err);
+  }
+}
+
+/** Drop a lesson from the Retry list. Never throws. */
+export async function clearLessonFailed(tutorId: string, uploadId: string): Promise<void> {
+  try {
+    await failedStore().delete(failedKey(tutorId, uploadId));
+  } catch (err) {
+    console.error(`could not clear failed index for ${uploadId}:`, err);
+  }
+}
+
 /** All chunk keys for a completed upload, in read order. */
 export function allChunkKeys(uploadId: string, parts: Parts): string[] {
   const keys: string[] = [];

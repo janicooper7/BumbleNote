@@ -10,6 +10,7 @@ import {
   jobKey,
   statusKey,
   STALL_AFTER_MS,
+  markLessonFailed,
   type UploadJob,
   type UploadStatus,
 } from "@/lib/upload-store";
@@ -61,8 +62,12 @@ export async function GET(req: NextRequest): Promise<Response> {
     const stalled: UploadStatus = {
       state: "error",
       error: "Processing stopped unexpectedly. The audio was kept — the lesson can be retried.",
+      failedAt: Date.now(),
     };
-    await store.setJSON(statusKey(uploadId), stalled);
+    await Promise.all([
+      store.setJSON(statusKey(uploadId), stalled),
+      markLessonFailed(uploadId, job),
+    ]);
     return json(stalled);
   }
 

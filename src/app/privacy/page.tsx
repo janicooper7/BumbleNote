@@ -74,7 +74,14 @@ export default function PrivacyPage() {
         <p>
           <strong>When you create an account.</strong> If you sign in with Google, we
           receive your name and email address from Google — nothing else, and never
-          your password. We also store which plan you are on and when you signed up.
+          your password. We also store which plan you are on, when you signed up, and
+          when you accepted our terms.
+        </p>
+        <p>
+          <strong>When you pay.</strong> Paid plans are processed by Stripe. Stripe
+          collects your card details and billing address directly; we only keep your
+          Stripe customer reference, your plan, and its renewal date. We never see or
+          store your full card number.
         </p>
         <p>
           <strong>What you type in.</strong> The student profiles you create: name and

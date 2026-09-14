@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { uploadLessonAudio } from "@/lib/upload-client";
+import { retryLessonProcessing, uploadLessonAudio, UploadError } from "@/lib/upload-client";
 
 export type RecorderStatus = "idle" | "recording" | "processing" | "error";
 
@@ -36,6 +36,10 @@ export function useSessionRecorder() {
   const startedAt = useRef(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const studentId = useRef("");
+  // Fixed at the first upload attempt, so a retry minutes later doesn't inflate it.
+  const durationMin = useRef(0);
+  const failure = useRef<UploadError | null>(null);
+  const [canRetry, setCanRetry] = useState(false);
 
   useEffect(() => {
     // Stop any live capture if the tutor navigates away mid-recording.
@@ -93,6 +97,8 @@ export function useSessionRecorder() {
 
       const studentStream = new MediaStream([tabAudio]);
       blobs.current = {};
+      durationMin.current = 0;
+      failure.current = null;
       remaining.current = 2;
       recorders.current = [
         makeRecorder(studentStream, "student"),
@@ -128,8 +134,33 @@ export function useSessionRecorder() {
     recorders.current = [];
   }
 
+  function finish(id: string) {
+    stopTracks();
+    blobs.current = {};
+    failure.current = null;
+    // Draft is ready — clear the recording UI (the sidebar button lives in the
+    // persistent layout, so it won't unmount on navigation) and open the lesson.
+    setStatus("idle");
+    setElapsed(0);
+    setCanRetry(false);
+    router.push(`/dashboard/sessions/${id}`);
+  }
+
+  function fail(err: unknown) {
+    stopTracks();
+    failure.current = err instanceof UploadError ? err : null;
+    setError(err instanceof Error ? err.message : "Couldn't process the recording.");
+    setCanRetry(
+      failure.current?.retry === "reprocess" ||
+        (failure.current?.retry === "reupload" && !!blobs.current.student && !!blobs.current.tutor),
+    );
+    setStatus("error");
+  }
+
   async function upload() {
-    const durationMin = Math.max(1, Math.round((Date.now() - startedAt.current) / 60000));
+    if (!durationMin.current) {
+      durationMin.current = Math.max(1, Math.round((Date.now() - startedAt.current) / 60000));
+    }
     try {
       if (!blobs.current.student || !blobs.current.tutor) {
         throw new Error("The recording came through empty — please try again.");
@@ -137,31 +168,46 @@ export function useSessionRecorder() {
       // Chunk-upload the two tracks to Netlify Blobs, then a background worker
       // transcribes + drafts and we poll for the finished lesson id. (A single
       // upload would blow Netlify's 6 MB body limit and 26–60 s function timeout.)
-      const { lessonId: id } = await uploadLessonAudio({
+      const { lessonId } = await uploadLessonAudio({
         studentId: studentId.current,
-        durationMin,
+        durationMin: durationMin.current,
         student: blobs.current.student,
         tutor: blobs.current.tutor,
       });
-      stopTracks();
-      // Draft is ready — clear the recording UI (the sidebar button lives in the
-      // persistent layout, so it won't unmount on navigation) and open the lesson.
-      setStatus("idle");
-      setElapsed(0);
-      router.push(`/dashboard/sessions/${id}`);
+      finish(lessonId);
     } catch (err) {
-      stopTracks();
-      setError(err instanceof Error ? err.message : "Couldn't process the recording.");
-      setStatus("error");
+      fail(err);
+    }
+  }
+
+  /**
+   * Try a failed lesson again without re-recording it. Which way depends on where
+   * it failed — see UploadError. The recording stays in memory until the lesson
+   * is drafted, so a re-upload works as long as this page hasn't been closed.
+   */
+  async function retry() {
+    const f = failure.current;
+    if (!f?.retry) return;
+    setError(undefined);
+    setStatus("processing");
+    if (f.retry === "reupload") return upload();
+    try {
+      const { lessonId } = await retryLessonProcessing(f.uploadId!);
+      finish(lessonId);
+    } catch (err) {
+      fail(err);
     }
   }
 
   function reset() {
+    blobs.current = {};
+    failure.current = null;
+    setCanRetry(false);
     setStatus("idle");
     setError(undefined);
   }
 
-  return { status, elapsed, error, start, stop, reset };
+  return { status, elapsed, error, canRetry, start, stop, retry, reset };
 }
 
 export function formatElapsed(totalSec: number): string {

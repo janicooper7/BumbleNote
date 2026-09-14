@@ -171,6 +171,7 @@ export type TutorProfile = {
   billingInterval: "month" | "year" | null;
   currentPeriodEnd: Date | null;
   cancelAtPeriodEnd: boolean;
+  termsVersion: string | null;
 };
 
 /**
@@ -192,6 +193,7 @@ export async function getTutor(): Promise<TutorProfile | undefined> {
       billingInterval: tutors.billingInterval,
       currentPeriodEnd: tutors.currentPeriodEnd,
       cancelAtPeriodEnd: tutors.cancelAtPeriodEnd,
+      termsVersion: tutors.termsVersion,
     })
     .from(tutors)
     .where(eq(tutors.id, tutorId))

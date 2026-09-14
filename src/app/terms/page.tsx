@@ -8,8 +8,9 @@
 //     If a tutor sends an unreviewed report containing a mistake, that is on them,
 //     and the product is deliberately built so nothing sends without confirmation.
 //
-// Billing is written to describe subscriptions generally, because plan limits are
-// already enforced (src/lib/quota.ts) while payment collection is not yet live.
+// Tutors must accept these terms before using the dashboard (src/lib/terms.ts).
+// A change a tutor should re-read and re-accept means bumping TERMS_VERSION there,
+// alongside LEGAL.lastUpdated.
 
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -27,6 +28,7 @@ export default function TermsPage() {
   return (
     <LegalShell
       title="Terms of Service"
+      contactBox={false}
       intro="These terms are the agreement between you and BumbleNote. We have tried to write them in plain English, because terms nobody can read protect nobody."
     >
       <Clause id="agreement" heading="The agreement">
@@ -87,6 +89,13 @@ export default function TermsPage() {
           enter — their name, email address, and learning history — for the purpose of
           producing their feedback.
         </p>
+        <p>
+          Every recording you make with BumbleNote is made by you, as the person in
+          charge of the lesson. BumbleNote does not check whether consent was given and
+          accepts no responsibility for a recording made without it. If a claim is
+          brought against us because you recorded someone without their agreement, you
+          agree to cover the reasonable costs that claim causes us.
+        </p>
       </Clause>
 
       <Clause id="ai-output" heading="The AI drafts, you decide">
@@ -145,10 +154,18 @@ export default function TermsPage() {
           does not reset.
         </p>
         <p>
-          Paid plans are billed in advance for the period you choose. You can cancel at
-          any time and keep access until the end of the period you have paid for; we do
-          not refund part-used periods except where the law requires it. If we change
+          Paid plans are billed in US dollars, in advance, monthly or yearly, and renew
+          automatically until you cancel. Payments are handled by Stripe; we never see or
+          store your full card details. You can cancel at any time from Settings and keep
+          access until the end of the period you have paid for; we do not refund
+          part-used periods except where the law requires it. If you switch plans
+          mid-period, the difference is adjusted on your next invoice. If we change
           prices, we will give you at least 30 days&apos; notice before it affects you.
+        </p>
+        <p>
+          If a payment fails, we keep your plan active while it is retried. If it still
+          cannot be collected, your account moves to the free plan — your students and
+          lessons are kept.
         </p>
         <p>
           Reaching your limit stops new lessons being recorded until the limit resets

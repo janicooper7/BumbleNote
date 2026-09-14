@@ -12,7 +12,7 @@ export default function SessionRecorder({
   studentId: string;
   studentName: string;
 }) {
-  const { status, elapsed, error, start, stop, reset } = useSessionRecorder();
+  const { status, elapsed, error, canRetry, start, stop, retry, reset } = useSessionRecorder();
   const firstName = studentName.split(" ")[0];
 
   return (
@@ -74,15 +74,32 @@ export default function SessionRecorder({
       {status === "error" && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="font-semibold text-[#c0524e]">Recording didn’t go through</div>
+            <div className="font-semibold text-[#c0524e]">
+              {canRetry ? "The lesson didn’t finish processing" : "Recording didn’t go through"}
+            </div>
             <p className="mt-0.5 text-sm text-ink-soft">{error}</p>
+            {canRetry && (
+              <p className="mt-1 text-xs text-muted">
+                Your recording is safe — try again without re-recording.
+              </p>
+            )}
           </div>
-          <button
-            onClick={reset}
-            className="inline-flex flex-none items-center justify-center gap-2 rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5"
-          >
-            Try again
-          </button>
+          <div className="flex flex-none gap-2">
+            {canRetry && (
+              <button
+                onClick={reset}
+                className="rounded-xl border border-line px-4 py-3 text-sm font-semibold text-ink-soft transition-colors hover:text-ink"
+              >
+                Dismiss
+              </button>
+            )}
+            <button
+              onClick={canRetry ? retry : reset}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5"
+            >
+              {canRetry ? "Try again" : "Start over"}
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -2,11 +2,19 @@
 
 import { AuthError } from "next-auth";
 import { eq, sql } from "drizzle-orm";
-import { signIn, signOut } from "@/auth";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { currentTutorId, signIn, signOut } from "@/auth";
 import { db } from "@/db";
 import { tutors } from "@/db/schema";
 import { appOrigin } from "@/lib/app-url";
 import { checkoutPath } from "@/lib/billing";
+import {
+  recordTermsAcceptance,
+  TERMS_COOKIE,
+  TERMS_COOKIE_MAX_AGE,
+  TERMS_VERSION,
+} from "@/lib/terms";
 import { sendPasswordResetEmail, sendPasswordResetGoogleEmail } from "@/lib/email";
 import { hashPassword } from "@/lib/password";
 import { passwordProblem } from "@/lib/password-policy";
@@ -27,7 +35,31 @@ function afterAuth(formData: FormData): string {
 }
 
 export async function signInWithGoogle(formData: FormData) {
+  // Only the signup page sends this. The account itself is created inside
+  // NextAuth's jwt callback, out of reach of this form, so the acceptance rides
+  // a short-lived cookie that the dashboard layout records (see lib/terms).
+  if (formData.get("acceptTerms") === "yes") {
+    (await cookies()).set(TERMS_COOKIE, TERMS_VERSION, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: TERMS_COOKIE_MAX_AGE,
+    });
+  }
   await signIn("google", { redirectTo: afterAuth(formData) });
+}
+
+/**
+ * The /accept-terms screen. Only ever returns to a dashboard path, so `next`
+ * can't be turned into an open redirect.
+ */
+export async function acceptTerms(formData: FormData) {
+  const tutorId = await currentTutorId();
+  if (formData.get("acceptTerms") !== "yes") redirect("/accept-terms?missing=1");
+  await recordTermsAcceptance(tutorId);
+  const next = String(formData.get("next") ?? "");
+  redirect(next.startsWith("/dashboard") ? next : "/dashboard");
 }
 
 export async function signOutAction() {
@@ -42,7 +74,7 @@ export async function signOutAction() {
  */
 export type AuthFormState = {
   errors?: Partial<
-    Record<"firstName" | "lastName" | "email" | "password" | "confirm", string>
+    Record<"firstName" | "lastName" | "email" | "password" | "confirm" | "acceptTerms", string>
   >;
   formError?: string;
   values?: { firstName?: string; lastName?: string; email?: string };
@@ -79,6 +111,9 @@ export async function signUpWithPassword(
   if (!EMAIL.test(email)) errors.email = "That doesn't look like an email address.";
   const pwProblem = passwordProblem(password);
   if (pwProblem) errors.password = pwProblem;
+  if (formData.get("acceptTerms") !== "yes") {
+    errors.acceptTerms = "Please accept the Terms of Service to create your account.";
+  }
   if (Object.keys(errors).length) return { errors, values };
 
   // Emails are stored lowercase by this flow, but Google rows predate that and
@@ -108,6 +143,8 @@ export async function signUpWithPassword(
       firstName,
       lastName,
       passwordHash: await hashPassword(password),
+      termsAcceptedAt: new Date(),
+      termsVersion: TERMS_VERSION,
     });
   } catch {
     // Almost certainly the unique index on email losing a race with a parallel

@@ -14,10 +14,13 @@ export function LegalShell({
   title,
   intro,
   children,
+  contactBox = true,
 }: {
   title: string;
   intro: string;
   children: React.ReactNode;
+  /** The closing "Questions about any of this?" box. Privacy must name a contact; Terms doesn't show it. */
+  contactBox?: boolean;
 }) {
   return (
     <>
@@ -46,6 +49,7 @@ export function LegalShell({
 
         <div className="mt-14 space-y-12">{children}</div>
 
+        {contactBox && (
         <div className="mt-16 rounded-2xl border border-brand-line bg-brand-soft/50 p-7">
           <div className="font-semibold text-ink">Questions about any of this?</div>
           <p className="mt-2 text-ink-soft">
@@ -59,6 +63,7 @@ export function LegalShell({
             and a real person will answer. {LEGAL.addressNote}
           </p>
         </div>
+        )}
       </main>
 
       <footer className="border-t border-line py-10 text-muted">

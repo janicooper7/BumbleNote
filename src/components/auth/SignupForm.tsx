@@ -8,12 +8,20 @@ import PlanIntentFields, { type PlanIntent } from "./PlanIntentFields";
 
 const initial: AuthFormState = {};
 
-export default function SignupForm({ intent }: { intent?: PlanIntent }) {
+export default function SignupForm({
+  intent,
+  accepted,
+}: {
+  intent?: PlanIntent;
+  /** The Terms checkbox, owned by SignupOptions so it also gates Google. */
+  accepted: boolean;
+}) {
   const [state, action, pending] = useActionState(signUpWithPassword, initial);
 
   return (
     <form action={action} className="flex flex-col gap-5">
       <PlanIntentFields {...intent} />
+      {accepted && <input type="hidden" name="acceptTerms" value="yes" />}
       <div className="grid gap-5 sm:grid-cols-2">
         <AuthField
           label="First name"
@@ -50,6 +58,12 @@ export default function SignupForm({ intent }: { intent?: PlanIntent }) {
         error={state.errors?.password}
       />
 
+      {state.errors?.acceptTerms && !accepted ? (
+        <p role="alert" className="text-sm text-[#d9534f]">
+          {state.errors.acceptTerms}
+        </p>
+      ) : null}
+
       {state.formError ? (
         <p role="alert" className="text-sm text-[#d9534f]">
           {state.formError}
@@ -58,7 +72,7 @@ export default function SignupForm({ intent }: { intent?: PlanIntent }) {
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || !accepted}
         className="w-full rounded-xl bg-brand px-6 py-3.5 font-semibold text-ink shadow-soft-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
       >
         {pending ? "Creating your account…" : "Create account"}

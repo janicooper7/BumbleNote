@@ -3,6 +3,14 @@ import { auth, currentTutorId } from "@/auth";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { getStudents, getTutor } from "@/db/queries";
 import { lessonUsage } from "@/lib/quota";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import {
+  acceptedCurrentTerms,
+  recordTermsAcceptance,
+  TERMS_COOKIE,
+  TERMS_VERSION,
+} from "@/lib/terms";
 
 // Everything under /dashboard is one tutor's own data and sits behind auth, so a
 // crawler can't reach it anyway — this just keeps the sign-in redirects out of
@@ -22,6 +30,15 @@ export default async function DashboardLayout({
     lessonUsage(tutorId),
     getTutor(),
   ]);
+
+  // Terms gate (see lib/terms). A Google signup accepted on the signup page and
+  // arrives with the cookie; anyone else without the current version is sent to
+  // accept it before seeing the dashboard.
+  if (tutor && !acceptedCurrentTerms(tutor.termsVersion)) {
+    const cookie = (await cookies()).get(TERMS_COOKIE)?.value;
+    if (cookie === TERMS_VERSION) await recordTermsAcceptance(tutorId);
+    else redirect("/accept-terms");
+  }
 
   const students = allStudents
     .filter((s) => s.active !== false)
