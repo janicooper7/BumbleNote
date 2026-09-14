@@ -72,6 +72,12 @@ export default function PrivacyPage() {
 
       <Clause id="what-we-collect" heading="What we collect">
         <p>
+          <strong>When you join the launch waitlist.</strong> If you leave your email on
+          our &ldquo;coming soon&rdquo; page, we store that address and the date you
+          added it, and use it for one thing only: telling you when BumbleNote opens.
+          We are the data controller for it.
+        </p>
+        <p>
           <strong>When you create an account.</strong> If you sign in with Google, we
           receive your name and email address from Google — nothing else, and never
           your password. We also store which plan you are on, when you signed up, and
@@ -175,7 +181,10 @@ export default function PrivacyPage() {
             </>,
             <>
               <strong>Consent</strong> — for the recording itself, which is obtained by
-              the tutor from the student, as described above.
+              the tutor from the student, as described above — and for the launch
+              waitlist, which you join by choosing to submit your email. You can
+              withdraw that consent at any time by emailing us, and we will remove
+              your address.
             </>,
           ]}
         />
@@ -219,6 +228,10 @@ export default function PrivacyPage() {
         <Points
           items={[
             <>
+              <strong>Launch waitlist emails</strong> — kept until we have sent the
+              launch announcement, then deleted. Sooner if you ask us to remove yours.
+            </>,
+            <>
               <strong>Lesson audio and transcripts</strong> — deleted as soon as the
               notes are generated; at most {LEGAL.audioRetentionDays} days if something
               went wrong.
@@ -245,8 +258,9 @@ export default function PrivacyPage() {
         </p>
         <p>
           There is no analytics, no tag manager, no advertising network, and no
-          third-party tracker anywhere on this site. That is why you are not being
-          asked to accept a cookie banner.
+          third-party tracker anywhere on this site. That is why the privacy notice
+          you see on your first visit only informs you — there is nothing to accept or
+          reject. Your browser remembers that you dismissed it, on your device only.
         </p>
       </Clause>
 

@@ -71,6 +71,13 @@
       "when": 1789384059641,
       "tag": "0009_cultured_green_goblin",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789385031537,
+      "tag": "0010_waitlist",
+      "breakpoints": true
     }
   ]
 }

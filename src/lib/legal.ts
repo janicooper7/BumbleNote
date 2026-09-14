@@ -63,7 +63,7 @@ export const SUBPROCESSORS: { name: string; role: string; data: string }[] = [
   {
     name: "Neon",
     role: "Database hosting",
-    data: "Tutor accounts, student profiles, and lesson notes.",
+    data: "Tutor accounts, student profiles, lesson notes, and launch waitlist email addresses.",
   },
   {
     name: "Deepgram",
@@ -78,7 +78,7 @@ export const SUBPROCESSORS: { name: string; role: string; data: string }[] = [
   {
     name: "Resend",
     role: "Email delivery",
-    data: "The student's name and email address, and the lesson report attached to the message.",
+    data: "The student's name and email address, and the lesson report attached to the message. Waitlist email addresses, when we send the launch announcement.",
   },
   {
     name: "Stripe",

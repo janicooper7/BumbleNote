@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Hanken_Grotesk } from "next/font/google";
+import PrivacyNotice from "@/components/PrivacyNotice";
 import { SITE_URL } from "@/lib/app-url";
 import { gateEnabled } from "@/lib/site-gate";
 import "./globals.css";
@@ -62,7 +63,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${fraunces.variable} ${hanken.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <PrivacyNotice />
+      </body>
     </html>
   );
 }

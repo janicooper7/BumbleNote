@@ -11,10 +11,12 @@ export default function AuthLayout({
   children,
   heading,
   sub,
+  eyebrow,
 }: {
   children: React.ReactNode;
   heading: string;
   sub: string;
+  eyebrow?: string;
 }) {
   return (
     <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[1.05fr_1fr]">
@@ -78,6 +80,12 @@ export default function AuthLayout({
             <Logo />
           </Link>
 
+          {eyebrow ? (
+            <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-brand-line bg-brand-soft px-3 py-1 text-xs font-semibold uppercase tracking-[.08em] text-brand-deep">
+              <span className="h-1.5 w-1.5 animate-[pulse-dot_2s_ease-in-out_infinite] rounded-full bg-brand" />
+              {eyebrow}
+            </span>
+          ) : null}
           <h1 className="font-display text-[2.1rem] font-medium tracking-tight text-ink">
             {heading}
           </h1>

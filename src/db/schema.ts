@@ -142,6 +142,17 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Pre-launch waitlist — addresses left on the /enter "coming soon" page by people
+ * who want to hear when BumbleNote opens. Not tied to a tutor account; emails are
+ * stored lowercased so the unique constraint catches repeat signups.
+ */
+export const waitlist = pgTable("waitlist", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  email: text("email").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const tutorsRelations = relations(tutors, ({ many }) => ({
   students: many(students),
   sessions: many(sessions),
