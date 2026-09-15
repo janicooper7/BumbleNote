@@ -11,6 +11,7 @@
 import type { Config } from "@netlify/functions";
 import { alertOperator } from "@/lib/alerts";
 import { purgeExpiredUploads } from "@/lib/upload-retention";
+import { purgeExpiredAttachments } from "@/lib/attachment-retention";
 
 export const config: Config = {
   schedule: "17 3 * * *",
@@ -40,6 +41,23 @@ export default async function handler(): Promise<Response> {
         "recoverable — tomorrow's run catches up — but repeated failures mean " +
         "student audio is outliving the retention window stated in the privacy policy.",
       fingerprint: "purge:failed",
+      fields: { Error: err instanceof Error ? err.message : String(err) },
+    });
+  }
+
+  // Separate try: a Blobs outage shouldn't stop attachments expiring, or vice versa.
+  try {
+    const deleted = await purgeExpiredAttachments();
+    console.log(`[purge] attachments deleted=${deleted}`);
+  } catch (err) {
+    console.error("[purge] attachments FAILED:", err);
+    await alertOperator({
+      subject: "Attachment retention sweep failed",
+      summary:
+        "The daily purge of expired lesson-report attachments didn't complete. " +
+        "Tomorrow's run catches up, but repeated failures mean files are outliving " +
+        "the retention window stated in the privacy policy.",
+      fingerprint: "purge:attachments-failed",
       fields: { Error: err instanceof Error ? err.message : String(err) },
     });
   }

@@ -78,6 +78,13 @@
       "when": 1789385031537,
       "tag": "0010_waitlist",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789469123323,
+      "tag": "0011_session_attachments",
+      "breakpoints": true
     }
   ]
 }

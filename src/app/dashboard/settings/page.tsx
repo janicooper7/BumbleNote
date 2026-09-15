@@ -5,6 +5,7 @@ import DeleteAccountCard from "@/components/dashboard/DeleteAccountCard";
 import BillingCard, { isBillingNotice } from "@/components/dashboard/BillingCard";
 import { currentTutorId } from "@/auth";
 import { getLessonTotal, getTutor } from "@/db/queries";
+import { MIN_COUNTED_LESSON_MIN } from "@/lib/plans";
 import { lessonUsage, studentUsage } from "@/lib/quota";
 
 export default async function SettingsPage({ searchParams }: PageProps<"/dashboard/settings">) {
@@ -92,7 +93,8 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
                     <p className="mt-2 text-[.82rem] text-muted">
                       {lessons.plan.lessonWindow === "lifetime"
                         ? "The trial doesn't reset — choose a plan to keep recording."
-                        : "Resets on the 1st of each month."}
+                        : "Resets on the 1st of each month."}{" "}
+                      Recordings under {MIN_COUNTED_LESSON_MIN} minutes don&apos;t count.
                     </p>
                   </>
                 )}

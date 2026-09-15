@@ -5,10 +5,19 @@
 // types from src/lib/mock.ts (null → undefined for optional fields) so callers
 // keep using the same Student/Session shapes the UI already expects.
 
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, gte, lte, ne } from "drizzle-orm";
 import { db } from "./index";
-import { sessions, students, tutors, type DbSession, type DbStudent } from "./schema";
+import {
+  sessionAttachments,
+  sessions,
+  students,
+  tutors,
+  type DbSession,
+  type DbStudent,
+} from "./schema";
 import { currentTutorId } from "@/auth";
+import type { AttachmentMeta } from "@/lib/attachments";
+import { MERGE_WINDOW_HOURS, type MergeCandidate } from "@/lib/merge";
 import type { Session, Student } from "@/lib/mock";
 
 function toStudent(r: DbStudent): Student {
@@ -223,4 +232,58 @@ export async function getSessionById(id: string): Promise<Session | undefined> {
     .where(and(eq(sessions.tutorId, tutorId), eq(sessions.id, id)))
     .limit(1);
   return row ? toSession(row) : undefined;
+}
+
+/**
+ * Recordings that could be combined with this lesson: the same student's unsent
+ * lessons from within MERGE_WINDOW_HOURS of it — this one included — oldest
+ * first. Empty when there's nothing to combine it with, or it's been sent.
+ * mergeSessions re-checks all of this server-side.
+ */
+export async function getMergeCandidates(sessionId: string): Promise<MergeCandidate[]> {
+  const tutorId = await currentTutorId();
+  const [self] = await db
+    .select({ studentId: sessions.studentId, status: sessions.status, createdAt: sessions.createdAt })
+    .from(sessions)
+    .where(and(eq(sessions.tutorId, tutorId), eq(sessions.id, sessionId)))
+    .limit(1);
+  if (!self || self.status === "sent") return [];
+
+  const windowMs = MERGE_WINDOW_HOURS * 3_600_000;
+  const rows = await db
+    .select({
+      id: sessions.id,
+      title: sessions.title,
+      durationMin: sessions.durationMin,
+      createdAt: sessions.createdAt,
+    })
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.tutorId, tutorId),
+        eq(sessions.studentId, self.studentId),
+        ne(sessions.status, "sent"),
+        gte(sessions.createdAt, new Date(self.createdAt.getTime() - windowMs)),
+        lte(sessions.createdAt, new Date(self.createdAt.getTime() + windowMs)),
+      ),
+    )
+    .orderBy(sessions.createdAt);
+  if (rows.length < 2) return [];
+  return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
+}
+
+/** Names and sizes of the files attached to a lesson — no file contents. */
+export async function getSessionAttachments(sessionId: string): Promise<AttachmentMeta[]> {
+  const tutorId = await currentTutorId();
+  return db
+    .select({
+      id: sessionAttachments.id,
+      filename: sessionAttachments.filename,
+      size: sessionAttachments.size,
+    })
+    .from(sessionAttachments)
+    .where(
+      and(eq(sessionAttachments.tutorId, tutorId), eq(sessionAttachments.sessionId, sessionId)),
+    )
+    .orderBy(sessionAttachments.createdAt);
 }

@@ -12,6 +12,7 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  customType,
   date,
   integer,
   jsonb,
@@ -123,6 +124,36 @@ export const sessions = pgTable("sessions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// The Neon driver sends and returns Buffers for bytea as-is (verified against the
+// live database). Don't switch this to "\x…" hex text: the driver mangles the
+// backslash and the bytes come back corrupted.
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType: () => "bytea",
+});
+
+/**
+ * Files the tutor attaches to a lesson report, emailed to the student with it.
+ *
+ * The bytes live in Postgres rather than Netlify Blobs: they're capped at 2MB a
+ * lesson (src/lib/attachments.ts), they cascade away with the lesson, and they
+ * work under a plain `next dev` where Blobs doesn't. Kept out of `sessions` so
+ * listing lessons never drags file contents along.
+ */
+export const sessionAttachments = pgTable("session_attachments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tutorId: uuid("tutor_id")
+    .notNull()
+    .references(() => tutors.id, { onDelete: "cascade" }),
+  sessionId: text("session_id")
+    .notNull()
+    .references(() => sessions.id, { onDelete: "cascade" }),
+  filename: text("filename").notNull(),
+  contentType: text("content_type").notNull(),
+  size: integer("size").notNull(),
+  data: bytea("data").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /**
  * Single-use tokens backing the "forgot password" flow (src/lib/reset-tokens.ts).
  *
@@ -168,9 +199,14 @@ export const studentsRelations = relations(students, ({ one, many }) => ({
   sessions: many(sessions),
 }));
 
-export const sessionsRelations = relations(sessions, ({ one }) => ({
+export const sessionsRelations = relations(sessions, ({ one, many }) => ({
   tutor: one(tutors, { fields: [sessions.tutorId], references: [tutors.id] }),
   student: one(students, { fields: [sessions.studentId], references: [students.id] }),
+  attachments: many(sessionAttachments),
+}));
+
+export const sessionAttachmentsRelations = relations(sessionAttachments, ({ one }) => ({
+  session: one(sessions, { fields: [sessionAttachments.sessionId], references: [sessions.id] }),
 }));
 
 export type DbTutor = typeof tutors.$inferSelect;

@@ -20,34 +20,43 @@ export async function sendLessonReportEmail(args: {
   tutorName: string;
   session: Session;
   pdf: Uint8Array;
+  /** Files the tutor attached on the review screen (src/lib/attachments.ts). */
+  attachments?: { filename: string; contentType: string; data: Buffer }[];
 }): Promise<void> {
-  const { to, studentName, tutorName, session, pdf } = args;
+  const { to, studentName, tutorName, session, pdf, attachments = [] } = args;
   const firstName = studentName.split(" ")[0];
   const topic = lessonTopic(session.title);
 
-  const homeworkBlock = session.homework.trim()
-    ? `<p style="margin:16px 0 6px;font-weight:600;color:#9a6400;">Homework</p>
-       <p style="margin:0;color:#3f4750;">${escapeHtml(session.homework)}</p>`
+  // Still mention extra files, so the student knows they're from their tutor
+  // and not something to be wary of.
+  const attachmentsLine = attachments.length
+    ? `<p style="margin:0 0 16px;color:#3f4750;">
+         ${escapeHtml(tutorName.split(" ")[0])} has also attached ${attachments.length === 1 ? "an extra file" : "a few extra files"} for you to look through.
+       </p>`
     : "";
 
   const html = `
-  <div style="background:#fffaf0;padding:28px 0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="background:#fffaf0;padding:28px 0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:17px;line-height:1.6;">
     <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #f0e6d6;">
-      <div style="background:#16233d;padding:24px 28px;">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:#fdb300;">BUMBLENOTE</div>
-        <div style="font-size:20px;font-weight:700;color:#ffffff;margin-top:6px;">${escapeHtml(topic)}</div>
-        <div style="font-size:13px;color:#c7d8f0;margin-top:4px;">${escapeHtml(session.date)} · ${session.durationMin} min</div>
+      <div style="background:#16233d;padding:26px 30px;">
+        <div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#fdb300;">BUMBLENOTE</div>
+        <div style="font-size:25px;font-weight:700;color:#ffffff;margin-top:6px;line-height:1.3;">${escapeHtml(topic)}</div>
+        <div style="font-size:15px;color:#c7d8f0;margin-top:4px;">${escapeHtml(session.date)} · ${session.durationMin} min</div>
       </div>
-      <div style="padding:26px 28px;color:#1f2430;">
-        <p style="margin:0 0 12px;">Hi ${escapeHtml(firstName)},</p>
-        <p style="margin:0 0 12px;color:#3f4750;">
-          Here are your notes from today's lesson. Your full report — new vocabulary,
-          what went well, and areas to work on — is attached as a PDF.
+      <div style="padding:28px 30px;color:#1f2430;font-size:17px;">
+        <p style="margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>
+        <p style="margin:0 0 16px;color:#3f4750;">
+          Great work in today's lesson! Your personal session report is attached as a PDF,
+          with everything you covered together in one place.
         </p>
-        ${homeworkBlock}
-        <p style="margin:20px 0 0;color:#3f4750;">See you next time,<br/>${escapeHtml(tutorName)}</p>
+        <p style="margin:0 0 16px;color:#3f4750;">
+          Take a few minutes to open it while the lesson is still fresh — it's the
+          easiest way to lock in what you learned and keep your progress going.
+        </p>
+        ${attachmentsLine}
+        <p style="margin:24px 0 0;color:#3f4750;">See you next time,<br/>${escapeHtml(tutorName)}</p>
       </div>
-      <div style="padding:14px 28px;border-top:1px solid #f2ead9;font-size:12px;color:#8b909a;">
+      <div style="padding:16px 30px;border-top:1px solid #f2ead9;font-size:13px;color:#8b909a;">
         Sent with BumbleNote
       </div>
     </div>
@@ -56,10 +65,15 @@ export async function sendLessonReportEmail(args: {
   const { error } = await getClient().emails.send({
     from: env.EMAIL_FROM,
     to,
-    subject: `Lesson insights with ${tutorName}`,
+    subject: `${tutorName} - ${topic} - Feedback`,
     html,
     attachments: [
       { filename: `BumbleNote lesson — ${topic}.pdf`, content: Buffer.from(pdf) },
+      ...attachments.map((a) => ({
+        filename: a.filename,
+        content: a.data,
+        contentType: a.contentType,
+      })),
     ],
   });
 

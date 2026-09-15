@@ -237,6 +237,11 @@ export default function PrivacyPage() {
               went wrong.
             </>,
             <>
+              <strong>Files attached to a lesson report</strong> — deleted as soon as
+              the report is emailed to the student; at most{" "}
+              {LEGAL.attachmentRetentionDays} days if it is never sent.
+            </>,
+            <>
               <strong>Student profiles and lesson notes</strong> — kept until you delete
               the student or your account. They are yours, and we do not expire them
               behind your back.

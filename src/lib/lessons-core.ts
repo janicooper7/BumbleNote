@@ -11,6 +11,7 @@ import { db } from "@/db";
 import { sessions, students, tutors } from "@/db/schema";
 import { generateLessonFeedback } from "@/lib/ai";
 import { buildJourney, journeyPromptBlock } from "@/lib/journey";
+import { countsAsLesson } from "@/lib/plans";
 import { insertWithUniqueId } from "@/lib/unique-id";
 
 export type CreateDraftLessonInput = {
@@ -125,11 +126,13 @@ export async function createDraftLessonCore(
 
   // Feeds the free trial's lifetime limit (src/lib/quota.ts). Counted only once
   // the lesson exists, so an upload that fails before this point doesn't use up
-  // the tutor's one trial.
-  await db
-    .update(tutors)
-    .set({ lessonsCreated: sql`${tutors.lessonsCreated} + 1` })
-    .where(eq(tutors.id, tutorId));
+  // the tutor's one trial — and only for a recording long enough to be a lesson.
+  if (countsAsLesson(durationMin)) {
+    await db
+      .update(tutors)
+      .set({ lessonsCreated: sql`${tutors.lessonsCreated} + 1` })
+      .where(eq(tutors.id, tutorId));
+  }
 
   return { id };
 }

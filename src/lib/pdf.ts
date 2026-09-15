@@ -173,7 +173,7 @@ async function build(
     font: fonts.bold,
     color: C.white,
   });
-  page.drawText(sanitize(`${student.name}  ·  ${session.date}  ·  ${session.durationMin} min`), {
+  page.drawText(sanitize(`${student.name}  ·  ${session.date}`), {
     x: MARGIN,
     y: H - 98,
     size: 11,

@@ -21,11 +21,15 @@
 // we did the work, not the lesson's nominal date, which the tutor can edit. The
 // free trial is lifetime and counts `tutors.lessons_created` instead, which
 // deleting a lesson doesn't lower.
+//
+// Either way only lessons of MIN_COUNTED_LESSON_MIN or longer count, so a call
+// that drops a few minutes in doesn't cost a credit. Starting a recording still
+// needs a credit left — the length isn't known until it's over.
 
 import { and, count, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
 import { sessions, students, tutors } from "@/db/schema";
-import { planFor, type Plan } from "@/lib/plans";
+import { MIN_COUNTED_LESSON_MIN, planFor, type Plan } from "@/lib/plans";
 
 /**
  * A limit the tutor has hit. Carries a message written for the tutor, so callers
@@ -84,7 +88,13 @@ export async function lessonUsage(tutorId: string): Promise<LessonUsage> {
     const [row] = await db
       .select({ n: count() })
       .from(sessions)
-      .where(and(eq(sessions.tutorId, tutorId), gte(sessions.createdAt, monthStart())));
+      .where(
+        and(
+          eq(sessions.tutorId, tutorId),
+          gte(sessions.createdAt, monthStart()),
+          gte(sessions.durationMin, MIN_COUNTED_LESSON_MIN),
+        ),
+      );
     used = row?.n ?? 0;
   }
 

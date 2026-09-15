@@ -3,16 +3,115 @@
 // Server Actions for session mutations. Scoped to the current tutor and
 // revalidate the dashboard subtree so Server Components re-read fresh data.
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sum } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { sessions, tutors } from "@/db/schema";
+import { sessionAttachments, sessions, tutors } from "@/db/schema";
 import { currentTutorId } from "@/auth";
 import { getSessionById, getStudentById } from "@/db/queries";
 import { renderLessonReportPDF } from "@/lib/pdf";
 import { sendLessonReportEmail } from "@/lib/email";
+import {
+  MAX_ATTACHMENT_TOTAL_BYTES,
+  formatBytes,
+  isAllowedAttachment,
+  type AttachmentMeta,
+} from "@/lib/attachments";
 import type { SessionStatus, VocabItem } from "@/lib/mock";
+
+export type AttachmentResult =
+  | { ok: true; attachment: AttachmentMeta }
+  | { ok: false; error: string };
+
+/**
+ * Attach a file to a lesson report. Stored straight away (not held until send)
+ * so it survives "Save draft" and a page reload like the rest of the edits.
+ * Returns errors instead of throwing for the same reason sendLessonReport does:
+ * production Next.js hides thrown messages, and "that file is too big" is
+ * exactly what the tutor needs to read.
+ */
+export async function uploadSessionAttachment(
+  sessionId: string,
+  formData: FormData,
+): Promise<AttachmentResult> {
+  const tutorId = await currentTutorId();
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Choose a file to attach." };
+  }
+  if (!isAllowedAttachment(file.name)) {
+    return {
+      ok: false,
+      error: "That file type can't be attached. Use a document, spreadsheet, image or audio file.",
+    };
+  }
+
+  const [session] = await db
+    .select({ status: sessions.status })
+    .from(sessions)
+    .where(and(eq(sessions.tutorId, tutorId), eq(sessions.id, sessionId)))
+    .limit(1);
+  if (!session) return { ok: false, error: "Lesson not found." };
+  if (session.status === "sent") {
+    return { ok: false, error: "This report has already been sent." };
+  }
+
+  const [{ used }] = await db
+    .select({ used: sum(sessionAttachments.size) })
+    .from(sessionAttachments)
+    .where(
+      and(eq(sessionAttachments.tutorId, tutorId), eq(sessionAttachments.sessionId, sessionId)),
+    );
+  const usedBytes = Number(used ?? 0);
+  if (usedBytes + file.size > MAX_ATTACHMENT_TOTAL_BYTES) {
+    const left = Math.max(0, MAX_ATTACHMENT_TOTAL_BYTES - usedBytes);
+    return {
+      ok: false,
+      error: `Attachments are limited to ${formatBytes(MAX_ATTACHMENT_TOTAL_BYTES)} per lesson — ${formatBytes(left)} left, and ${file.name} is ${formatBytes(file.size)}.`,
+    };
+  }
+
+  const [row] = await db
+    .insert(sessionAttachments)
+    .values({
+      tutorId,
+      sessionId,
+      filename: file.name,
+      contentType: file.type || "application/octet-stream",
+      size: file.size,
+      data: Buffer.from(await file.arrayBuffer()),
+    })
+    .returning({
+      id: sessionAttachments.id,
+      filename: sessionAttachments.filename,
+      size: sessionAttachments.size,
+    });
+  return { ok: true, attachment: row };
+}
+
+export async function deleteSessionAttachment(
+  sessionId: string,
+  attachmentId: string,
+): Promise<void> {
+  const tutorId = await currentTutorId();
+  const [session] = await db
+    .select({ status: sessions.status })
+    .from(sessions)
+    .where(and(eq(sessions.tutorId, tutorId), eq(sessions.id, sessionId)))
+    .limit(1);
+  // A sent report's attachments are part of what the student received.
+  if (!session || session.status === "sent") return;
+  await db
+    .delete(sessionAttachments)
+    .where(
+      and(
+        eq(sessionAttachments.tutorId, tutorId),
+        eq(sessionAttachments.sessionId, sessionId),
+        eq(sessionAttachments.id, attachmentId),
+      ),
+    );
+}
 
 export async function setSessionStatus(id: string, status: SessionStatus): Promise<void> {
   const tutorId = await currentTutorId();
@@ -110,6 +209,16 @@ export async function sendLessonReport(
       .limit(1);
     const tutorName = tutor?.name ?? "Your tutor";
 
+    const attachments = await db
+      .select({
+        filename: sessionAttachments.filename,
+        contentType: sessionAttachments.contentType,
+        data: sessionAttachments.data,
+      })
+      .from(sessionAttachments)
+      .where(and(eq(sessionAttachments.tutorId, tutorId), eq(sessionAttachments.sessionId, id)))
+      .orderBy(sessionAttachments.createdAt);
+
     const pdf = await renderLessonReportPDF(session, student, { tutorName });
     await sendLessonReportEmail({
       to: student.email,
@@ -117,12 +226,22 @@ export async function sendLessonReport(
       tutorName,
       session,
       pdf,
+      attachments,
     });
 
     await db
       .update(sessions)
       .set({ status: "sent" })
       .where(and(eq(sessions.tutorId, tutorId), eq(sessions.id, id)));
+
+    // The student now has the files in their inbox; our copy has no further use.
+    // Best-effort — if this fails, the daily retention sweep removes them anyway.
+    if (attachments.length) {
+      await db
+        .delete(sessionAttachments)
+        .where(and(eq(sessionAttachments.tutorId, tutorId), eq(sessionAttachments.sessionId, id)))
+        .catch((err) => console.error("[send] couldn't delete attachments:", err));
+    }
     revalidatePath("/dashboard", "layout");
     return { ok: true };
   } catch (err) {

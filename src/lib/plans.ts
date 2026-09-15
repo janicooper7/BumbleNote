@@ -36,6 +36,18 @@ export const PLANS: Record<PlanId, Plan> = {
   legacy: { id: "legacy", name: "Early access", lessons: 250, lessonWindow: "month", students: null },
 };
 
+/**
+ * Recordings shorter than this don't use a lesson credit. A call that drops five
+ * minutes in shouldn't cost the tutor a lesson; the pieces can be combined
+ * afterwards (mergeSessions in src/app/actions/merge.ts), and the combined lesson
+ * uses one credit once it reaches this length.
+ */
+export const MIN_COUNTED_LESSON_MIN = 25;
+
+export function countsAsLesson(durationMin: number): boolean {
+  return durationMin >= MIN_COUNTED_LESSON_MIN;
+}
+
 export function isPlanId(value: unknown): value is PlanId {
   return typeof value === "string" && (PLAN_IDS as readonly string[]).includes(value);
 }

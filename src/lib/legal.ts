@@ -4,6 +4,8 @@
 // tutor, a student, or the ICO asks who is responsible and how to reach them.
 // Keep them in one place so /terms and /privacy can never disagree.
 
+import { ATTACHMENT_RETENTION_DAYS } from "./attachments";
+
 export const LEGAL = {
   /**
    * The sole trader operating BumbleNote. A UK sole trader contracts under their
@@ -46,6 +48,9 @@ export const LEGAL = {
    * in src/lib/upload-retention.ts is what makes this sentence true.
    */
   audioRetentionDays: 7,
+
+  /** Days files attached to a lesson report are kept. Enforced by the same sweep. */
+  attachmentRetentionDays: ATTACHMENT_RETENTION_DAYS,
 } as const;
 
 /**

@@ -1,13 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Avatar from "./Avatar";
 import StatusBadge from "./StatusBadge";
 import type { Session, SessionStatus, Student, VocabItem } from "@/lib/mock";
 import type { SessionFeedbackInput } from "@/app/actions/sessions";
-import { deleteSession, saveSessionFeedback, sendLessonReport } from "@/app/actions/sessions";
+import {
+  deleteSession,
+  deleteSessionAttachment,
+  saveSessionFeedback,
+  sendLessonReport,
+  uploadSessionAttachment,
+} from "@/app/actions/sessions";
+import { mergeSessions } from "@/app/actions/merge";
+import { MAX_MERGE_PARTS, MERGE_WINDOW_HOURS, type MergeCandidate } from "@/lib/merge";
+import { MIN_COUNTED_LESSON_MIN, countsAsLesson } from "@/lib/plans";
+import {
+  ALLOWED_ATTACHMENT_EXTENSIONS,
+  ATTACHMENT_RETENTION_DAYS,
+  MAX_ATTACHMENT_TOTAL_BYTES,
+  formatBytes,
+  isAllowedAttachment,
+  type AttachmentMeta,
+} from "@/lib/attachments";
 
 /** The editable slice of a session, in a stable key order so two snapshots of it
  *  can be compared with a plain string equality check (see `dirty` below). */
@@ -27,9 +44,13 @@ function feedbackOf(s: Session): SessionFeedbackInput {
 export default function SessionReview({
   session,
   student,
+  attachments = [],
+  mergeCandidates = [],
 }: {
   session: Session;
   student?: Student;
+  attachments?: AttachmentMeta[];
+  mergeCandidates?: MergeCandidate[];
 }) {
   const router = useRouter();
   const [vocab, setVocab] = useState<VocabItem[]>(session.vocab);
@@ -204,6 +225,21 @@ export default function SessionReview({
         AI-drafted from the lesson. Review and edit anything below — audio was discarded after processing.
       </p>
 
+      {!sent && mergeCandidates.length > 1 && (
+        <MergePanel
+          sessionId={session.id}
+          studentName={session.studentName}
+          candidates={mergeCandidates}
+          dirty={dirty}
+          onError={(msg) => flash(msg, "err")}
+          onMerged={(id) => {
+            flash("Recordings combined into one lesson.");
+            if (id !== session.id) router.push(`/dashboard/sessions/${id}`);
+            router.refresh();
+          }}
+        />
+      )}
+
       {/* context: key student info (tutor reference) */}
       <div className="mt-6 rounded-2xl border border-line bg-surface p-6 shadow-soft-sm">
         <SectionLabel>Key student information</SectionLabel>
@@ -267,6 +303,12 @@ export default function SessionReview({
                 rows={3}
                 placeholder="Anything else to pass on to the student…"
                 className="w-full resize-none rounded-xl border border-brand-line bg-white px-4 py-3 text-sm text-ink outline-none transition-all [field-sizing:content] focus:border-brand focus:ring-4 focus:ring-brand/30 disabled:opacity-70"
+              />
+              <AttachmentsEditor
+                sessionId={session.id}
+                initial={attachments}
+                disabled={sent}
+                onError={(msg) => flash(msg, "err")}
               />
             </div>
           </div>
@@ -432,6 +474,175 @@ export default function SessionReview({
   );
 }
 
+/**
+ * Offered when the same student has other unsent recordings from around the
+ * same time — almost always a call that dropped and was picked back up.
+ */
+function MergePanel({
+  sessionId,
+  studentName,
+  candidates,
+  dirty,
+  onError,
+  onMerged,
+}: {
+  sessionId: string;
+  studentName: string;
+  candidates: MergeCandidate[];
+  dirty: boolean;
+  onError: (msg: string) => void;
+  onMerged: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [merging, setMerging] = useState(false);
+  // This lesson is always part of the merge; the others start ticked when they
+  // all fit in one merge.
+  const [selected, setSelected] = useState<Set<string>>(
+    () =>
+      new Set(
+        candidates.length <= MAX_MERGE_PARTS ? candidates.map((c) => c.id) : [sessionId],
+      ),
+  );
+
+  const picked = candidates.filter((c) => selected.has(c.id));
+  const totalMin = picked.reduce((n, c) => n + c.durationMin, 0);
+  const times = picked.map((c) => new Date(c.createdAt).getTime());
+  const spanTooWide =
+    picked.length > 1 && Math.max(...times) - Math.min(...times) > MERGE_WINDOW_HOURS * 3_600_000;
+  const tooMany = picked.length > MAX_MERGE_PARTS;
+  const canMerge = picked.length >= 2 && !spanTooWide && !tooMany && !dirty && !merging;
+  const others = candidates.length - 1;
+
+  function toggle(id: string) {
+    if (id === sessionId) return;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function merge() {
+    setMerging(true);
+    try {
+      const result = await mergeSessions(picked.map((c) => c.id));
+      if (!result.ok) {
+        onError(result.error);
+        return;
+      }
+      setOpen(false);
+      onMerged(result.id);
+    } catch {
+      onError("Couldn't combine the recordings — please try again.");
+    } finally {
+      setMerging(false);
+    }
+  }
+
+  return (
+    <div className="mt-6 rounded-2xl border border-amber/30 bg-amber/10 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="font-semibold text-brand-deep">Did the call drop?</div>
+          <div className="text-sm text-brand-deep/80">
+            There {others === 1 ? "is 1 other recording" : `are ${others} other recordings`} of{" "}
+            {studentName.split(" ")[0]} from around the same time. Combine them into one lesson
+            and one report.
+          </div>
+        </div>
+        {!open && (
+          <button
+            onClick={() => setOpen(true)}
+            className="rounded-lg border border-amber/40 bg-white/70 px-3.5 py-2 text-sm font-semibold text-brand-deep transition-colors hover:bg-white"
+          >
+            Combine recordings
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div className="mt-4">
+          <ul className="flex flex-col gap-2">
+            {candidates.map((c) => {
+              const isSelf = c.id === sessionId;
+              return (
+                <li key={c.id}>
+                  <label
+                    className={`flex items-center gap-3 rounded-xl border border-amber/30 bg-white/70 px-3.5 py-2.5 text-sm ${
+                      isSelf ? "" : "cursor-pointer hover:bg-white"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected.has(c.id)}
+                      disabled={isSelf || merging}
+                      onChange={() => toggle(c.id)}
+                      className="h-4 w-4 accent-[#d28c00]"
+                    />
+                    <span className="min-w-0 flex-1 truncate font-medium text-ink" title={c.title}>
+                      {c.title}
+                      {isSelf && <span className="font-normal text-muted"> · this lesson</span>}
+                    </span>
+                    <span className="flex-none text-xs text-muted" suppressHydrationWarning>
+                      {new Date(c.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}{" "}
+                      · {c.durationMin} min
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm text-brand-deep">
+              {tooMany ? (
+                `Combine up to ${MAX_MERGE_PARTS} recordings at once.`
+              ) : spanTooWide ? (
+                `Pick recordings made within ${MERGE_WINDOW_HOURS} hours of each other.`
+              ) : dirty ? (
+                "Save your edits first — combining uses the saved version of each lesson."
+              ) : picked.length < 2 ? (
+                "Pick at least one other recording."
+              ) : (
+                <>
+                  <strong>{totalMin} min</strong> combined ·{" "}
+                  {countsAsLesson(totalMin)
+                    ? "uses 1 lesson credit"
+                    : `under ${MIN_COUNTED_LESSON_MIN} min, so no credit used`}
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setOpen(false)}
+                disabled={merging}
+                className="rounded-lg border border-line bg-white/60 px-3.5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-white disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={merge}
+                disabled={!canMerge}
+                className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {merging ? "Combining… (about a minute)" : `Combine ${picked.length} recordings`}
+              </button>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-brand-deep/70">
+            The feedback is rewritten as one lesson and the separate recordings are removed.
+            Attachments are kept.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-soft">{children}</div>
@@ -522,6 +733,137 @@ function ListEditor({
         >
           + Add
         </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Files emailed to the student with the report. Each file uploads as soon as
+ * it's picked, so attachments aren't part of the "unsaved changes" state — they
+ * persist on their own, like a file dropped into a shared folder.
+ */
+function AttachmentsEditor({
+  sessionId,
+  initial,
+  disabled,
+  onError,
+}: {
+  sessionId: string;
+  initial: AttachmentMeta[];
+  disabled?: boolean;
+  onError: (msg: string) => void;
+}) {
+  const [files, setFiles] = useState<AttachmentMeta[]>(initial);
+  const [uploading, setUploading] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const used = files.reduce((n, f) => n + f.size, 0);
+
+  async function upload(picked: FileList | null) {
+    if (!picked?.length) return;
+    setUploading(true);
+    let total = used;
+    try {
+      for (const file of Array.from(picked)) {
+        // Same rules the server enforces, checked first so an oversized file
+        // fails instantly instead of after uploading it.
+        if (!isAllowedAttachment(file.name)) {
+          onError(`${file.name} can't be attached — use a document, spreadsheet, image or audio file.`);
+          continue;
+        }
+        if (total + file.size > MAX_ATTACHMENT_TOTAL_BYTES) {
+          onError(
+            `${file.name} is ${formatBytes(file.size)} — only ${formatBytes(Math.max(0, MAX_ATTACHMENT_TOTAL_BYTES - total))} of the ${formatBytes(MAX_ATTACHMENT_TOTAL_BYTES)} limit is left.`,
+          );
+          continue;
+        }
+        const form = new FormData();
+        form.append("file", file);
+        const result = await uploadSessionAttachment(sessionId, form);
+        if (!result.ok) {
+          onError(result.error);
+          continue;
+        }
+        total += result.attachment.size;
+        setFiles((prev) => [...prev, result.attachment]);
+      }
+    } catch {
+      onError("Couldn't attach the file — please try again.");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  async function remove(id: string) {
+    setRemoving(id);
+    try {
+      await deleteSessionAttachment(sessionId, id);
+      setFiles((prev) => prev.filter((f) => f.id !== id));
+    } catch {
+      onError("Couldn't remove the file — please try again.");
+    } finally {
+      setRemoving(null);
+    }
+  }
+
+  if (disabled && files.length === 0) return null;
+
+  return (
+    <div className="mt-3">
+      {files.length > 0 && (
+        <ul className="mb-2 flex flex-col gap-2">
+          {files.map((f) => (
+            <li
+              key={f.id}
+              className="flex items-center gap-3 rounded-xl border border-brand-line bg-white/60 px-3.5 py-2.5 text-sm"
+            >
+              <span className="grid h-7 w-7 flex-none place-items-center rounded-lg bg-brand-soft text-xs text-brand-deep" aria-hidden>
+                📎
+              </span>
+              <span className="min-w-0 flex-1 truncate font-medium text-ink" title={f.filename}>
+                {f.filename}
+              </span>
+              <span className="flex-none text-xs text-muted">{formatBytes(f.size)}</span>
+              {!disabled && (
+                <button
+                  onClick={() => remove(f.id)}
+                  disabled={removing === f.id}
+                  className="grid h-8 w-8 flex-none place-items-center rounded-lg border border-line text-muted transition-colors hover:border-[#e77] hover:text-[#d9534f] disabled:opacity-60"
+                  aria-label={`Remove ${f.filename}`}
+                >
+                  ×
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {!disabled && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading || used >= MAX_ATTACHMENT_TOTAL_BYTES}
+            className="text-sm font-semibold text-brand-deep hover:underline disabled:cursor-not-allowed disabled:opacity-60 disabled:no-underline"
+          >
+            {uploading ? "Attaching…" : "+ Attach file"}
+          </button>
+          <span className="text-xs text-muted">
+            {formatBytes(used)} of {formatBytes(MAX_ATTACHMENT_TOTAL_BYTES)} · removed once sent, or
+            after {ATTACHMENT_RETENTION_DAYS} days
+          </span>
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            hidden
+            accept={ALLOWED_ATTACHMENT_EXTENSIONS.map((e) => `.${e}`).join(",")}
+            onChange={(e) => upload(e.target.files)}
+          />
+        </div>
       )}
     </div>
   );
