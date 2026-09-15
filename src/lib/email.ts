@@ -31,7 +31,7 @@ export async function sendLessonReportEmail(args: {
   // and not something to be wary of.
   const attachmentsLine = attachments.length
     ? `<p style="margin:0 0 16px;color:#3f4750;">
-         ${escapeHtml(tutorName.split(" ")[0])} has also attached ${attachments.length === 1 ? "an extra file" : "a few extra files"} for you to look through.
+         I've also attached ${attachments.length === 1 ? "an extra file" : "a few extra files"} for you to look through.
        </p>`
     : "";
 

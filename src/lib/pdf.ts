@@ -7,7 +7,7 @@ import type { Session, Student } from "./mock";
 
 const A4: [number, number] = [595.28, 841.89];
 const MARGIN = 48;
-const HEADER_H = 132;
+const HEADER_H = 118;
 
 const C = {
   brand: rgb(0.992, 0.702, 0),
@@ -106,7 +106,7 @@ async function build(
   const [W, H] = A4;
 
   let page = doc.addPage(A4);
-  let y = HEADER_H + 28; // vertical cursor measured from the top
+  let y = HEADER_H + 12; // vertical cursor measured from the top
 
   function newPage() {
     page = doc.addPage(A4);
@@ -139,10 +139,10 @@ async function build(
   }
 
   function sectionLabel(label: string) {
-    gap(10);
-    ensure(20);
-    text(label.toUpperCase(), { font: fonts.bold, size: 8.5, color: C.muted, lineHeight: 13 });
-    gap(4);
+    gap(22);
+    ensure(40); // keep the title with at least a line of its content
+    text(label, { font: fonts.bold, size: 15, color: C.ink, lineHeight: 20 });
+    gap(8);
   }
 
   function bullet(str: string, color = C.ink) {
@@ -154,14 +154,15 @@ async function build(
     text(str, { x: MARGIN + 16, size, color, lineHeight: lh });
   }
 
-  // ---- Header band ----
-  page.drawRectangle({ x: 0, y: H - HEADER_H, width: W, height: HEADER_H, color: C.ink });
+  // ---- Header ----
+  // No filled band — people print these, so just a honey rule underneath.
+  page.drawRectangle({ x: MARGIN, y: H - HEADER_H, width: W - MARGIN * 2, height: 3, color: C.brand });
   page.drawText("BUMBLENOTE", {
     x: MARGIN,
     y: H - 40,
     size: 10,
     font: fonts.bold,
-    color: C.brand,
+    color: C.brandDeep,
   });
   const topic = session.title.includes("·")
     ? session.title.split("·").slice(1).join("·").trim()
@@ -171,14 +172,14 @@ async function build(
     y: H - 74,
     size: 22,
     font: fonts.bold,
-    color: C.white,
+    color: C.ink,
   });
   page.drawText(sanitize(`${student.name}  ·  ${session.date}`), {
     x: MARGIN,
     y: H - 98,
     size: 11,
     font: fonts.reg,
-    color: rgb(0.78, 0.85, 0.94),
+    color: C.inkSoft,
   });
 
   // ---- Lesson snapshot ----
@@ -191,12 +192,33 @@ async function build(
   // ---- Vocabulary ----
   if (session.vocab.length) {
     sectionLabel("New vocabulary");
-    for (const v of session.vocab) {
-      ensure(30);
-      text(v.term, { font: fonts.bold, size: 11, color: C.ink, lineHeight: 15 });
-      if (v.meaning) text(v.meaning, { size: 10, color: C.inkSoft, lineHeight: 14 });
-      if (v.example) text(v.example, { font: fonts.italic, size: 10, color: C.muted, lineHeight: 14 });
-      gap(6);
+    // Two per row: lay out each word's lines at column width, then draw the
+    // pair side by side and advance by the taller of the two.
+    const COL_GAP = 24;
+    const colW = (W - MARGIN * 2 - COL_GAP) / 2;
+    const layout = (v: (typeof session.vocab)[number]) => {
+      const rows: { line: string; font: PDFFont; size: number; color: ReturnType<typeof rgb>; lh: number }[] = [];
+      const add = (s: string, font: PDFFont, size: number, color: ReturnType<typeof rgb>, lh: number) => {
+        for (const line of wrap(s, font, size, colW)) rows.push({ line, font, size, color, lh });
+      };
+      add(v.term, fonts.bold, 11, C.ink, 15);
+      if (v.meaning) add(v.meaning, fonts.reg, 10, C.inkSoft, 14);
+      if (v.example) add(v.example, fonts.italic, 10, C.muted, 14);
+      return { rows, height: rows.reduce((h, r) => h + r.lh, 0) };
+    };
+    for (let i = 0; i < session.vocab.length; i += 2) {
+      const pair = session.vocab.slice(i, i + 2).map(layout);
+      ensure(Math.max(...pair.map((p) => p.height)));
+      pair.forEach((p, col) => {
+        const x = MARGIN + col * (colW + COL_GAP);
+        let cy = y;
+        for (const r of p.rows) {
+          page.drawText(r.line, { x, y: H - cy - r.size, size: r.size, font: r.font, color: r.color });
+          cy += r.lh;
+        }
+      });
+      y += Math.max(...pair.map((p) => p.height));
+      gap(12);
     }
   }
 
