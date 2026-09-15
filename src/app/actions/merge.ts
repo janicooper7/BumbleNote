@@ -3,7 +3,7 @@
 // Combine the recordings of an interrupted lesson into one lesson. Rules shared
 // with the review screen live in src/lib/merge.ts.
 
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { sessionAttachments, sessions, students, tutors } from "@/db/schema";
@@ -15,10 +15,41 @@ import {
   MERGE_WINDOW_HOURS,
   lessonNumberPrefix,
   weightedTalkTime,
+  type MergeCandidate,
 } from "@/lib/merge";
 import { countsAsLesson } from "@/lib/plans";
 
 export type MergeSessionsResult = { ok: true; id: string } | { ok: false; error: string };
+
+/** How many recent lessons the sidebar's "Combine lessons" dialog lists. */
+const MERGEABLE_LIST_LIMIT = 30;
+
+/**
+ * One student's unsent lessons, newest first — what the sidebar's "Combine
+ * lessons" dialog offers once a student is picked. Scoped to a single student so
+ * lessons of different students can never be offered side by side.
+ */
+export async function getMergeableLessons(studentId: string): Promise<MergeCandidate[]> {
+  const tutorId = await currentTutorId();
+  const rows = await db
+    .select({
+      id: sessions.id,
+      title: sessions.title,
+      durationMin: sessions.durationMin,
+      createdAt: sessions.createdAt,
+    })
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.tutorId, tutorId),
+        eq(sessions.studentId, studentId),
+        ne(sessions.status, "sent"),
+      ),
+    )
+    .orderBy(desc(sessions.createdAt))
+    .limit(MERGEABLE_LIST_LIMIT);
+  return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
+}
 
 /**
  * Merge 2–MAX_MERGE_PARTS unsent lessons of the same student into one draft.

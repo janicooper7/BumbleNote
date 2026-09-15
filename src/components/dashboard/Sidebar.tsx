@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Logo from "../Logo";
 import { GridIcon, UsersIcon, MicIcon, GearIcon } from "./icons";
 import RecordLessonButton, { type LessonQuotaView } from "./RecordLessonButton";
+import CombineLessonsButton from "./CombineLessonsButton";
 import { signOutAction } from "@/app/actions/auth";
 
 const nav = [
@@ -63,6 +64,7 @@ export default function Sidebar({
       <div className="mt-auto">
         <div className="mb-4">
           <RecordLessonButton students={students} quota={quota} />
+          <CombineLessonsButton students={students} />
         </div>
 
         <div className="rounded-xl border border-line bg-white/60 p-3">
