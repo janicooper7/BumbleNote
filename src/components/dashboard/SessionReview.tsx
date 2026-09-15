@@ -72,6 +72,11 @@ export default function SessionReview({
   const [deleting, setDeleting] = useState(false);
   const [confirmResend, setConfirmResend] = useState(false);
   const [resending, setResending] = useState(false);
+  // A sent report is read-only until the tutor presses Edit.
+  const [editing, setEditing] = useState(false);
+  // Bumped after each delivery: the server deletes sent attachments, so the
+  // attachment list clears to match.
+  const [deliveries, setDeliveries] = useState(0);
   // Serialized copy of what's actually in the database, so we can tell whether
   // the tutor has edits they haven't saved yet.
   const [savedSnapshot, setSavedSnapshot] = useState(() =>
@@ -82,6 +87,7 @@ export default function SessionReview({
   const sent = status === "sent";
   const confirmed = status === "confirmed";
   const missingEmail = !student?.email;
+  const locked = sent && !editing;
 
   function flash(msg: string, tone: "ok" | "err" = "ok") {
     setSaved(msg);
@@ -102,7 +108,21 @@ export default function SessionReview({
 
   // True while the on-screen edits differ from what's stored. Drives the
   // "Unsaved changes" hint and the leave-the-page guards below.
-  const dirty = !sent && JSON.stringify(feedback()) !== savedSnapshot;
+  const dirty = !locked && JSON.stringify(feedback()) !== savedSnapshot;
+
+  /** Leave edit mode on a sent report, putting the fields back to what's stored. */
+  function cancelEdit() {
+    const s = JSON.parse(savedSnapshot) as SessionFeedbackInput;
+    setVocab(s.vocab);
+    setWentWell(s.wentWell);
+    setFocus(s.focus);
+    setHomework(s.homework);
+    setAdditionalInfo(s.additionalInfo);
+    setNextLesson(s.nextLesson);
+    setLessonEndedAt(s.lessonEndedAt);
+    setNotes(s.tutorNotes);
+    setEditing(false);
+  }
 
   // Guard a browser refresh / tab close. This is the exact hole that lost a
   // tutor's vocab edits: the edits live in component state until a save button
@@ -123,6 +143,16 @@ export default function SessionReview({
     const payload = feedback();
     const serialized = JSON.stringify(payload);
     try {
+      if (sent) {
+        // Editing a sent report: it stays sent, and the student only sees the
+        // changes once it's resent.
+        await saveSessionFeedback(session.id, payload, "sent");
+        setSavedSnapshot(serialized);
+        setEditing(false);
+        flash(`Changes saved — resend to share them with ${session.studentName.split(" ")[0]}.`);
+        router.refresh();
+        return;
+      }
       if (target === "sent") {
         const result = await sendLessonReport(session.id, payload);
         // A failed send still persisted the edits as "confirmed" server-side,
@@ -140,6 +170,7 @@ export default function SessionReview({
       }
       setStatus(target);
       if (target === "sent") {
+        setDeliveries((n) => n + 1);
         flash(`Feedback PDF sent to ${session.studentName.split(" ")[0]}.`);
         if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
       } else if (target === "confirmed") {
@@ -169,6 +200,8 @@ export default function SessionReview({
       }
       flash(`Report resent to ${session.studentName.split(" ")[0]}.`);
       setConfirmResend(false);
+      setDeliveries((n) => n + 1);
+      router.refresh();
     } catch {
       flash("Couldn't resend — please try again.", "err");
     } finally {
@@ -286,13 +319,13 @@ export default function SessionReview({
             <div className="font-display text-lg font-medium text-ink">Student feedback</div>
           </div>
           <div className="flex flex-col gap-6 p-6">
-            <VocabEditor vocab={vocab} setVocab={setVocab} disabled={sent} />
+            <VocabEditor vocab={vocab} setVocab={setVocab} disabled={locked} />
             <ListEditor
               title="Went well"
               tone="mint"
               items={wentWell}
               setItems={setWentWell}
-              disabled={sent}
+              disabled={locked}
               placeholder="Something they did well…"
             />
             <ListEditor
@@ -300,7 +333,7 @@ export default function SessionReview({
               tone="amber"
               items={focus}
               setItems={setFocus}
-              disabled={sent}
+              disabled={locked}
               placeholder="An area to improve…"
             />
             <div>
@@ -308,7 +341,7 @@ export default function SessionReview({
               <textarea
                 value={homework}
                 onChange={(e) => setHomework(e.target.value)}
-                disabled={sent}
+                disabled={locked}
                 rows={3}
                 placeholder="Suggest a task to practise before next lesson…"
                 className="w-full resize-none rounded-xl border border-amber/30 bg-white px-4 py-3 text-sm text-ink outline-none transition-all [field-sizing:content] focus:border-amber focus:ring-4 focus:ring-amber/20 disabled:opacity-70"
@@ -319,7 +352,7 @@ export default function SessionReview({
               <textarea
                 value={additionalInfo}
                 onChange={(e) => setAdditionalInfo(e.target.value)}
-                disabled={sent}
+                disabled={locked}
                 rows={3}
                 placeholder="Anything else to pass on to the student…"
                 className="w-full resize-none rounded-xl border border-brand-line bg-white px-4 py-3 text-sm text-ink outline-none transition-all [field-sizing:content] focus:border-brand focus:ring-4 focus:ring-brand/30 disabled:opacity-70"
@@ -327,7 +360,8 @@ export default function SessionReview({
               <AttachmentsEditor
                 sessionId={session.id}
                 initial={attachments}
-                disabled={sent}
+                disabled={locked}
+                deliveries={deliveries}
                 onError={(msg) => flash(msg, "err")}
               />
             </div>
@@ -378,7 +412,7 @@ export default function SessionReview({
               <textarea
                 value={lessonEndedAt}
                 onChange={(e) => setLessonEndedAt(e.target.value)}
-                disabled={sent}
+                disabled={locked}
                 rows={2}
                 placeholder="Where in the material you stopped…"
                 className="w-full resize-none rounded-xl border border-mint/30 bg-white px-4 py-3 text-sm text-ink outline-none transition-all [field-sizing:content] focus:border-mint focus:ring-4 focus:ring-mint/15 disabled:opacity-70"
@@ -389,7 +423,7 @@ export default function SessionReview({
               tone="brand"
               items={nextLesson}
               setItems={setNextLesson}
-              disabled={sent}
+              disabled={locked}
               placeholder="An idea for next time…"
             />
             <div>
@@ -397,7 +431,7 @@ export default function SessionReview({
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                disabled={sent}
+                disabled={locked}
                 rows={5}
                 className="w-full resize-none rounded-xl border border-brand-line bg-white px-4 py-3 text-ink outline-none transition-all [field-sizing:content] focus:border-brand focus:ring-4 focus:ring-brand/30 disabled:opacity-70"
               />
@@ -459,19 +493,52 @@ export default function SessionReview({
           {saved ?? (dirty ? <span className="text-brand-deep">Unsaved changes</span> : null)}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
-          {/* Saves in place: a confirmed lesson stays confirmed, so editing after
-              confirming doesn't force the tutor to demote it back to a draft. */}
-          <button
-            onClick={() => save(confirmed ? "confirmed" : "draft")}
-            disabled={sent || saving}
-            className="rounded-xl border border-brand-line bg-white/70 px-5 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 hover:border-brand disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {saving && (pending === "draft" || (pending === "confirmed" && confirmed))
-              ? "Saving…"
-              : confirmed
-                ? "Save changes"
-                : "Save draft"}
-          </button>
+          {sent ? (
+            // A sent report is read-only until Edit; saving keeps it sent.
+            editing ? (
+              <>
+                <button
+                  onClick={cancelEdit}
+                  disabled={saving}
+                  className="rounded-xl border border-line px-4 py-3 font-semibold text-ink transition-colors hover:bg-white disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => save("sent")}
+                  disabled={saving}
+                  className="rounded-xl border border-brand-line bg-white/70 px-5 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 hover:border-brand disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving ? "Saving…" : "Save changes"}
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => {
+                  setConfirmResend(false);
+                  setEditing(true);
+                }}
+                disabled={resending}
+                className="rounded-xl border border-brand-line bg-white/70 px-5 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 hover:border-brand disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Edit
+              </button>
+            )
+          ) : (
+            // Saves in place: a confirmed lesson stays confirmed, so editing after
+            // confirming doesn't force the tutor to demote it back to a draft.
+            <button
+              onClick={() => save(confirmed ? "confirmed" : "draft")}
+              disabled={saving}
+              className="rounded-xl border border-brand-line bg-white/70 px-5 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 hover:border-brand disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving && (pending === "draft" || (pending === "confirmed" && confirmed))
+                ? "Saving…"
+                : confirmed
+                  ? "Save changes"
+                  : "Save draft"}
+            </button>
+          )}
           <button
             onClick={() => save("confirmed")}
             disabled={sent || saving || confirmed}
@@ -503,8 +570,14 @@ export default function SessionReview({
             ) : (
               <button
                 onClick={() => setConfirmResend(true)}
-                disabled={missingEmail}
-                title={missingEmail ? "Add an email address to resend." : undefined}
+                disabled={missingEmail || editing}
+                title={
+                  missingEmail
+                    ? "Add an email address to resend."
+                    : editing
+                      ? "Save or cancel your edits before resending."
+                      : undefined
+                }
                 className="inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                 style={{ boxShadow: "0 10px 24px -10px rgba(210,140,0,.6)" }}
               >
@@ -801,14 +874,22 @@ function AttachmentsEditor({
   sessionId,
   initial,
   disabled,
+  deliveries,
   onError,
 }: {
   sessionId: string;
   initial: AttachmentMeta[];
   disabled?: boolean;
+  deliveries: number;
   onError: (msg: string) => void;
 }) {
   const [files, setFiles] = useState<AttachmentMeta[]>(initial);
+  // The server deletes attachments once they've been emailed.
+  const [seenDeliveries, setSeenDeliveries] = useState(deliveries);
+  if (deliveries !== seenDeliveries) {
+    setSeenDeliveries(deliveries);
+    setFiles([]);
+  }
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);

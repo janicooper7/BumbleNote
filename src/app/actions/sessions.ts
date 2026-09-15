@@ -52,10 +52,9 @@ export async function uploadSessionAttachment(
     .from(sessions)
     .where(and(eq(sessions.tutorId, tutorId), eq(sessions.id, sessionId)))
     .limit(1);
+  // Sent lessons accept attachments too: the tutor can edit a sent report and
+  // resend it with new files.
   if (!session) return { ok: false, error: "Lesson not found." };
-  if (session.status === "sent") {
-    return { ok: false, error: "This report has already been sent." };
-  }
 
   const [{ used }] = await db
     .select({ used: sum(sessionAttachments.size) })
@@ -100,8 +99,9 @@ export async function deleteSessionAttachment(
     .from(sessions)
     .where(and(eq(sessions.tutorId, tutorId), eq(sessions.id, sessionId)))
     .limit(1);
-  // A sent report's attachments are part of what the student received.
-  if (!session || session.status === "sent") return;
+  // Attachments are deleted once delivered, so anything still on a sent lesson
+  // was added while editing it and hasn't reached the student yet.
+  if (!session) return;
   await db
     .delete(sessionAttachments)
     .where(
@@ -189,7 +189,7 @@ export type SendLessonReportResult = { ok: true } | { ok: false; error: string }
 async function deliverLessonReport(
   tutorId: string,
   id: string,
-): Promise<{ attachmentCount: number }> {
+): Promise<void> {
   const session = await getSessionById(id);
   if (!session) throw new Error("Lesson not found.");
   const student = await getStudentById(session.studentId);
@@ -224,13 +224,22 @@ async function deliverLessonReport(
     pdf,
     attachments,
   });
-  return { attachmentCount: attachments.length };
+
+  // The student now has the files in their inbox; our copy has no further use.
+  // Best-effort — if this fails, the daily retention sweep removes them anyway.
+  if (attachments.length) {
+    await db
+      .delete(sessionAttachments)
+      .where(and(eq(sessionAttachments.tutorId, tutorId), eq(sessionAttachments.sessionId, id)))
+      .catch((err) => console.error("[send] couldn't delete attachments:", err));
+  }
 }
 
 /**
- * Email an already-sent report again (e.g. the student lost it, or their email
- * address was corrected). Sends the stored report as-is — no edits, no status
- * change. Attachments were deleted after the first send, so only the PDF goes.
+ * Email an already-sent report again (e.g. the student lost it, their email was
+ * corrected, or the tutor edited the report). Sends what's stored — including
+ * any edits saved since — with no status change. Attachments from the first
+ * send were deleted, so only files added while editing go along with the PDF.
  */
 export async function resendLessonReport(id: string): Promise<SendLessonReportResult> {
   const tutorId = await currentTutorId();
@@ -243,6 +252,7 @@ export async function resendLessonReport(id: string): Promise<SendLessonReportRe
     if (!row) throw new Error("Lesson not found.");
     if (row.status !== "sent") throw new Error("Send the report before resending it.");
     await deliverLessonReport(tutorId, id);
+    revalidatePath("/dashboard", "layout");
     return { ok: true };
   } catch (err) {
     return {
@@ -264,21 +274,13 @@ export async function sendLessonReport(
     .where(and(eq(sessions.tutorId, tutorId), eq(sessions.id, id)));
 
   try {
-    const { attachmentCount } = await deliverLessonReport(tutorId, id);
+    await deliverLessonReport(tutorId, id);
 
     await db
       .update(sessions)
       .set({ status: "sent" })
       .where(and(eq(sessions.tutorId, tutorId), eq(sessions.id, id)));
 
-    // The student now has the files in their inbox; our copy has no further use.
-    // Best-effort — if this fails, the daily retention sweep removes them anyway.
-    if (attachmentCount) {
-      await db
-        .delete(sessionAttachments)
-        .where(and(eq(sessionAttachments.tutorId, tutorId), eq(sessionAttachments.sessionId, id)))
-        .catch((err) => console.error("[send] couldn't delete attachments:", err));
-    }
     revalidatePath("/dashboard", "layout");
     return { ok: true };
   } catch (err) {
