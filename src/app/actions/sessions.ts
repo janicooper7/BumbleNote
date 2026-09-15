@@ -182,6 +182,76 @@ export async function saveSessionFeedback(
  */
 export type SendLessonReportResult = { ok: true } | { ok: false; error: string };
 
+/**
+ * Render the report PDF from what's stored and email it to the student, with
+ * any attachments still on file. Throws with a tutor-readable message.
+ */
+async function deliverLessonReport(
+  tutorId: string,
+  id: string,
+): Promise<{ attachmentCount: number }> {
+  const session = await getSessionById(id);
+  if (!session) throw new Error("Lesson not found.");
+  const student = await getStudentById(session.studentId);
+  if (!student) throw new Error("Student not found.");
+  if (!student.email) {
+    throw new Error(`Add an email address for ${student.name} before sending.`);
+  }
+
+  const [tutor] = await db
+    .select({ name: tutors.name })
+    .from(tutors)
+    .where(eq(tutors.id, tutorId))
+    .limit(1);
+  const tutorName = tutor?.name ?? "Your tutor";
+
+  const attachments = await db
+    .select({
+      filename: sessionAttachments.filename,
+      contentType: sessionAttachments.contentType,
+      data: sessionAttachments.data,
+    })
+    .from(sessionAttachments)
+    .where(and(eq(sessionAttachments.tutorId, tutorId), eq(sessionAttachments.sessionId, id)))
+    .orderBy(sessionAttachments.createdAt);
+
+  const pdf = await renderLessonReportPDF(session, student, { tutorName });
+  await sendLessonReportEmail({
+    to: student.email,
+    studentName: student.name,
+    tutorName,
+    session,
+    pdf,
+    attachments,
+  });
+  return { attachmentCount: attachments.length };
+}
+
+/**
+ * Email an already-sent report again (e.g. the student lost it, or their email
+ * address was corrected). Sends the stored report as-is — no edits, no status
+ * change. Attachments were deleted after the first send, so only the PDF goes.
+ */
+export async function resendLessonReport(id: string): Promise<SendLessonReportResult> {
+  const tutorId = await currentTutorId();
+  try {
+    const [row] = await db
+      .select({ status: sessions.status })
+      .from(sessions)
+      .where(and(eq(sessions.tutorId, tutorId), eq(sessions.id, id)))
+      .limit(1);
+    if (!row) throw new Error("Lesson not found.");
+    if (row.status !== "sent") throw new Error("Send the report before resending it.");
+    await deliverLessonReport(tutorId, id);
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Couldn't resend the report.",
+    };
+  }
+}
+
 export async function sendLessonReport(
   id: string,
   data: SessionFeedbackInput,
@@ -194,40 +264,7 @@ export async function sendLessonReport(
     .where(and(eq(sessions.tutorId, tutorId), eq(sessions.id, id)));
 
   try {
-    const session = await getSessionById(id);
-    if (!session) throw new Error("Lesson not found.");
-    const student = await getStudentById(session.studentId);
-    if (!student) throw new Error("Student not found.");
-    if (!student.email) {
-      throw new Error(`Add an email address for ${student.name} before sending.`);
-    }
-
-    const [tutor] = await db
-      .select({ name: tutors.name })
-      .from(tutors)
-      .where(eq(tutors.id, tutorId))
-      .limit(1);
-    const tutorName = tutor?.name ?? "Your tutor";
-
-    const attachments = await db
-      .select({
-        filename: sessionAttachments.filename,
-        contentType: sessionAttachments.contentType,
-        data: sessionAttachments.data,
-      })
-      .from(sessionAttachments)
-      .where(and(eq(sessionAttachments.tutorId, tutorId), eq(sessionAttachments.sessionId, id)))
-      .orderBy(sessionAttachments.createdAt);
-
-    const pdf = await renderLessonReportPDF(session, student, { tutorName });
-    await sendLessonReportEmail({
-      to: student.email,
-      studentName: student.name,
-      tutorName,
-      session,
-      pdf,
-      attachments,
-    });
+    const { attachmentCount } = await deliverLessonReport(tutorId, id);
 
     await db
       .update(sessions)
@@ -236,7 +273,7 @@ export async function sendLessonReport(
 
     // The student now has the files in their inbox; our copy has no further use.
     // Best-effort — if this fails, the daily retention sweep removes them anyway.
-    if (attachments.length) {
+    if (attachmentCount) {
       await db
         .delete(sessionAttachments)
         .where(and(eq(sessionAttachments.tutorId, tutorId), eq(sessionAttachments.sessionId, id)))

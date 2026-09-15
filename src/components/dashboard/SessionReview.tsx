@@ -10,6 +10,7 @@ import type { SessionFeedbackInput } from "@/app/actions/sessions";
 import {
   deleteSession,
   deleteSessionAttachment,
+  resendLessonReport,
   saveSessionFeedback,
   sendLessonReport,
   uploadSessionAttachment,
@@ -69,6 +70,8 @@ export default function SessionReview({
   const [pending, setPending] = useState<null | SessionStatus>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmResend, setConfirmResend] = useState(false);
+  const [resending, setResending] = useState(false);
   // Serialized copy of what's actually in the database, so we can tell whether
   // the tutor has edits they haven't saved yet.
   const [savedSnapshot, setSavedSnapshot] = useState(() =>
@@ -153,6 +156,23 @@ export default function SessionReview({
     } finally {
       setSaving(false);
       setPending(null);
+    }
+  }
+
+  async function resend() {
+    setResending(true);
+    try {
+      const result = await resendLessonReport(session.id);
+      if (!result.ok) {
+        flash(result.error, "err");
+        return;
+      }
+      flash(`Report resent to ${session.studentName.split(" ")[0]}.`);
+      setConfirmResend(false);
+    } catch {
+      flash("Couldn't resend — please try again.", "err");
+    } finally {
+      setResending(false);
     }
   }
 
@@ -459,15 +479,49 @@ export default function SessionReview({
           >
             {confirmed || sent ? "Confirmed ✓" : pending === "confirmed" ? "Confirming…" : "Confirm lesson"}
           </button>
-          <button
-            onClick={() => save("sent")}
-            disabled={sent || saving || missingEmail || !confirmed}
-            title={!confirmed && !sent ? "Confirm the lesson before sending." : undefined}
-            className="inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ boxShadow: "0 10px 24px -10px rgba(210,140,0,.6)" }}
-          >
-            {sent ? "Sent ✓" : pending === "sent" ? "Sending…" : "Send to student →"}
-          </button>
+          {sent ? (
+            confirmResend ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-ink-soft">
+                  Email the report to {session.studentName.split(" ")[0]} again?
+                </span>
+                <button
+                  onClick={resend}
+                  disabled={resending}
+                  className="rounded-xl bg-brand px-5 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {resending ? "Resending…" : "Yes, resend"}
+                </button>
+                <button
+                  onClick={() => setConfirmResend(false)}
+                  disabled={resending}
+                  className="rounded-xl border border-line px-4 py-3 font-semibold text-ink transition-colors hover:bg-white disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmResend(true)}
+                disabled={missingEmail}
+                title={missingEmail ? "Add an email address to resend." : undefined}
+                className="inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{ boxShadow: "0 10px 24px -10px rgba(210,140,0,.6)" }}
+              >
+                Resend to student ↻
+              </button>
+            )
+          ) : (
+            <button
+              onClick={() => save("sent")}
+              disabled={saving || missingEmail || !confirmed}
+              title={!confirmed ? "Confirm the lesson before sending." : undefined}
+              className="inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ boxShadow: "0 10px 24px -10px rgba(210,140,0,.6)" }}
+            >
+              {pending === "sent" ? "Sending…" : "Send to student →"}
+            </button>
+          )}
         </div>
       </div>
     </div>

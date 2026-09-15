@@ -41,7 +41,7 @@ export async function sendLessonReportEmail(args: {
       <div style="background:#16233d;padding:26px 30px;">
         <div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#fdb300;">BUMBLENOTE</div>
         <div style="font-size:25px;font-weight:700;color:#ffffff;margin-top:6px;line-height:1.3;">${escapeHtml(topic)}</div>
-        <div style="font-size:15px;color:#c7d8f0;margin-top:4px;">${escapeHtml(session.date)} · ${session.durationMin} min</div>
+        <div style="font-size:15px;color:#c7d8f0;margin-top:4px;">${escapeHtml(session.date)}</div>
       </div>
       <div style="padding:28px 30px;color:#1f2430;font-size:17px;">
         <p style="margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>
