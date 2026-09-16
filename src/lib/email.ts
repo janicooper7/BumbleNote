@@ -18,12 +18,25 @@ export async function sendLessonReportEmail(args: {
   to: string;
   studentName: string;
   tutorName: string;
+  /** Where the student's replies go — the From address is a no-reply sender. */
+  tutorEmail: string;
+  /** BCC the tutor so they have a copy of exactly what the student received. */
+  copyTutor?: boolean;
   session: Session;
   pdf: Uint8Array;
   /** Files the tutor attached on the review screen (src/lib/attachments.ts). */
   attachments?: { filename: string; contentType: string; data: Buffer }[];
 }): Promise<void> {
-  const { to, studentName, tutorName, session, pdf, attachments = [] } = args;
+  const {
+    to,
+    studentName,
+    tutorName,
+    tutorEmail,
+    copyTutor = false,
+    session,
+    pdf,
+    attachments = [],
+  } = args;
   const firstName = studentName.split(" ")[0];
   const topic = lessonTopic(session.title);
 
@@ -65,6 +78,9 @@ export async function sendLessonReportEmail(args: {
   const { error } = await getClient().emails.send({
     from: env.EMAIL_FROM,
     to,
+    replyTo: tutorEmail,
+    // Skip when the tutor sent to themselves (testing), or they'd get it twice.
+    bcc: copyTutor && tutorEmail.toLowerCase() !== to.toLowerCase() ? tutorEmail : undefined,
     subject: `${tutorName} - ${topic} - Feedback`,
     html,
     attachments: [

@@ -185,10 +185,13 @@ export type SendLessonReportResult = { ok: true } | { ok: false; error: string }
 /**
  * Render the report PDF from what's stored and email it to the student, with
  * any attachments still on file. Throws with a tutor-readable message.
+ * `copyTutor` BCCs the tutor — only on the first send, so resends don't pile
+ * duplicates into their inbox.
  */
 async function deliverLessonReport(
   tutorId: string,
   id: string,
+  { copyTutor = false }: { copyTutor?: boolean } = {},
 ): Promise<void> {
   const session = await getSessionById(id);
   if (!session) throw new Error("Lesson not found.");
@@ -199,11 +202,12 @@ async function deliverLessonReport(
   }
 
   const [tutor] = await db
-    .select({ name: tutors.name })
+    .select({ name: tutors.name, email: tutors.email })
     .from(tutors)
     .where(eq(tutors.id, tutorId))
     .limit(1);
-  const tutorName = tutor?.name ?? "Your tutor";
+  if (!tutor) throw new Error("Tutor account not found.");
+  const tutorName = tutor.name ?? "Your tutor";
 
   const attachments = await db
     .select({
@@ -220,6 +224,8 @@ async function deliverLessonReport(
     to: student.email,
     studentName: student.name,
     tutorName,
+    tutorEmail: tutor.email,
+    copyTutor,
     session,
     pdf,
     attachments,
@@ -274,7 +280,7 @@ export async function sendLessonReport(
     .where(and(eq(sessions.tutorId, tutorId), eq(sessions.id, id)));
 
   try {
-    await deliverLessonReport(tutorId, id);
+    await deliverLessonReport(tutorId, id, { copyTutor: true });
 
     await db
       .update(sessions)
