@@ -16,6 +16,7 @@ export type NewStudentInput = {
   name: string;
   native: string;
   email?: string;
+  gender?: "male" | "female";
   level: string;
   goal: string;
   targetExam?: string;
@@ -60,6 +61,7 @@ export async function createStudent(input: NewStudentInput): Promise<CreateStude
       tutorId,
       name,
       initial: (name[0] || "?").toUpperCase(),
+      gender: input.gender ?? null,
       level: input.level,
       goal: input.goal,
       native: input.native.trim() || "—",
@@ -110,6 +112,18 @@ export async function setStudentEmail(id: string, email: string): Promise<void> 
   await db
     .update(students)
     .set({ email: trimmed || null })
+    .where(and(eq(students.tutorId, tutorId), eq(students.id, id)));
+  revalidatePath("/dashboard", "layout");
+}
+
+export async function setStudentGender(
+  id: string,
+  gender: "male" | "female" | null,
+): Promise<void> {
+  const tutorId = await currentTutorId();
+  await db
+    .update(students)
+    .set({ gender })
     .where(and(eq(students.tutorId, tutorId), eq(students.id, id)));
   revalidatePath("/dashboard", "layout");
 }

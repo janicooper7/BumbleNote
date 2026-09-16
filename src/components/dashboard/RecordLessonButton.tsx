@@ -12,7 +12,7 @@ import Avatar from "./Avatar";
 import { SearchIcon } from "./icons";
 import { useSessionRecorder, formatElapsed } from "./useSessionRecorder";
 
-type PickStudent = { id: string; name: string; initial: string };
+type PickStudent = { id: string; name: string; gender?: "male" | "female" };
 
 /** The tutor's lesson allowance, resolved on the server (src/lib/quota.ts). */
 export type LessonQuotaView = {
@@ -157,7 +157,7 @@ export default function RecordLessonButton({
                             onClick={() => pick(s)}
                             className="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left transition-colors hover:border-brand-line hover:bg-brand-soft/50"
                           >
-                            <Avatar initial={s.initial} size={36} />
+                            <Avatar gender={s.gender} size={36} />
                             <span className="font-semibold text-ink">{s.name}</span>
                           </button>
                         ))}

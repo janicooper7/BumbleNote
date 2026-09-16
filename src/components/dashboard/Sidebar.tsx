@@ -16,7 +16,7 @@ const nav = [
 ];
 
 type SidebarUser = { name?: string | null; email?: string | null } | null;
-type PickStudent = { id: string; name: string; initial: string };
+type PickStudent = { id: string; name: string; gender?: "male" | "female" };
 
 export default function Sidebar({
   user,

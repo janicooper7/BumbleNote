@@ -14,7 +14,7 @@ import { getMergeableLessons, mergeSessions } from "@/app/actions/merge";
 import { MAX_MERGE_PARTS, MERGE_WINDOW_HOURS, type MergeCandidate } from "@/lib/merge";
 import { MIN_COUNTED_LESSON_MIN, countsAsLesson } from "@/lib/plans";
 
-type PickStudent = { id: string; name: string; initial: string };
+type PickStudent = { id: string; name: string; gender?: "male" | "female" };
 
 const WINDOW_MS = MERGE_WINDOW_HOURS * 3_600_000;
 
@@ -168,7 +168,7 @@ export default function CombineLessonsButton({ students }: { students: PickStude
                             onClick={() => void pickStudent(s)}
                             className="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left transition-colors hover:border-brand-line hover:bg-brand-soft/50"
                           >
-                            <Avatar initial={s.initial} size={36} />
+                            <Avatar gender={s.gender} size={36} />
                             <span className="font-semibold text-ink">{s.name}</span>
                           </button>
                         ))}
@@ -187,7 +187,7 @@ export default function CombineLessonsButton({ students }: { students: PickStude
             ) : (
               <>
                 <div className="mb-1 flex items-center gap-3">
-                  <Avatar initial={chosen.initial} size={36} />
+                  <Avatar gender={chosen.gender} size={36} />
                   <div className="min-w-0">
                     <div className="truncate font-display text-lg font-medium text-ink">
                       {chosen.name}

@@ -19,6 +19,7 @@ const GOALS = [
 export default function NewStudentPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [gender, setGender] = useState<"male" | "female">("female");
   const [native, setNative] = useState("");
   const [level, setLevel] = useState("A2");
   const [goal, setGoal] = useState(GOALS[0]);
@@ -52,6 +53,7 @@ export default function NewStudentPage() {
         name,
         native: native.trim() || "—",
         email,
+        gender,
         level,
         goal,
         targetExam,
@@ -124,7 +126,7 @@ export default function NewStudentPage() {
         >
           {/* live preview */}
           <div className="mb-8 flex items-center gap-4 rounded-xl border border-line bg-brand-soft/40 p-4">
-            <Avatar initial={(name.trim()[0] || "?").toUpperCase()} size={48} />
+            <Avatar gender={gender} size={48} />
             <div>
               <div className="font-semibold text-ink">{name.trim() || "New student"}</div>
               <div className="text-sm text-muted">
@@ -154,6 +156,8 @@ export default function NewStudentPage() {
               autoComplete="off"
               hint="Where lesson-report PDFs are sent. You can add this later."
             />
+
+            <GenderToggle value={gender} onChange={setGender} />
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <Field
@@ -255,6 +259,35 @@ function Textarea({
       />
       {hint && <span className="mt-1.5 block text-sm text-muted">{hint}</span>}
     </label>
+  );
+}
+
+function GenderToggle({
+  value,
+  onChange,
+}: {
+  value: "male" | "female";
+  onChange: (v: "male" | "female") => void;
+}) {
+  return (
+    <div className="block">
+      <span className="mb-1.5 block text-sm font-semibold text-ink">Gender</span>
+      <div className="inline-flex rounded-xl border border-brand-line bg-white p-1">
+        {(["female", "male"] as const).map((g) => (
+          <button
+            key={g}
+            type="button"
+            onClick={() => onChange(g)}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold capitalize transition-colors duration-200 ${
+              value === g ? "bg-brand text-ink" : "text-muted hover:text-ink"
+            }`}
+          >
+            {g}
+          </button>
+        ))}
+      </div>
+      <span className="mt-1.5 block text-sm text-muted">Sets the icon shown on their profile.</span>
+    </div>
   );
 }
 

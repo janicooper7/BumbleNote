@@ -85,6 +85,13 @@
       "when": 1789469123323,
       "tag": "0011_session_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789590415912,
+      "tag": "0012_puzzling_tarot",
+      "breakpoints": true
     }
   ]
 }

@@ -257,7 +257,7 @@ export default function SessionReview({
       {/* header */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-6 shadow-soft-sm">
         <div className="flex items-center gap-4">
-          <Avatar initial={session.studentInitial} size={56} />
+          <Avatar gender={session.studentGender} size={56} />
           <div>
             <div className="font-display text-xl font-medium text-ink">{title}</div>
             <div className="text-sm text-muted">

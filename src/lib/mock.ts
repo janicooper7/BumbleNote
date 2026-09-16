@@ -21,6 +21,7 @@ export type Session = {
   studentId: string;
   studentName: string;
   studentInitial: string;
+  studentGender?: "male" | "female";
   title: string;
   date: string; // human readable
   isoDate: string; // sortable YYYY-MM-DD
@@ -44,6 +45,7 @@ export type Student = {
   id: string;
   name: string;
   initial: string;
+  gender?: "male" | "female"; // unset shows a neutral avatar
   level: string;
   goal: string;
   native: string;

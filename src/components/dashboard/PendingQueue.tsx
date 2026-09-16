@@ -61,7 +61,7 @@ function QueueSection({
             href={`/dashboard/sessions/${s.id}`}
             className="group flex items-center gap-4 rounded-xl border border-line bg-white/60 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-line hover:shadow-soft-sm"
           >
-            <Avatar initial={s.studentInitial} size={46} />
+            <Avatar gender={s.studentGender} size={46} />
             <div className="min-w-0 flex-1">
               <div className="truncate font-semibold text-ink">{s.studentName}</div>
               <div className="truncate text-sm text-ink-soft">{s.title}</div>

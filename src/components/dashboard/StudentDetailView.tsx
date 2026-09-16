@@ -13,6 +13,7 @@ import {
   deleteStudent,
   setStudentActive,
   setStudentEmail,
+  setStudentGender,
   setStudentNotes,
 } from "@/app/actions/students";
 import { setSessionTitle } from "@/app/actions/sessions";
@@ -28,6 +29,7 @@ export default function StudentDetailView({
   // Server props are the source of truth; local state gives snappy optimistic
   // updates while the Server Actions persist + revalidate in the background.
   const [active, setActive] = useState(student.active !== false);
+  const [gender, setGender] = useState(student.gender);
   const [email, setEmail] = useState(student.email ?? "");
   const [emailSaved, setEmailSaved] = useState(false);
   const [notes, setNotes] = useState(student.notes ?? "");
@@ -53,6 +55,11 @@ export default function StudentDetailView({
     const next = !active;
     setActive(next);
     void setStudentActive(student.id, next);
+  }
+
+  function changeGender(next: "male" | "female") {
+    setGender(next);
+    void setStudentGender(student.id, next);
   }
 
   async function saveNotes() {
@@ -114,7 +121,7 @@ export default function StudentDetailView({
         {/* profile */}
         <section className="h-fit rounded-2xl border border-line bg-surface p-6 shadow-soft-sm">
           <div className="flex items-center gap-4">
-            <Avatar initial={student.initial} size={60} />
+            <Avatar gender={gender} size={60} />
             <div>
               <div className="font-display text-xl font-medium text-ink">{student.name}</div>
               <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -139,6 +146,25 @@ export default function StudentDetailView({
           >
             {active ? "Mark as inactive" : "Mark as active"}
           </button>
+
+          <div className="mt-5">
+            <div className="text-xs font-bold uppercase tracking-wide text-muted">Gender</div>
+            <div className="mt-2 inline-flex rounded-xl border border-brand-line bg-white p-1">
+              {(["female", "male"] as const).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => changeGender(g)}
+                  className={`rounded-lg px-4 py-1.5 text-sm font-semibold capitalize transition-colors duration-200 ${
+                    gender === g ? "bg-brand text-ink" : "text-muted hover:text-ink"
+                  }`}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-muted">Sets the icon shown for {firstName}.</p>
+          </div>
 
           <div className="mt-5">
             <div className="flex items-center justify-between">

@@ -29,6 +29,7 @@ export const sessionStatus = pgEnum("session_status", ["draft", "confirmed", "se
 export const tutorPlan = pgEnum("tutor_plan", PLAN_IDS);
 export const cefrLevel = pgEnum("cefr_level", ["A1", "A2", "B1", "B2", "C1", "C2"]);
 export const studentTrend = pgEnum("student_trend", ["up", "steady"]);
+export const studentGender = pgEnum("student_gender", ["male", "female"]);
 
 export const tutors = pgTable("tutors", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -77,6 +78,9 @@ export const students = pgTable("students", {
     .references(() => tutors.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   initial: text("initial").notNull(),
+  // Null for students added before this column existed, or when left unset —
+  // the avatar falls back to a neutral icon in that case.
+  gender: studentGender("gender"),
   level: text("level").notNull(),
   goal: text("goal").notNull(),
   native: text("native").notNull(),

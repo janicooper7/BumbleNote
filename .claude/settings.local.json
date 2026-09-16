@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npm *)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+      "Bash(npx --no-install playwright --version)",
+      "Read(//c/Program Files/Google/Chrome/Application/**)",
+      "Bash(sed 's/^RESEND_API_KEY=//')",
+      "Bash(npx next *)",
+      "Bash(git -C \"C:/Users/johny/Desktop/cloudtutor\" ls-files)",
+      "Bash(git diff *)",
+      "Bash(npm run *)",
+      "Bash(grep -oE \"src[\\\\\\\\/][A-Za-z0-9_/\\\\\\\\.-]+\\\\.tsx?\")",
+      "Bash(git rm *)",
+      "Bash(npx tsx *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(node -e \"console.log\\(require\\('C:/Users/johny/Desktop/cloudtutor/node_modules/next/package.json'\\).version\\)\")",
+      "PowerShell(node \"C:\\\\Users\\\\johny\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-johny-Desktop-cloudtutor\\\\6665f143-1f0d-4973-8161-b79af5a9b723\\\\scratchpad\\\\key3.js\")",
+      "PowerShell(node \"C:\\\\Users\\\\johny\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-johny-Desktop-cloudtutor\\\\6665f143-1f0d-4973-8161-b79af5a9b723\\\\scratchpad\\\\key4.js\")",
+      "PowerShell(node \"C:\\\\Users\\\\johny\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-johny-Desktop-cloudtutor\\\\6665f143-1f0d-4973-8161-b79af5a9b723\\\\scratchpad\\\\probe.js\")",
+      "PowerShell(node \"C:\\\\Users\\\\johny\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-johny-Desktop-cloudtutor\\\\6665f143-1f0d-4973-8161-b79af5a9b723\\\\scratchpad\\\\measure.js\")",
+      "PowerShell(node \"C:\\\\Users\\\\johny\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-johny-Desktop-cloudtutor\\\\6665f143-1f0d-4973-8161-b79af5a9b723\\\\scratchpad\\\\build.js\")",
+      "PowerShell(node \"C:\\\\Users\\\\johny\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-johny-Desktop-cloudtutor\\\\6665f143-1f0d-4973-8161-b79af5a9b723\\\\scratchpad\\\\final.js\")",
+      "PowerShell(node \"C:\\\\Users\\\\johny\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-johny-Desktop-cloudtutor\\\\6665f143-1f0d-4973-8161-b79af5a9b723\\\\scratchpad\\\\emit.js\")",
+      "Bash(node -p \"require\\('./node_modules/next/package.json'\\).version\")"
+    ]
+  }
+}
