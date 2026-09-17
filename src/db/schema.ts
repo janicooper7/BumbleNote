@@ -16,6 +16,7 @@ import {
   date,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -29,7 +30,6 @@ export const sessionStatus = pgEnum("session_status", ["draft", "confirmed", "se
 export const tutorPlan = pgEnum("tutor_plan", PLAN_IDS);
 export const cefrLevel = pgEnum("cefr_level", ["A1", "A2", "B1", "B2", "C1", "C2"]);
 export const studentTrend = pgEnum("student_trend", ["up", "steady"]);
-export const studentGender = pgEnum("student_gender", ["male", "female"]);
 
 export const tutors = pgTable("tutors", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -78,13 +78,12 @@ export const students = pgTable("students", {
     .references(() => tutors.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   initial: text("initial").notNull(),
-  // Null for students added before this column existed, or when left unset —
-  // the avatar falls back to a neutral icon in that case.
-  gender: studentGender("gender"),
   level: text("level").notNull(),
   goal: text("goal").notNull(),
   native: text("native").notNull(),
   email: text("email"), // student's email, for sending lesson-report PDFs
+  // What the tutor charges per hour for this student. Null when unset.
+  hourlyRate: numeric("hourly_rate", { precision: 8, scale: 2, mode: "number" }),
   lessonCount: integer("lesson_count").notNull().default(0),
   vocabCount: integer("vocab_count").notNull().default(0),
   lastSeen: text("last_seen").notNull(),

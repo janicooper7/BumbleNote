@@ -87,39 +87,8 @@ export function ChevronRightIcon({ className, size = 18 }: IconProps) {
   );
 }
 
-// Avatar glyphs — filled, not stroked, so they read cleanly at small sizes on
+// Avatar glyph — filled, not stroked, so it reads cleanly at small sizes on
 // a solid gradient background (see Avatar.tsx).
-export function MaleAvatarIcon({ className, size = 20 }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden
-    >
-      <circle cx="12" cy="8" r="4.2" />
-      <path d="M4 21c0-4.4 3.6-7.2 8-7.2s8 2.8 8 7.2v.4H4v-.4Z" />
-    </svg>
-  );
-}
-
-export function FemaleAvatarIcon({ className, size = 20 }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden
-    >
-      <path d="M12 3.4c-3.3 0-5.6 2.5-5.6 5.6 0 2.1.9 4.3 2.2 5.9-3.1 1.2-4.6 3.7-4.6 6.3v.4h16v-.4c0-2.6-1.5-5.1-4.6-6.3 1.3-1.6 2.2-3.8 2.2-5.9 0-3.1-2.3-5.6-5.6-5.6Z" />
-    </svg>
-  );
-}
-
 export function PersonAvatarIcon({ className, size = 20 }: IconProps) {
   return (
     <svg

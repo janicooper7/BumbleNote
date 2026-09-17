@@ -124,7 +124,7 @@ function StudentRow({
         first ? "" : "border-t border-line"
       } ${muted ? "opacity-70" : ""}`}
     >
-      <Avatar gender={st.gender} size={40} />
+      <Avatar initial={st.initial} size={40} />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">

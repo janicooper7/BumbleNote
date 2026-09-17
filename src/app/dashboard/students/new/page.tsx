@@ -6,20 +6,11 @@ import Topbar from "@/components/dashboard/Topbar";
 import Field from "@/components/auth/Field";
 import Avatar from "@/components/dashboard/Avatar";
 import { createStudent } from "@/app/actions/students";
-
-const LEVELS = ["Not sure yet", "A1", "A2", "B1", "B2", "C1", "C2"];
-const GOALS = [
-  "Conversational",
-  "Business English",
-  "Exam preparation",
-  "Travel & everyday",
-  "Academic",
-];
+import { GOALS, LEVELS } from "@/lib/student-options";
 
 export default function NewStudentPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [gender, setGender] = useState<"male" | "female">("female");
   const [native, setNative] = useState("");
   const [level, setLevel] = useState("A2");
   const [goal, setGoal] = useState(GOALS[0]);
@@ -27,6 +18,7 @@ export default function NewStudentPage() {
   const [interests, setInterests] = useState("");
   const [focus, setFocus] = useState("");
   const [notes, setNotes] = useState("");
+  const [hourlyRate, setHourlyRate] = useState("");
   const [nameError, setNameError] = useState<string | undefined>();
   const [submitError, setSubmitError] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
@@ -49,17 +41,18 @@ export default function NewStudentPage() {
     setSubmitError(undefined);
     setSaving(true);
     try {
+      const rate = parseFloat(hourlyRate);
       const result = await createStudent({
         name,
         native: native.trim() || "—",
         email,
-        gender,
         level,
         goal,
         targetExam,
         interests: splitList(interests),
         focus: splitList(focus),
         notes,
+        hourlyRate: Number.isFinite(rate) ? rate : undefined,
       });
       if (!result.ok) {
         // Expected refusal (e.g. the plan's student cap) — show what it said
@@ -126,7 +119,7 @@ export default function NewStudentPage() {
         >
           {/* live preview */}
           <div className="mb-8 flex items-center gap-4 rounded-xl border border-line bg-brand-soft/40 p-4">
-            <Avatar gender={gender} size={48} />
+            <Avatar initial={name.trim() ? name.trim()[0].toUpperCase() : undefined} size={48} />
             <div>
               <div className="font-semibold text-ink">{name.trim() || "New student"}</div>
               <div className="text-sm text-muted">
@@ -157,8 +150,6 @@ export default function NewStudentPage() {
               hint="Where lesson-report PDFs are sent. You can add this later."
             />
 
-            <GenderToggle value={gender} onChange={setGender} />
-
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <Field
                 label="Native language"
@@ -181,6 +172,16 @@ export default function NewStudentPage() {
                 placeholder="e.g. IELTS 7.5 (optional)"
               />
             </div>
+
+            <Field
+              label="Hourly rate"
+              type="number"
+              name="hourlyRate"
+              value={hourlyRate}
+              onChange={setHourlyRate}
+              placeholder="e.g. 25 (optional)"
+              hint="What you charge per hour for this student."
+            />
 
             <Field
               label="Interests & topics"
@@ -259,35 +260,6 @@ function Textarea({
       />
       {hint && <span className="mt-1.5 block text-sm text-muted">{hint}</span>}
     </label>
-  );
-}
-
-function GenderToggle({
-  value,
-  onChange,
-}: {
-  value: "male" | "female";
-  onChange: (v: "male" | "female") => void;
-}) {
-  return (
-    <div className="block">
-      <span className="mb-1.5 block text-sm font-semibold text-ink">Gender</span>
-      <div className="inline-flex rounded-xl border border-brand-line bg-white p-1">
-        {(["female", "male"] as const).map((g) => (
-          <button
-            key={g}
-            type="button"
-            onClick={() => onChange(g)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold capitalize transition-colors duration-200 ${
-              value === g ? "bg-brand text-ink" : "text-muted hover:text-ink"
-            }`}
-          >
-            {g}
-          </button>
-        ))}
-      </div>
-      <span className="mt-1.5 block text-sm text-muted">Sets the icon shown on their profile.</span>
-    </div>
   );
 }
 

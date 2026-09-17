@@ -49,7 +49,7 @@ export default function LessonSection({
                 i > 0 ? "border-t border-line" : ""
               }`}
             >
-              <Avatar gender={s.studentGender} size={44} />
+              <Avatar initial={s.studentInitial} size={44} />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-semibold text-ink">
                   {s.studentName} · {s.date} · {topic}

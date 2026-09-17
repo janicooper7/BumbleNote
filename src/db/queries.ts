@@ -5,7 +5,7 @@
 // types from src/lib/mock.ts (null → undefined for optional fields) so callers
 // keep using the same Student/Session shapes the UI already expects.
 
-import { and, asc, count, desc, eq, getTableColumns, gte, lte, ne } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, lte, ne } from "drizzle-orm";
 import { db } from "./index";
 import {
   sessionAttachments,
@@ -25,11 +25,11 @@ function toStudent(r: DbStudent): Student {
     id: r.id,
     name: r.name,
     initial: r.initial,
-    gender: r.gender ?? undefined,
     level: r.level,
     goal: r.goal,
     native: r.native,
     email: r.email ?? undefined,
+    hourlyRate: r.hourlyRate ?? undefined,
     lessonCount: r.lessonCount,
     vocabCount: r.vocabCount,
     lastSeen: r.lastSeen,
@@ -74,13 +74,12 @@ function withDerivedStats(base: Student, studentSessions: DbSession[]): Student 
   };
 }
 
-function toSession(r: DbSession & { studentGender?: "male" | "female" | null }): Session {
+function toSession(r: DbSession): Session {
   return {
     id: r.id,
     studentId: r.studentId,
     studentName: r.studentName,
     studentInitial: r.studentInitial,
-    studentGender: r.studentGender ?? undefined,
     title: r.title,
     date: r.date,
     isoDate: r.isoDate,
@@ -147,19 +146,11 @@ export async function getStudentByIdForTutor(
   return withDerivedStats(toStudent(row), studentSessions);
 }
 
-// Joined in alongside the session's own (frozen-at-record-time) name/initial so
-// the avatar always reflects the student's *current* gender, even if it was
-// set after the lesson was recorded.
-function sessionColumnsWithGender() {
-  return { ...getTableColumns(sessions), studentGender: students.gender };
-}
-
 export async function getSessions(): Promise<Session[]> {
   const tutorId = await currentTutorId();
   const rows = await db
-    .select(sessionColumnsWithGender())
+    .select()
     .from(sessions)
-    .leftJoin(students, eq(sessions.studentId, students.id))
     .where(eq(sessions.tutorId, tutorId))
     .orderBy(desc(sessions.isoDate));
   return rows.map(toSession);
@@ -173,9 +164,8 @@ export async function getPendingSessions(): Promise<Session[]> {
 export async function getSessionsForStudent(studentId: string): Promise<Session[]> {
   const tutorId = await currentTutorId();
   const rows = await db
-    .select(sessionColumnsWithGender())
+    .select()
     .from(sessions)
-    .leftJoin(students, eq(sessions.studentId, students.id))
     .where(and(eq(sessions.tutorId, tutorId), eq(sessions.studentId, studentId)))
     .orderBy(desc(sessions.isoDate));
   return rows.map(toSession);
@@ -238,9 +228,8 @@ export async function getLessonTotal(): Promise<number> {
 export async function getSessionById(id: string): Promise<Session | undefined> {
   const tutorId = await currentTutorId();
   const [row] = await db
-    .select(sessionColumnsWithGender())
+    .select()
     .from(sessions)
-    .leftJoin(students, eq(sessions.studentId, students.id))
     .where(and(eq(sessions.tutorId, tutorId), eq(sessions.id, id)))
     .limit(1);
   return row ? toSession(row) : undefined;

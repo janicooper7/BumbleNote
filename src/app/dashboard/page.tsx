@@ -160,7 +160,7 @@ export default async function DashboardHome() {
                   href={`/dashboard/students/${st.id}`}
                   className="group flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-brand-soft/50"
                 >
-                  <Avatar gender={st.gender} size={40} />
+                  <Avatar initial={st.initial} size={40} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold text-ink">{st.name}</div>
                     <div className="truncate text-xs text-muted">{st.goal}</div>

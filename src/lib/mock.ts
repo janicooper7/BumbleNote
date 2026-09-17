@@ -21,7 +21,6 @@ export type Session = {
   studentId: string;
   studentName: string;
   studentInitial: string;
-  studentGender?: "male" | "female";
   title: string;
   date: string; // human readable
   isoDate: string; // sortable YYYY-MM-DD
@@ -45,11 +44,11 @@ export type Student = {
   id: string;
   name: string;
   initial: string;
-  gender?: "male" | "female"; // unset shows a neutral avatar
   level: string;
   goal: string;
   native: string;
   email?: string; // student's email, for sending lesson-report PDFs
+  hourlyRate?: number; // what the tutor charges per hour for this student
   lessonCount: number;
   vocabCount: number;
   lastSeen: string;

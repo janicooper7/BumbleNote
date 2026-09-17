@@ -1,0 +1,1 @@
+ALTER TABLE "students" ADD COLUMN "hourly_rate" numeric(8, 2);

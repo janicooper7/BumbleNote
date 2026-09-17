@@ -19,6 +19,17 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// Only gates whether the sidebar's "Combine lessons" CTA shows — a DB hiccup
+// here must never take the whole dashboard down with it.
+async function canCombineLessonsFor(): Promise<boolean> {
+  try {
+    return await hasCombinableLessons();
+  } catch (err) {
+    console.error("could not check combinable lessons", err);
+    return false;
+  }
+}
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -29,7 +40,7 @@ export default async function DashboardLayout({
     getStudents(),
     lessonUsage(tutorId),
     getTutor(),
-    hasCombinableLessons(),
+    canCombineLessonsFor(),
   ]);
 
   // Terms gate (see lib/terms). A Google signup accepted on the signup page and
@@ -43,7 +54,7 @@ export default async function DashboardLayout({
 
   const students = allStudents
     .filter((s) => s.active !== false)
-    .map((s) => ({ id: s.id, name: s.name, gender: s.gender }));
+    .map((s) => ({ id: s.id, name: s.name, initial: s.initial }));
 
   // Only the display-facing slice crosses into the client component.
   const quota = {

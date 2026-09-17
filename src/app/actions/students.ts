@@ -16,13 +16,13 @@ export type NewStudentInput = {
   name: string;
   native: string;
   email?: string;
-  gender?: "male" | "female";
   level: string;
   goal: string;
   targetExam?: string;
   interests?: string[];
   focus?: string[];
   notes?: string;
+  hourlyRate?: number;
 };
 
 function slugify(name: string) {
@@ -61,11 +61,11 @@ export async function createStudent(input: NewStudentInput): Promise<CreateStude
       tutorId,
       name,
       initial: (name[0] || "?").toUpperCase(),
-      gender: input.gender ?? null,
       level: input.level,
       goal: input.goal,
       native: input.native.trim() || "—",
       email: input.email?.trim() || null,
+      hourlyRate: input.hourlyRate ?? null,
       lessonCount: 0,
       vocabCount: 0,
       lastSeen: "New",
@@ -116,14 +116,38 @@ export async function setStudentEmail(id: string, email: string): Promise<void> 
   revalidatePath("/dashboard", "layout");
 }
 
-export async function setStudentGender(
+export type StudentProfileInput = {
+  name: string;
+  level: string;
+  goal: string;
+  native: string;
+  targetExam?: string;
+  interests?: string[];
+  focus?: string[];
+  hourlyRate?: number | null;
+};
+
+/** Updates the core profile fields a tutor can edit after a student is created. */
+export async function updateStudentProfile(
   id: string,
-  gender: "male" | "female" | null,
+  input: StudentProfileInput,
 ): Promise<void> {
   const tutorId = await currentTutorId();
+  const name = input.name.trim();
   await db
     .update(students)
-    .set({ gender })
+    .set({
+      name,
+      initial: (name[0] || "?").toUpperCase(),
+      level: input.level,
+      goal: input.goal,
+      native: input.native.trim() || "—",
+      targetExam: input.targetExam?.trim() || null,
+      interests: input.interests?.filter(Boolean) ?? null,
+      focus: input.focus?.filter(Boolean) ?? [],
+      hourlyRate: input.hourlyRate ?? null,
+    })
     .where(and(eq(students.tutorId, tutorId), eq(students.id, id)));
   revalidatePath("/dashboard", "layout");
+  revalidatePath(`/dashboard/students/${id}`);
 }

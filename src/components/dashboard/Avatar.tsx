@@ -1,38 +1,20 @@
-import { FemaleAvatarIcon, MaleAvatarIcon, PersonAvatarIcon } from "./icons";
-
-const GENDER_STYLES = {
-  male: {
-    background: "linear-gradient(145deg,#8ec5fc,#4f8ef7)",
-    Icon: MaleAvatarIcon,
-  },
-  female: {
-    background: "linear-gradient(145deg,#f6a8c9,#ea5fa0)",
-    Icon: FemaleAvatarIcon,
-  },
-  neutral: {
-    background: "linear-gradient(145deg,#c7ccd6,#9aa1b0)",
-    Icon: PersonAvatarIcon,
-  },
-} as const;
+import { PersonAvatarIcon } from "./icons";
 
 /**
- * Renders a student's icon: a gender-specific glyph on a gradient background
- * when `gender` is known, falling back to the classic initial-letter tile
- * (used where we only have a session's `studentInitial`, not the full
- * student record — e.g. lesson lists) when it isn't.
+ * Renders a student's icon: the classic initial-letter tile on a warm
+ * gradient when a name is available, falling back to a neutral person glyph
+ * when it isn't (e.g. a picker rendered before any student is loaded).
  */
 export default function Avatar({
-  gender,
   initial,
   size = 44,
   className = "",
 }: {
-  gender?: "male" | "female";
   initial?: string;
   size?: number;
   className?: string;
 }) {
-  if (!gender && initial) {
+  if (initial) {
     return (
       <span
         className={`grid flex-none place-items-center rounded-[13px] font-display font-semibold text-ink ${className}`}
@@ -48,14 +30,12 @@ export default function Avatar({
     );
   }
 
-  const { background, Icon } = GENDER_STYLES[gender ?? "neutral"];
-
   return (
     <span
       className={`grid flex-none place-items-center rounded-[13px] text-white ${className}`}
-      style={{ width: size, height: size, background }}
+      style={{ width: size, height: size, background: "linear-gradient(145deg,#c7ccd6,#9aa1b0)" }}
     >
-      <Icon size={size * 0.56} />
+      <PersonAvatarIcon size={size * 0.56} />
     </span>
   );
 }

@@ -92,6 +92,20 @@
       "when": 1789590415912,
       "tag": "0012_puzzling_tarot",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789634258209,
+      "tag": "0013_drop_student_gender",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789634270926,
+      "tag": "0014_add_student_hourly_rate",
+      "breakpoints": true
     }
   ]
 }
