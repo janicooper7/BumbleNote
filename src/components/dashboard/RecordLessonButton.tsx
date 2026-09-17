@@ -201,8 +201,10 @@ export default function RecordLessonButton({
                 <div className="mb-1 font-mono text-3xl font-semibold tabular-nums text-ink">
                   {formatElapsed(elapsed)}
                 </div>
-                <p className="mb-5 text-xs text-ink-soft">
-                  Keep your lesson tab open and shared. Stop when the lesson ends.
+                <p className="mb-5 text-xs font-medium text-[#c0524e]">
+                  Don&apos;t close this tab — BumbleNote hasn&apos;t saved the lesson yet.
+                  Closing it now will lose the recording. Click Stop &amp; file lesson when
+                  you&apos;re done.
                 </p>
                 <button
                   onClick={stop}
@@ -220,6 +222,9 @@ export default function RecordLessonButton({
                 <div className="mt-3 font-semibold text-ink">Transcribing &amp; drafting {firstName}’s lesson…</div>
                 <p className="mt-1 text-xs text-ink-soft">
                   Separating the two voices and writing the feedback — a few seconds.
+                </p>
+                <p className="mt-2 text-xs font-medium text-[#c0524e]">
+                  Don&apos;t close this tab yet — the lesson isn&apos;t saved until this finishes.
                 </p>
               </div>
             )}

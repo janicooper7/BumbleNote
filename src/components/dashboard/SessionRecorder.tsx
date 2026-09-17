@@ -46,8 +46,10 @@ export default function SessionRecorder({
               <div className="font-semibold text-ink">
                 Recording · <span className="font-mono tabular-nums">{formatElapsed(elapsed)}</span>
               </div>
-              <p className="text-xs text-ink-soft">
-                Keep your lesson tab open and shared. Stop when the lesson ends.
+              <p className="text-xs font-medium text-[#c0524e]">
+                Don&apos;t close this tab — BumbleNote hasn&apos;t saved the lesson yet.
+                Closing it now will lose the recording. Click Stop &amp; file lesson when
+                you&apos;re done.
               </p>
             </div>
           </div>
@@ -67,6 +69,9 @@ export default function SessionRecorder({
           <div>
             <div className="font-semibold text-ink">Transcribing &amp; drafting {firstName}’s lesson…</div>
             <p className="text-xs text-ink-soft">Separating the two voices and writing the feedback — a few seconds.</p>
+            <p className="mt-1 text-xs font-medium text-[#c0524e]">
+              Don&apos;t close this tab yet — the lesson isn&apos;t saved until this finishes.
+            </p>
           </div>
         </div>
       )}

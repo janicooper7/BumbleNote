@@ -46,6 +46,22 @@ export function useSessionRecorder() {
     return () => stopTracks();
   }, []);
 
+  useEffect(() => {
+    // Recording and upload both live only in this tab's memory until the draft
+    // exists — closing or refreshing here silently loses the whole lesson with
+    // no server-side trace to recover from. Warn before that can happen.
+    if (status !== "recording" && status !== "processing") return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Most browsers show their own fixed wording here regardless of this
+      // string, but a few engines still surface it — worth setting anyway.
+      e.returnValue =
+        "BumbleNote hasn't saved this lesson yet — closing this tab now will lose it. Click Stop & file lesson first.";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [status]);
+
   function stopTracks() {
     if (timer.current) clearInterval(timer.current);
     displayStream.current?.getTracks().forEach((t) => t.stop());
