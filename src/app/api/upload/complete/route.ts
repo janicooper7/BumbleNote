@@ -76,6 +76,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     uploadId?: string;
     studentId?: string;
     durationMin?: number;
+    isTrial?: boolean;
     parts?: { student?: number; tutor?: number };
     trimMaps?: { student?: unknown; tutor?: unknown };
   };
@@ -130,6 +131,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     tutorId,
     studentId,
     durationMin: Number.isFinite(durationMin) && durationMin > 0 ? durationMin : 45,
+    isTrial: body.isTrial === true,
     parts: { student: studentParts, tutor: tutorParts },
     trimMaps,
     startedAt: Date.now(),

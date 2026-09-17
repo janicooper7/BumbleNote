@@ -36,6 +36,8 @@ export type UploadJob = {
   durationMin: number;
   parts: Parts;
   trimMaps?: TrimMaps;
+  /** Marked by the tutor as this student's trial/introductory lesson. */
+  isTrial?: boolean;
   /**
    * Epoch ms the worker was (re)triggered. The worker can be killed outright —
    * platform timeout, OOM, a deploy mid-run — and a killed process runs no catch

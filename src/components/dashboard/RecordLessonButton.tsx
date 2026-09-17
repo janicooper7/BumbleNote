@@ -36,6 +36,7 @@ export default function RecordLessonButton({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [chosen, setChosen] = useState<PickStudent | null>(null);
   const [query, setQuery] = useState("");
+  const [trial, setTrial] = useState(false);
 
   const open = pickerOpen || status !== "idle";
   const firstName = chosen?.name.split(" ")[0] ?? "the student";
@@ -51,13 +52,14 @@ export default function RecordLessonButton({
     setChosen(s);
     setPickerOpen(false); // hand off to the recording overlay (driven by status)
     setQuery("");
-    void start(s.id);
+    void start(s.id, trial);
   }
 
   function closeIdle() {
     setPickerOpen(false);
     setChosen(null);
     setQuery("");
+    setTrial(false);
     reset();
   }
 
@@ -164,6 +166,18 @@ export default function RecordLessonButton({
                       </div>
                     )}
                   </>
+                )}
+
+                {quota.allowed && students.length > 0 && (
+                  <label className="mt-3 flex items-center gap-2 text-base font-semibold text-ink">
+                    <input
+                      type="checkbox"
+                      checked={trial}
+                      onChange={(e) => setTrial(e.target.checked)}
+                      className="h-4 w-4 accent-[#d28c00]"
+                    />
+                    This is a trial lesson — help fill in their profile
+                  </label>
                 )}
 
                 {/* Only worth the space once the allowance is nearly gone. */}

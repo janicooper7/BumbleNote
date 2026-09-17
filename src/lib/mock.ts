@@ -38,6 +38,7 @@ export type Session = {
   nextLesson: string[];
   lessonEndedAt: string; // where in the material the lesson ended
   tutorNotes: string;
+  isTrial: boolean; // marked as the student's trial/introductory lesson when recorded
 };
 
 export type Student = {
@@ -180,6 +181,7 @@ export const sessions: Session[] = [
       "Finished the negotiating role-play; stopped before the B2 business email-thread reading.",
     tutorNotes:
       "Maria is ready to push into B2 material. Articles are the main blocker to sounding natural — worth a focused 10 minutes next time.",
+    isTrial: false,
   },
   {
     id: "s-kenji-08",
@@ -226,6 +228,7 @@ export const sessions: Session[] = [
       "Covered all three phrasal verbs; didn't reach the countable/uncountable sorting game.",
     tutorNotes:
       "Kenji's confidence is climbing fast. Keep leaning on phrasal verbs — he enjoys them and retains them well.",
+    isTrial: false,
   },
   {
     id: "s-sofia-21",
@@ -264,6 +267,7 @@ export const sessions: Session[] = [
       "Reviewed the full essay structure; started but didn't finish the timed practice essay.",
     tutorNotes:
       "Sofia is close to band 7.5 on writing. Variety of linking words is the last 0.5 to unlock.",
+    isTrial: false,
   },
 ];
 

@@ -3,16 +3,21 @@
 // The "Record this session" CTA on a student's page. Student is already known,
 // so it drives the shared recorder hook directly.
 
+import { useState } from "react";
 import { useSessionRecorder, formatElapsed } from "./useSessionRecorder";
 
 export default function SessionRecorder({
   studentId,
   studentName,
+  isFirstLesson,
 }: {
   studentId: string;
   studentName: string;
+  /** Whether this student has no taught lessons yet — used to default the trial checkbox. */
+  isFirstLesson?: boolean;
 }) {
   const { status, elapsed, error, canRetry, start, stop, retry, reset } = useSessionRecorder();
+  const [trial, setTrial] = useState(!!isFirstLesson);
   const firstName = studentName.split(" ")[0];
 
   return (
@@ -27,9 +32,18 @@ export default function SessionRecorder({
               Captures your lesson tab’s audio and your mic, then transcribes and drafts the
               lesson for you — no files, no setup.
             </p>
+            <label className="mt-3 flex items-center gap-2 text-base font-semibold text-ink">
+              <input
+                type="checkbox"
+                checked={trial}
+                onChange={(e) => setTrial(e.target.checked)}
+                className="h-4 w-4 accent-[#d28c00]"
+              />
+              This is a trial lesson — use it to help fill in {firstName}&apos;s profile
+            </label>
           </div>
           <button
-            onClick={() => start(studentId)}
+            onClick={() => start(studentId, trial)}
             className="inline-flex flex-none items-center justify-center gap-2 rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5"
             style={{ boxShadow: "0 10px 24px -10px rgba(210,140,0,.6)" }}
           >

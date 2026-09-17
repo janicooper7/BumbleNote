@@ -124,6 +124,10 @@ export const sessions = pgTable("sessions", {
   nextLesson: jsonb("next_lesson").$type<string[]>().notNull().default([]),
   lessonEndedAt: text("lesson_ended_at").notNull().default(""),
   tutorNotes: text("tutor_notes").notNull().default(""),
+  // Marked by the tutor when recording: tells the AI to also draft a starting
+  // student profile (interests, focus, notes) from the transcript, which
+  // createDraftLessonCore then uses to fill in any profile fields still empty.
+  isTrial: boolean("is_trial").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

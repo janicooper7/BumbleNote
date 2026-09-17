@@ -4,12 +4,13 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Avatar from "./Avatar";
+import LevelBadge from "./LevelBadge";
 import SessionRecorder from "./SessionRecorder";
 import StatusBadge from "./StatusBadge";
 import { ChevronRightIcon } from "./icons";
 import { sortSessions, splitLessonTitle, type Session, type Student } from "@/lib/mock";
 import { buildJourney, warmUpTerms, type JourneyFocus, type Trajectory } from "@/lib/journey";
-import { GOALS, LEVELS } from "@/lib/student-options";
+import { GOALS, LEVEL_DETERMINATION_LESSONS, LEVELS, isLevelDetermined } from "@/lib/student-options";
 import {
   deleteStudent,
   setStudentActive,
@@ -187,7 +188,11 @@ export default function StudentDetailView({
 
       {active && (
         <div className="mt-4">
-          <SessionRecorder studentId={student.id} studentName={profile.name} />
+          <SessionRecorder
+            studentId={student.id}
+            studentName={profile.name}
+            isFirstLesson={lessonsTaught === 0}
+          />
         </div>
       )}
 
@@ -213,6 +218,11 @@ export default function StudentDetailView({
                   <select
                     value={profileDraft.level}
                     onChange={(e) => setProfileDraft((d) => ({ ...d, level: e.target.value }))}
+                    title={
+                      !isLevelDetermined(lessonsTaught)
+                        ? `A starting guess — BumbleNote confirms the real level after ${LEVEL_DETERMINATION_LESSONS} taught lessons.`
+                        : undefined
+                    }
                     className="rounded-lg border border-brand-line bg-white px-2.5 py-1 text-xs font-semibold text-brand-deep outline-none focus:border-brand focus:ring-4 focus:ring-brand/30"
                   >
                     {(LEVELS.includes(profileDraft.level) ? LEVELS : [profileDraft.level, ...LEVELS]).map((l) => (
@@ -222,9 +232,7 @@ export default function StudentDetailView({
                     ))}
                   </select>
                 ) : (
-                  <span className="inline-block rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-deep">
-                    {profile.level}
-                  </span>
+                  <LevelBadge level={profile.level} lessonCount={lessonsTaught} />
                 )}
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
@@ -354,7 +362,7 @@ export default function StudentDetailView({
                   <div className="text-xs font-bold uppercase tracking-wide text-muted">Interests</div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {profile.interests.map((t) => (
-                      <span key={t} className="rounded-full border border-brand-line bg-brand-soft px-3 py-1.5 text-sm font-medium text-brand-deep">
+                      <span key={t} className="rounded-full border border-success/15 bg-success/8 px-3 py-1.5 text-sm font-medium text-success-deep">
                         {t}
                       </span>
                     ))}
@@ -367,7 +375,7 @@ export default function StudentDetailView({
                 <div className="mt-3 flex flex-wrap gap-2">
                   {profile.focus.length > 0 ? (
                     profile.focus.map((f) => (
-                      <span key={f} className="rounded-full border border-amber/25 bg-amber/12 px-3 py-1.5 text-sm font-medium text-brand-deep">
+                      <span key={f} className="rounded-full border border-success/15 bg-success/8 px-3 py-1.5 text-sm font-medium text-success-deep">
                         {f}
                       </span>
                     ))
@@ -500,9 +508,11 @@ export default function StudentDetailView({
                 <Stat
                   k="Level"
                   v={
-                    journey.levelFirst && journey.levelLatest && journey.levelFirst !== journey.levelLatest
-                      ? `${journey.levelFirst} → ${journey.levelLatest}`
-                      : (journey.levelLatest ?? "—")
+                    !isLevelDetermined(lessonsTaught)
+                      ? `Determining · ${lessonsTaught}/${LEVEL_DETERMINATION_LESSONS}`
+                      : journey.levelFirst && journey.levelLatest && journey.levelFirst !== journey.levelLatest
+                        ? `${journey.levelFirst} → ${journey.levelLatest}`
+                        : (journey.levelLatest ?? "—")
                   }
                 />
               </dl>

@@ -3,6 +3,7 @@ import Topbar from "@/components/dashboard/Topbar";
 import Greeting from "@/components/dashboard/Greeting";
 import Avatar from "@/components/dashboard/Avatar";
 import PendingQueue from "@/components/dashboard/PendingQueue";
+import LevelBadge from "@/components/dashboard/LevelBadge";
 import { ArrowUpIcon } from "@/components/dashboard/icons";
 import FailedLessons, { type FailedLessonItem } from "@/components/dashboard/FailedLessons";
 import { currentTutorId } from "@/auth";
@@ -165,9 +166,7 @@ export default async function DashboardHome() {
                     <div className="truncate font-semibold text-ink">{st.name}</div>
                     <div className="truncate text-xs text-muted">{st.goal}</div>
                   </div>
-                  <span className="rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-deep">
-                    {st.level}
-                  </span>
+                  <LevelBadge level={st.level} lessonCount={st.lessonCount} />
                 </Link>
               ))}
             </div>

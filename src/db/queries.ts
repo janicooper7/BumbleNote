@@ -97,6 +97,7 @@ function toSession(r: DbSession): Session {
     nextLesson: r.nextLesson,
     lessonEndedAt: r.lessonEndedAt,
     tutorNotes: r.tutorNotes,
+    isTrial: r.isTrial,
   };
 }
 

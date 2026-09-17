@@ -146,6 +146,7 @@ const handler = async (req: Request): Promise<Response> => {
       studentId: job.studentId,
       transcript,
       durationMin: job.durationMin,
+      isTrial: job.isTrial,
     });
     console.log(`[process] draft created lesson=${id}`);
 

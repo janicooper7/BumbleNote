@@ -36,6 +36,7 @@ export function useSessionRecorder() {
   const startedAt = useRef(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const studentId = useRef("");
+  const isTrial = useRef(false);
   // Fixed at the first upload attempt, so a retry minutes later doesn't inflate it.
   const durationMin = useRef(0);
   const failure = useRef<UploadError | null>(null);
@@ -84,8 +85,9 @@ export function useSessionRecorder() {
     return rec;
   }
 
-  async function start(id: string) {
+  async function start(id: string, trial = false) {
     studentId.current = id;
+    isTrial.current = trial;
     setError(undefined);
     try {
       // Video is required for the tab picker; we only record the audio track,
@@ -187,6 +189,7 @@ export function useSessionRecorder() {
       const { lessonId } = await uploadLessonAudio({
         studentId: studentId.current,
         durationMin: durationMin.current,
+        isTrial: isTrial.current,
         student: blobs.current.student,
         tutor: blobs.current.tutor,
       });

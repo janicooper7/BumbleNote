@@ -159,7 +159,13 @@ export default function NewStudentPage() {
                 placeholder="e.g. Portuguese (optional)"
                 hint="Helps anticipate common errors."
               />
-              <Select label="Current level" value={level} onChange={setLevel} options={LEVELS} hint="CEFR A1–C2." />
+              <Select
+                label="Current level"
+                value={level}
+                onChange={setLevel}
+                options={LEVELS}
+                hint="CEFR A1–C2 — a starting guess. BumbleNote confirms the real level after 4 taught lessons."
+              />
             </div>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">

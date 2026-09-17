@@ -148,6 +148,8 @@ export type UploadLessonAudioOptions = {
   durationMin: number;
   student: Blob;
   tutor: Blob;
+  /** Marked by the tutor as this student's trial/introductory lesson. */
+  isTrial?: boolean;
   /** Bearer token for the extension; the web app relies on session cookies. */
   authToken?: string;
   signal?: AbortSignal;
@@ -156,7 +158,7 @@ export type UploadLessonAudioOptions = {
 export async function uploadLessonAudio(
   opts: UploadLessonAudioOptions,
 ): Promise<{ lessonId: string }> {
-  const { studentId, durationMin, authToken, signal } = opts;
+  const { studentId, durationMin, isTrial, authToken, signal } = opts;
   const uploadId = crypto.randomUUID();
 
   // Trim before slicing: every byte of silence we drop here is a byte we do not
@@ -211,7 +213,7 @@ export async function uploadLessonAudio(
       {
         method: "POST",
         headers: { "content-type": "application/json", ...authHeader },
-        body: JSON.stringify({ uploadId, studentId, durationMin, parts, trimMaps }),
+        body: JSON.stringify({ uploadId, studentId, durationMin, isTrial, parts, trimMaps }),
         signal,
       },
       signal,

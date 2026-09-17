@@ -18,6 +18,8 @@ export type CreateDraftLessonInput = {
   studentId: string;
   transcript: string;
   durationMin: number;
+  /** Marked by the tutor as this student's trial/introductory lesson. */
+  isTrial?: boolean;
 };
 
 /** Split a student's "B1 → B2" level into from/to, tolerant of odd input. */
@@ -76,6 +78,7 @@ export async function createDraftLessonCore(
     interests: student.interests ?? undefined,
     // Undefined for a first lesson, which keeps that prompt free of empty headings.
     journey: journeyPromptBlock(buildJourney(priorSessions)),
+    isTrial: input.isTrial,
   });
 
   // Lesson number counts drafts too — the tutor taught the lesson whether or not
@@ -121,8 +124,32 @@ export async function createDraftLessonCore(
       nextLesson: feedback.nextLesson,
       lessonEndedAt: feedback.lessonEndedAt,
       tutorNotes: feedback.tutorNotes,
+      isTrial: input.isTrial ?? false,
     }),
   );
+
+  // A trial lesson's transcript often has the student introducing themselves —
+  // interests, why they're learning, background. Fold that into the profile, but
+  // only into fields still empty as of this read: never overwrite something the
+  // tutor already typed in.
+  if (input.isTrial && feedback.studentProfile) {
+    const patch: Partial<typeof students.$inferInsert> = {};
+    if ((student.interests?.length ?? 0) === 0 && feedback.studentProfile.interests.length > 0) {
+      patch.interests = feedback.studentProfile.interests;
+    }
+    if (student.focus.length === 0 && feedback.studentProfile.focus.length > 0) {
+      patch.focus = feedback.studentProfile.focus;
+    }
+    if (!student.notes.trim() && feedback.studentProfile.notes.trim()) {
+      patch.notes = feedback.studentProfile.notes.trim();
+    }
+    if (Object.keys(patch).length > 0) {
+      await db
+        .update(students)
+        .set(patch)
+        .where(and(eq(students.tutorId, tutorId), eq(students.id, student.id)));
+    }
+  }
 
   // Feeds the free trial's lifetime limit (src/lib/quota.ts). Counted only once
   // the lesson exists, so an upload that fails before this point doesn't use up

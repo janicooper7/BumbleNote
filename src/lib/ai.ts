@@ -60,6 +60,13 @@ export type LessonContext = {
    * ago and reports the same weakness every week as though it were news.
    */
   journey?: string;
+  /**
+   * Marked by the tutor as this student's trial/introductory lesson. When set,
+   * the response also includes `studentProfile` — a starting profile drawn from
+   * what the student says about themselves, which createDraftLessonCore uses to
+   * fill in profile fields the tutor hasn't had time to set up yet.
+   */
+  isTrial?: boolean;
 };
 
 /** The structured feedback Claude returns for one lesson. */
@@ -75,6 +82,15 @@ export type GeneratedFeedback = {
   nextLesson: string[];
   lessonEndedAt: string;
   tutorNotes: string;
+  /** Only present when the request was flagged as a trial lesson. */
+  studentProfile?: StudentProfileDraft;
+};
+
+/** A starting student profile drafted from a trial lesson's transcript. */
+export type StudentProfileDraft = {
+  interests: string[];
+  focus: string[];
+  notes: string;
 };
 
 // JSON schema for structured outputs. Every object needs additionalProperties:false
@@ -131,6 +147,27 @@ const FEEDBACK_SCHEMA = {
   ],
 } as const;
 
+const PROFILE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    interests: { type: "array", items: { type: "string" } },
+    focus: { type: "array", items: { type: "string" } },
+    notes: { type: "string" },
+  },
+  required: ["interests", "focus", "notes"],
+} as const;
+
+/** The base feedback schema, plus `studentProfile` for a flagged trial lesson. */
+function feedbackSchema(includeProfile: boolean): { [key: string]: unknown } {
+  if (!includeProfile) return FEEDBACK_SCHEMA;
+  return {
+    ...FEEDBACK_SCHEMA,
+    properties: { ...FEEDBACK_SCHEMA.properties, studentProfile: PROFILE_SCHEMA },
+    required: [...FEEDBACK_SCHEMA.required, "studentProfile"],
+  };
+}
+
 const SYSTEM_PROMPT = `You are an expert English-language tutor writing structured post-lesson feedback from a transcript of a one-to-one lesson. The transcript labels turns as "Tutor:" and "Student:".
 
 Produce feedback that is warm, specific, and grounded ONLY in what the transcript shows — never invent achievements or vocabulary that didn't come up. Voice — this matters:
@@ -152,13 +189,33 @@ Field guidance:
 - observedLevel: the CEFR level (A1–C2) the student actually demonstrated this lesson, based on their output — not their target.
 - talkTime: your best estimate of the share of speaking time, as two integers (tutor + student) that sum to 100. In a healthy lesson the student speaks at least half.
 - vocab: words or phrases that genuinely came up and are worth reviewing — scale the count to the lesson. A short or slow lesson may only yield 3–5, while a full ~50-minute lesson rich in language typically supports 8–12. Never pad the list with terms that didn't genuinely come up just to reach a number. For each: the term, a short plain-English meaning, and one natural example sentence (prefer the student's own context/interests when it fits).
-- wentWell: 2–3 concrete strengths shown in the transcript. Every item starts with "You" (e.g. "You told the story of the baptism in real detail and kept the thread even when interrupted.").
-- focus: 2–3 specific areas to improve, spoken to the student in a full sentence that includes "you", phrased constructively; include the correction where useful (e.g. 'You tend to add "the" before abstract nouns where English leaves it out ("the advice" → "advice").').
+- wentWell: exactly 2 concrete strengths shown in the transcript, the strongest two. Every item starts with "You" (e.g. "You told the story of the baptism in real detail and kept the thread even when interrupted.").
+- focus: exactly 2 specific areas to improve, the most important two, spoken to the student in a full sentence that includes "you", phrased constructively; include the correction where useful (e.g. 'You tend to add "the" before abstract nouns where English leaves it out ("the advice" → "advice").').
 - homework: one short, concrete task that practises this lesson's language, written as an instruction to the student.
 - additionalInfo: a brief encouraging note to the student, in the tutor's voice.
 - nextLesson: 2–3 planned activities that build on where this lesson ended.
 - lessonEndedAt: one sentence on what was covered and where the lesson stopped.
 - tutorNotes: private notes for the tutor — the student's trajectory and the single most useful thing to work on next.`;
+
+// Appended to SYSTEM_PROMPT only when the request is flagged as a trial lesson —
+// keeps every other call's prompt (and cost) unchanged.
+const TRIAL_PROFILE_ADDENDUM = `
+
+Trial-lesson profile extraction:
+This is the student's trial/introductory lesson, so also draft a starting profile
+for them from what the transcript actually shows — the tutor hasn't had time to
+set one up yet, and this saves them doing it by hand. Ground every item in the
+transcript; leave a list empty rather than guess.
+- studentProfile.interests: topics, hobbies or context the student mentions caring
+  about (their job, travel, a sport, a show, why they're learning English) — short
+  phrases, only ones they actually raised.
+- studentProfile.focus: recurring language weaknesses worth tracking across future
+  lessons, as short topic labels (e.g. "Articles", "Past tense", "/θ/ pronunciation")
+  — not full sentences, and not necessarily the same two items as the "focus" field
+  above, which is capped at the two most important for the student-facing report.
+- studentProfile.notes: 2–4 sentences written to the tutor, not the student —
+  who this person is and what's worth remembering for planning future lessons
+  (why they're learning English, background, goals, anything else useful).`;
 
 /**
  * Generate structured lesson feedback from a transcript. Throws if the key is
@@ -188,7 +245,8 @@ export async function generateLessonFeedback(
     .filter(Boolean)
     .join("\n");
 
-  return runFeedbackPrompt(SYSTEM_PROMPT, userContent, "this transcript");
+  const system = context.isTrial ? SYSTEM_PROMPT + TRIAL_PROFILE_ADDENDUM : SYSTEM_PROMPT;
+  return runFeedbackPrompt(system, userContent, "this transcript", !!context.isTrial);
 }
 
 const MERGE_SYSTEM_PROMPT = `You are an expert English-language tutor. A one-to-one lesson was interrupted — the call dropped and was recorded in several parts — and feedback was drafted separately for each part. Combine those drafts into the single feedback report the student would have received had the lesson been recorded in one go.
@@ -204,8 +262,8 @@ Field guidance:
 - observedLevel: the CEFR level the student demonstrated across the whole lesson.
 - talkTime: copy any part's values; it is recalculated afterwards.
 - vocab: the union of the parts' vocabulary with duplicates merged (keep the better meaning and example). Don't drop genuine terms to shorten the list.
-- wentWell: 2–3 strengths, the strongest across all parts.
-- focus: 2–3 areas to improve, the most important across all parts, with corrections where the drafts give them.
+- wentWell: exactly 2 strengths, the strongest across all parts.
+- focus: exactly 2 areas to improve, the most important across all parts, with corrections where the drafts give them.
 - homework: one concrete task covering the lesson's language. Combine the parts' tasks only if it stays short.
 - additionalInfo: one brief encouraging note.
 - nextLesson: 2–3 activities that build on where the LAST part ended.
@@ -255,13 +313,14 @@ export async function mergeLessonFeedback(
     ),
   ].join("\n");
 
-  return runFeedbackPrompt(MERGE_SYSTEM_PROMPT, userContent, "these lesson parts");
+  return runFeedbackPrompt(MERGE_SYSTEM_PROMPT, userContent, "these lesson parts", false);
 }
 
 async function runFeedbackPrompt(
   system: string,
   userContent: string,
   subject: string,
+  includeProfile: boolean,
 ): Promise<GeneratedFeedback> {
   // Stream rather than a single blocking request. A long lesson (e.g. a 49-min
   // transcript) is a large input with meaningful output + thinking, and a
@@ -276,7 +335,7 @@ async function runFeedbackPrompt(
     thinking: { type: "adaptive" },
     output_config: {
       effort: "medium",
-      format: { type: "json_schema", schema: FEEDBACK_SCHEMA },
+      format: { type: "json_schema", schema: feedbackSchema(includeProfile) },
     },
     system,
     messages: [{ role: "user", content: userContent }],

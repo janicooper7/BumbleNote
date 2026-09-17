@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import Avatar from "./Avatar";
+import LevelBadge from "./LevelBadge";
 import { ArrowUpIcon, ChevronRightIcon, SearchIcon } from "./icons";
 import type { Student } from "@/lib/mock";
 
@@ -144,8 +145,8 @@ function StudentRow({
         </div>
       </div>
 
-      <span className="hidden flex-none rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-deep sm:inline-block">
-        {st.level}
+      <span className="hidden flex-none sm:inline-flex">
+        <LevelBadge level={st.level} lessonCount={st.lessonCount} />
       </span>
 
       <div className="hidden flex-none items-center gap-6 md:flex">
