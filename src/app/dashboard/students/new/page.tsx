@@ -7,7 +7,7 @@ import Field from "@/components/auth/Field";
 import Avatar from "@/components/dashboard/Avatar";
 import { createStudent } from "@/app/actions/students";
 
-const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
+const LEVELS = ["Not sure yet", "A1", "A2", "B1", "B2", "C1", "C2"];
 const GOALS = [
   "Conversational",
   "Business English",
@@ -165,7 +165,7 @@ export default function NewStudentPage() {
                 name="native"
                 value={native}
                 onChange={setNative}
-                placeholder="e.g. Portuguese"
+                placeholder="e.g. Portuguese (optional)"
                 hint="Helps anticipate common errors."
               />
               <Select label="Current level" value={level} onChange={setLevel} options={LEVELS} hint="CEFR A1–C2." />

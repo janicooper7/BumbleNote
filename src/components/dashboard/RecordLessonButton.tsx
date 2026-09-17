@@ -94,7 +94,7 @@ export default function RecordLessonButton({
                     {quota.trial ? (
                       <>
                         <div className="font-semibold text-ink">
-                          You&apos;ve used your free trial lesson
+                          You&apos;ve used your {quota.limit} free trial lessons
                         </div>
                         <p className="mt-1">
                           Choose a plan to keep recording lessons and building each
@@ -169,7 +169,7 @@ export default function RecordLessonButton({
                 {/* Only worth the space once the allowance is nearly gone. */}
                 {quota.allowed && quota.trial ? (
                   <p className="mt-3 text-center text-xs text-muted">
-                    This is your free trial lesson.
+                    {quota.remaining} of {quota.limit} free trial lessons left.
                   </p>
                 ) : (
                   quota.allowed &&

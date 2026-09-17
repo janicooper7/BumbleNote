@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { auth, currentTutorId } from "@/auth";
 import Sidebar from "@/components/dashboard/Sidebar";
-import { getStudents, getTutor } from "@/db/queries";
+import { getStudents, getTutor, hasCombinableLessons } from "@/db/queries";
 import { lessonUsage } from "@/lib/quota";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -25,10 +25,11 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [session, tutorId] = await Promise.all([auth(), currentTutorId()]);
-  const [allStudents, usage, tutor] = await Promise.all([
+  const [allStudents, usage, tutor, canCombineLessons] = await Promise.all([
     getStudents(),
     lessonUsage(tutorId),
     getTutor(),
+    hasCombinableLessons(),
   ]);
 
   // Terms gate (see lib/terms). A Google signup accepted on the signup page and
@@ -63,7 +64,12 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar user={user} students={students} quota={quota} />
+      <Sidebar
+        user={user}
+        students={students}
+        quota={quota}
+        canCombineLessons={canCombineLessons}
+      />
       <div className="min-w-0 flex-1">{children}</div>
     </div>
   );

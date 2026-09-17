@@ -17,7 +17,7 @@ import {
 } from "./schema";
 import { currentTutorId } from "@/auth";
 import type { AttachmentMeta } from "@/lib/attachments";
-import { MERGE_WINDOW_HOURS, type MergeCandidate } from "@/lib/merge";
+import { MERGE_WINDOW_HOURS, MERGEABLE_MAX_DURATION_MIN, type MergeCandidate } from "@/lib/merge";
 import type { Session, Student } from "@/lib/mock";
 
 function toStudent(r: DbStudent): Student {
@@ -282,6 +282,45 @@ export async function getMergeCandidates(sessionId: string): Promise<MergeCandid
     .orderBy(sessions.createdAt);
   if (rows.length < 2) return [];
   return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
+}
+
+/**
+ * Whether any student has two or more unsent lessons, recorded within
+ * MERGE_WINDOW_HOURS of each other, where at least one runs under
+ * MERGEABLE_MAX_DURATION_MIN — i.e. a plausible dropped call, and something
+ * the sidebar's "Combine lessons" CTA could actually offer. A 40-minute
+ * lesson followed by a 10-minute reconnect still counts, so long as one part
+ * is short; two full-length lessons that happen to be close together don't.
+ * Drives whether that button shows at all.
+ */
+export async function hasCombinableLessons(): Promise<boolean> {
+  const tutorId = await currentTutorId();
+  const rows = await db
+    .select({
+      studentId: sessions.studentId,
+      durationMin: sessions.durationMin,
+      createdAt: sessions.createdAt,
+    })
+    .from(sessions)
+    .where(and(eq(sessions.tutorId, tutorId), ne(sessions.status, "sent")))
+    .orderBy(asc(sessions.studentId), asc(sessions.createdAt));
+
+  const windowMs = MERGE_WINDOW_HOURS * 3_600_000;
+  let groupStart = 0;
+  for (let i = 0; i < rows.length; i++) {
+    if (i > 0 && rows[i].studentId !== rows[i - 1].studentId) groupStart = i;
+    for (let j = i - 1; j >= groupStart; j--) {
+      const gap = rows[i].createdAt.getTime() - rows[j].createdAt.getTime();
+      if (gap > windowMs) break; // sorted by time, so earlier j only gets further away
+      if (
+        rows[i].durationMin < MERGEABLE_MAX_DURATION_MIN ||
+        rows[j].durationMin < MERGEABLE_MAX_DURATION_MIN
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 /** Names and sizes of the files attached to a lesson — no file contents. */

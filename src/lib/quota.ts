@@ -114,7 +114,7 @@ export async function assertLessonQuota(tutorId: string): Promise<LessonUsage> {
   if (!usage.allowed) {
     throw new QuotaError(
       usage.plan.lessonWindow === "lifetime"
-        ? `You've used your free trial lesson. Choose a plan to keep recording lessons.`
+        ? `You've used your ${usage.limit} free trial lessons. Choose a plan to keep recording lessons.`
         : `You've used all ${usage.limit} lessons on the ${usage.plan.name} plan this month. ` +
             `Your allowance resets on the 1st — upgrade to keep recording before then.`,
       usage.plan,

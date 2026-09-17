@@ -126,7 +126,7 @@ export async function createDraftLessonCore(
 
   // Feeds the free trial's lifetime limit (src/lib/quota.ts). Counted only once
   // the lesson exists, so an upload that fails before this point doesn't use up
-  // the tutor's one trial — and only for a recording long enough to be a lesson.
+  // the tutor's trial allowance — and only for a recording long enough to be a lesson.
   if (countsAsLesson(durationMin)) {
     await db
       .update(tutors)

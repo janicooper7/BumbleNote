@@ -1,9 +1,11 @@
 "use client";
 
-// Sidebar "Combine lessons" button, under "Record a lesson". Always available:
-// the tutor picks a student, then ticks that student's unsent lessons to combine
-// into one. Lessons are only ever listed one student at a time, so recordings of
-// different students can't be mixed — and mergeSessions re-checks it anyway.
+// Sidebar "Combine lessons" button, under "Record a lesson". Only rendered
+// (see Sidebar/dashboard layout, hasCombinableLessons) once some student has
+// two+ short lessons worth combining. Once open, the tutor picks a student,
+// then ticks that student's unsent lessons to combine into one. Lessons are
+// only ever listed one student at a time, so recordings of different students
+// can't be mixed — and mergeSessions re-checks it anyway.
 
 import { useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";

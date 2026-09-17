@@ -148,7 +148,7 @@ export default function TermsPage() {
 
       <Clause id="plans" heading="Plans and payment">
         <p>
-          BumbleNote has a free trial of one lesson with one student, and paid plans
+          BumbleNote has a free trial of two lessons with one student, and paid plans
           with monthly lesson allowances. Current prices and limits are shown on our
           pricing page. Paid allowances reset on the 1st of each month; the free trial
           does not reset.

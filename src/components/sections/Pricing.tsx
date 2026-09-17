@@ -77,7 +77,7 @@ export default function Pricing() {
             Plans that scale with your teaching week.
           </h2>
           <p className="mt-4 text-lg text-ink-soft">
-            Try it free with 1 student and 1 lesson. No card required. Cancel anytime.
+            Try it free with 1 student and 2 lessons. No card required. Cancel anytime.
           </p>
         </Reveal>
 

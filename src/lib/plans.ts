@@ -28,8 +28,8 @@ export type Plan = {
 };
 
 export const PLANS: Record<PlanId, Plan> = {
-  // One trial lesson, ever, with one student.
-  free: { id: "free", name: "Free", lessons: 1, lessonWindow: "lifetime", students: 1 },
+  // Two trial lessons, ever, with one student.
+  free: { id: "free", name: "Free", lessons: 2, lessonWindow: "lifetime", students: 1 },
   starter: { id: "starter", name: "Starter", lessons: 30, lessonWindow: "month", students: null },
   advanced: { id: "advanced", name: "Advanced", lessons: 75, lessonWindow: "month", students: null },
   pro: { id: "pro", name: "Pro", lessons: 130, lessonWindow: "month", students: null },
