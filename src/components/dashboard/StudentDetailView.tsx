@@ -188,11 +188,7 @@ export default function StudentDetailView({
 
       {active && (
         <div className="mt-4">
-          <SessionRecorder
-            studentId={student.id}
-            studentName={profile.name}
-            isFirstLesson={lessonsTaught === 0}
-          />
+          <SessionRecorder studentId={student.id} studentName={profile.name} />
         </div>
       )}
 

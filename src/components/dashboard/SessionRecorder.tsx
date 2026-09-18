@@ -9,15 +9,12 @@ import { useSessionRecorder, formatElapsed } from "./useSessionRecorder";
 export default function SessionRecorder({
   studentId,
   studentName,
-  isFirstLesson,
 }: {
   studentId: string;
   studentName: string;
-  /** Whether this student has no taught lessons yet — used to default the trial checkbox. */
-  isFirstLesson?: boolean;
 }) {
   const { status, elapsed, error, canRetry, start, stop, retry, reset } = useSessionRecorder();
-  const [trial, setTrial] = useState(!!isFirstLesson);
+  const [trial, setTrial] = useState(false);
   const firstName = studentName.split(" ")[0];
 
   return (
