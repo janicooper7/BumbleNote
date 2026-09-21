@@ -8,15 +8,15 @@ const STEP_MS = 7200;
 const steps = [
   {
     n: 1,
-    tag: "extension",
-    title: "Hit record, then forget it",
-    body: "Pick the student in the extension and start. No bot joins your call — then teach exactly how you always do.",
+    tag: "recording",
+    title: "Hit record, then teach as usual",
+    body: "Open BumbleNote beside your lesson, pick your student, and share your lesson tab with its audio. No bot joins your call. Keep the BumbleNote tab open while you teach.",
   },
   {
     n: 2,
     tag: "listening",
     title: "It listens & separates",
-    body: "BumbleNote captures the conversation and cleanly tells your voice apart from your student's — no diarization guesswork.",
+    body: "Your lesson tab carries your student's voice and your mic carries yours, so the two are kept apart from the start — no guessing who said what.",
   },
   {
     n: 3,
@@ -36,6 +36,11 @@ export default function HowItWorks() {
   const [active, setActive] = useState(0);
   const [inView, setInView] = useState(false);
   const [reduced, setReduced] = useState(false);
+  // Someone picked a step themselves: stop auto-advancing for good. The demo is
+  // theirs now, and it shouldn't be pulled to the next step mid-read.
+  const [manual, setManual] = useState(false);
+  // Pointer or keyboard focus is inside the demo: hold the current step.
+  const [paused, setPaused] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
 
   // reduced-motion preference
@@ -59,12 +64,10 @@ export default function HowItWorks() {
     return () => io.disconnect();
   }, []);
 
-  // auto-advance loop
-  useEffect(() => {
-    if (!inView || reduced) return;
-    const t = setTimeout(() => setActive((a) => (a + 1) % steps.length), STEP_MS);
-    return () => clearTimeout(t);
-  }, [active, inView, reduced]);
+  // Auto-advance is driven by the progress bar's own CSS animation (see
+  // onAnimationEnd below) rather than a separate timer, so pausing the bar with
+  // animation-play-state pauses the advance too — the two can't drift apart.
+  const auto = inView && !reduced && !manual;
 
   return (
     <section id="how" className="py-24">
@@ -78,20 +81,29 @@ export default function HowItWorks() {
           </h2>
           <p className="mt-4 text-lg text-ink-soft">
             Start your lesson as usual. BumbleNote handles the rest and hands you a draft
-            the moment you hang up.
+            when you stop recording.
           </p>
         </Reveal>
 
         <Reveal className="grid items-center gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-12">
           {/* ---- progress steps ---- */}
-          <ol className="flex flex-col gap-2.5">
+          <ol
+            className="flex flex-col gap-2.5"
+            onMouseEnter={() => setPaused(true)}
+            onMouseLeave={() => setPaused(false)}
+            onFocus={() => setPaused(true)}
+            onBlur={() => setPaused(false)}
+          >
             {steps.map((s, i) => {
               const isActive = i === active;
               return (
                 <li key={s.n}>
                   <button
                     type="button"
-                    onClick={() => setActive(i)}
+                    onClick={() => {
+                      setActive(i);
+                      setManual(true);
+                    }}
                     aria-current={isActive ? "step" : undefined}
                     className={`group flex w-full gap-4 rounded-[18px] border p-4 text-left transition-all duration-300 sm:p-5 ${
                       isActive
@@ -130,10 +142,18 @@ export default function HowItWorks() {
                           className="block h-full rounded-full bg-brand"
                           style={
                             isActive
-                              ? !reduced && inView
-                                ? { animation: `ct-progress ${STEP_MS}ms linear forwards` }
+                              ? auto
+                                ? {
+                                    animation: `ct-progress ${STEP_MS}ms linear forwards`,
+                                    animationPlayState: paused ? "paused" : "running",
+                                  }
                                 : { width: "100%" }
                               : { width: 0 }
+                          }
+                          onAnimationEnd={
+                            isActive && auto
+                              ? () => setActive((a) => (a + 1) % steps.length)
+                              : undefined
                           }
                         />
                       </span>
@@ -144,9 +164,14 @@ export default function HowItWorks() {
             })}
           </ol>
 
-          {/* ---- animated app window ---- */}
+          {/* ---- animated app window ----
+              Pure illustration of the step beside it, so it's hidden from assistive
+              tech rather than read out as a second, mock UI. */}
           <div
             ref={stageRef}
+            aria-hidden
+            onMouseEnter={() => setPaused(true)}
+            onMouseLeave={() => setPaused(false)}
             className="overflow-hidden rounded-[24px] border border-line bg-surface shadow-soft-lg"
           >
             {/* window chrome */}
@@ -161,7 +186,7 @@ export default function HowItWorks() {
 
             {/* scene */}
             <div className="relative min-h-[380px] p-6 sm:min-h-[420px] sm:p-8">
-              <Scene key={active} step={active} playing={inView && !reduced} />
+              <Scene key={active} step={active} playing={inView && !reduced && !paused} />
             </div>
           </div>
         </Reveal>
@@ -183,37 +208,44 @@ function rise(delay: number): React.CSSProperties {
   return { animationDelay: `${delay}ms` };
 }
 
-/* Step 1 — extension popup, recording */
+/* Step 1 — pick the student, share the lesson tab, recording */
 function SceneRecord({ playing }: { playing: boolean }) {
   return (
     <div className="flex h-full flex-col items-center justify-center">
-      <div className="ct-rise w-full max-w-[320px] rounded-[20px] border border-line bg-white p-5 shadow-soft-md">
-        <div className="mb-4 flex items-center gap-2 text-[.72rem] font-bold uppercase tracking-widest text-muted">
-          <span className="grid h-6 w-6 place-items-center rounded-md bg-brand text-ink">☁</span>
-          BumbleNote
-        </div>
+      <div className="ct-rise w-full max-w-[340px] rounded-[20px] border border-line bg-white p-5 shadow-soft-md">
+        <div className="font-display text-lg font-medium text-ink">Record a lesson</div>
+        <p className="mb-3 text-sm text-ink-soft">Who is this lesson with?</p>
 
-        <div className="mb-1 text-[.72rem] font-semibold uppercase tracking-wide text-muted">
-          Student
-        </div>
-        <div className="mb-5 flex items-center gap-3 rounded-xl border border-brand-line bg-brand-soft px-3 py-2.5">
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-brand-line bg-brand-soft px-3 py-2.5">
           <span className="grid h-8 w-8 place-items-center rounded-full bg-brand text-sm font-semibold text-ink">
             M
           </span>
           <span className="font-medium text-ink">Maria García</span>
-          <span className="ml-auto text-brand-deep">▾</span>
+          <span className="ml-auto text-brand-deep">✓</span>
         </div>
 
-        <div className="ct-rise flex items-center justify-center gap-3 rounded-xl bg-ink px-4 py-3 text-white" style={rise(220)}>
+        <div className="ct-rise mb-4 rounded-xl border border-line bg-bg-tint/60 p-3 text-[.82rem]" style={rise(200)}>
+          <div className="mb-2 font-semibold text-ink">Your browser asks what to share</div>
+          {["Your lesson tab", "Share tab audio"].map((t) => (
+            <div key={t} className="mt-1 flex items-center gap-2 text-ink-soft">
+              <span className="grid h-4 w-4 place-items-center rounded-[4px] bg-brand text-[.62rem] font-bold text-ink">
+                ✓
+              </span>
+              {t}
+            </div>
+          ))}
+        </div>
+
+        <div className="ct-rise flex items-center justify-center gap-3 rounded-xl bg-ink px-4 py-3 text-white" style={rise(400)}>
           <span className={`h-3 w-3 rounded-full bg-[#ff6b6b] ${playing ? "animate-pulse-dot" : ""}`} />
           <span className="font-medium">Recording</span>
           <span className="font-display tabular-nums text-white/80">00:14</span>
         </div>
-
-        <p className="ct-rise mt-3 text-center text-[.78rem] text-muted" style={rise(360)}>
-          No bot in your call · teach as usual
-        </p>
       </div>
+
+      <p className="ct-rise mt-3 text-center text-[.78rem] text-muted" style={rise(520)}>
+        No bot in your call · keep this tab open while you teach
+      </p>
     </div>
   );
 }
@@ -353,16 +385,15 @@ function SceneSend() {
       </div>
 
       <div className="ct-rise mt-4 flex items-center gap-3" style={rise(240)}>
-        <button
-          type="button"
-          className="flex items-center gap-2 rounded-xl bg-brand px-5 py-3 font-medium text-ink shadow-soft-sm"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        {/* A picture of the button, not a control — a real <button> here would be
+            a keyboard tab stop that does nothing. */}
+        <span className="flex items-center gap-2 rounded-xl bg-brand px-5 py-3 font-medium text-ink shadow-soft-sm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="m22 2-7 20-4-9-9-4Z" />
             <path d="M22 2 11 13" />
           </svg>
           Send PDF
-        </button>
+        </span>
         <span className="text-[.86rem] text-ink-soft">
           → maria@email.com · audio discarded
         </span>

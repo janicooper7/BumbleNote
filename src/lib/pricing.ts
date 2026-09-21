@@ -8,7 +8,8 @@ export type PaidPlanId = (typeof PAID_PLAN_IDS)[number];
 export type BillingInterval = "month" | "year";
 
 /**
- * Must match src/components/sections/Pricing.tsx. Annual is ten months' price
+ * src/components/sections/Pricing.tsx renders these directly (including the
+ * "save $X a year" line, which is month × 12 − year). Annual is ten months' price
  * for twelve ("2 months free"). Stripe prices are immutable, so changing a
  * number here does nothing until scripts/stripe-setup.ts is re-run — it creates
  * a new price and moves the lookup key onto it. Existing subscribers stay on

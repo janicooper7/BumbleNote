@@ -14,6 +14,8 @@ export default function SiteFooter() {
         <div className="flex flex-wrap gap-6 text-[.95rem]">
           <Link href="/#how" className="transition-colors hover:text-ink">How it works</Link>
           <Link href="/#pricing" className="transition-colors hover:text-ink">Pricing</Link>
+          <Link href="/#faq" className="transition-colors hover:text-ink">FAQ</Link>
+          <Link href="/login" className="transition-colors hover:text-ink">Log in</Link>
           <Link href="/terms" className="transition-colors hover:text-ink">Terms</Link>
           <Link href="/privacy" className="transition-colors hover:text-ink">Privacy</Link>
           <a href={`mailto:${LEGAL.contactEmail}`} className="transition-colors hover:text-ink">

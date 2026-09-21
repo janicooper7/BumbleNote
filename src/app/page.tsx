@@ -5,11 +5,12 @@ import SiteHeader from "@/components/SiteHeader";
 import Hero from "@/components/sections/Hero";
 import PlatformStrip from "@/components/sections/PlatformStrip";
 import HowItWorks from "@/components/sections/HowItWorks";
-import Transformation from "@/components/sections/Transformation";
 import FeedbackSplit from "@/components/sections/FeedbackSplit";
+import MidCta from "@/components/sections/MidCta";
 import Journey from "@/components/sections/Journey";
 import PrivacyBadge from "@/components/sections/PrivacyBadge";
 import Pricing from "@/components/sections/Pricing";
+import Faq from "@/components/sections/Faq";
 import CtaBand from "@/components/sections/CtaBand";
 import SiteFooter from "@/components/sections/SiteFooter";
 
@@ -23,21 +24,28 @@ export const metadata: Metadata = {
 
 export default async function Home() {
   const session = await auth();
+  const signedIn = !!session?.user;
 
   return (
     <>
+      {/* Scroll-reveal starts sections at opacity 0 and needs JS to lift it; with
+          scripts off, show everything rather than a blank page. */}
+      <noscript>
+        <style>{`.reveal{opacity:1;transform:none;transition:none}`}</style>
+      </noscript>
       <SiteHeader user={session?.user} />
       <BeeFlight />
       <main>
-        <Hero />
+        <Hero signedIn={signedIn} />
         <PlatformStrip />
         <HowItWorks />
-        <Transformation />
         <FeedbackSplit />
+        <MidCta signedIn={signedIn} />
         <Journey />
         <PrivacyBadge />
-        <Pricing />
-        <CtaBand />
+        <Pricing signedIn={signedIn} />
+        <Faq />
+        <CtaBand signedIn={signedIn} />
       </main>
       <SiteFooter />
     </>

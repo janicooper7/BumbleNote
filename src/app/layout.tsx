@@ -18,9 +18,9 @@ const hanken = Hanken_Grotesk({
   weight: ["400", "500", "600", "700"],
 });
 
-const TITLE = "BumbleNote — AI notes for online language tutors";
+const TITLE = "BumbleNote — AI lesson notes for online English tutors";
 const DESCRIPTION =
-  "BumbleNote listens to your 1-on-1 English lessons on Zoom and Google Meet, then writes the feedback for you — vocabulary, practice areas, and a progress journey for every student.";
+  "BumbleNote records your 1-to-1 English lessons right in your browser — nothing to install — then writes the feedback for you: vocabulary, practice areas, and a progress journey for every student.";
 
 export const metadata: Metadata = {
   // Without metadataBase, every relative URL below (the canonical link and the

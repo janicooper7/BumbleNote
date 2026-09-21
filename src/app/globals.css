@@ -10,7 +10,10 @@
   --color-surface:    #ffffff;
   --color-ink:        #16233d;
   --color-ink-soft:   #4d5d79;
-  --color-muted:      #8c9ab0;
+  /* ≥4.5:1 on the cream page and on white. It carries a lot of small type (captions,
+     footer links, uppercase labels), so it has to clear AA rather than just look
+     quiet. */
+  --color-muted:      #66748b;
   --color-brand:      #fdb300;
   --color-brand-lit:  #ffd143;
   /* Honey is only ~1.8:1 on white, so it never carries text. --brand-deep is the
@@ -54,7 +57,9 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+/* scroll-padding clears the 78px sticky header, so every #anchor lands with its
+   heading visible instead of tucked underneath it. */
+html { scroll-behavior: smooth; scroll-padding-top: 92px; }
 
 body {
   background: var(--color-bg);

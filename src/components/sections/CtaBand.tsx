@@ -1,7 +1,7 @@
-import Link from "next/link";
 import Reveal from "../Reveal";
+import CtaLink from "../CtaLink";
 
-export default function CtaBand() {
+export default function CtaBand({ signedIn = false }: { signedIn?: boolean }) {
   return (
     <section className="py-24">
       <div className="mx-auto w-full max-w-[1160px] px-8">
@@ -21,14 +21,14 @@ export default function CtaBand() {
               Spend your energy teaching. Let BumbleNote remember, write, and track the
               rest.
             </p>
-            <Link
-              href="/signup"
-              className="group relative mt-8 inline-flex items-center gap-2 rounded-full bg-brand px-7 py-3.5 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5"
-              style={{ boxShadow: "0 10px 24px -10px rgba(210,140,0,.6)" }}
-            >
-              Start free trial
-              <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
-            </Link>
+            <CtaLink href={signedIn ? "/dashboard" : "/signup"} arrow className="relative mt-8">
+              {signedIn ? "Go to your dashboard" : "Start free trial"}
+            </CtaLink>
+            {!signedIn && (
+              <p className="relative mt-4 text-[.9rem] text-ink-soft">
+                Free for 1 student and 2 lessons · no card required
+              </p>
+            )}
           </div>
         </Reveal>
       </div>

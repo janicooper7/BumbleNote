@@ -1,73 +1,80 @@
-import Link from "next/link";
-import Reveal from "../Reveal";
+import CtaLink from "../CtaLink";
 import HeroVisual from "./HeroVisual";
-import { avatarUri } from "@/lib/avatar";
 
-const heroFaces = ["Ava tutor", "Marco tutor", "Lena tutor", "Sofia tutor"];
+// Nothing in here waits on client JS to become visible: the entrance is a plain
+// CSS animation (`ct-rise`), so the headline paints with the first HTML instead
+// of after hydration.
 
-export default function Hero() {
+const points = [
+  "Vocabulary in context, plus the mistakes you’d never catch mid-lesson",
+  "A progress plan for every student, built from all their lessons",
+  "Nothing to install — no bot joins your call",
+];
+
+export default function Hero({ signedIn = false }: { signedIn?: boolean }) {
   return (
     <section className="pb-16 pt-20">
       <div className="mx-auto grid w-full max-w-[1160px] grid-cols-1 items-center gap-16 px-8 md:grid-cols-[1.05fr_.95fr]">
         {/* copy */}
         <div>
-          <Reveal delay={80}>
-            <h1 className="mt-6 font-display text-[clamp(2.6rem,5.6vw,4.3rem)] font-medium leading-[1.05] tracking-tight">
-              Teach the lesson.{" "}
-              <em className="italic text-brand-deep">
-                The feedback writes itself.
-                <span className="ml-1 inline-block h-[0.82em] w-[3px] translate-y-[0.08em] rounded-sm bg-ink ct-caret align-baseline" />
-              </em>
-            </h1>
-          </Reveal>
+          <h1
+            className="ct-rise font-display text-[clamp(2.6rem,5.6vw,4.3rem)] font-medium leading-[1.05] tracking-tight"
+            style={{ animationDelay: "80ms" }}
+          >
+            Teach the lesson.{" "}
+            <em className="italic text-brand-deep">The feedback writes itself.</em>
+          </h1>
 
-          <Reveal delay={160}>
-            <p className="mt-5 max-w-[36ch] text-xl text-ink-soft">
-              BumbleNote listens in on your English lessons — Meet, Zoom, Preply, italki,
-              any browser call — and turns each one into finished feedback: vocabulary in
-              context, the mistakes you&apos;d never catch mid-lesson, and a progress plan
-              for every student. You just review and send.
-            </p>
-          </Reveal>
+          <p
+            className="ct-rise mt-5 max-w-[46ch] text-xl text-ink-soft"
+            style={{ animationDelay: "160ms" }}
+          >
+            BumbleNote records your 1-to-1 English lessons in your browser and turns
+            each one into finished feedback for your student. You just review and send.
+          </p>
 
-          <Reveal delay={240}>
-            <div className="mt-9 flex flex-wrap items-center gap-4">
-              <Link
-                href="/signup"
-                className="group inline-flex items-center gap-2 rounded-full bg-brand px-7 py-3.5 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5"
-                style={{ boxShadow: "0 10px 24px -10px rgba(210,140,0,.6)" }}
-              >
+          <ul
+            className="ct-rise mt-5 flex max-w-[52ch] flex-col gap-2.5 text-[1.02rem] text-ink"
+            style={{ animationDelay: "220ms" }}
+          >
+            {points.map((p) => (
+              <li key={p} className="flex items-start gap-2.5">
+                <span
+                  aria-hidden
+                  className="mt-[3px] grid h-5 w-5 flex-none place-items-center rounded-full bg-brand-soft text-[.68rem] font-bold text-brand-deep"
+                >
+                  ✓
+                </span>
+                {p}
+              </li>
+            ))}
+          </ul>
+
+          <div
+            className="ct-rise mt-9 flex flex-wrap items-center gap-4"
+            style={{ animationDelay: "280ms" }}
+          >
+            {signedIn ? (
+              <CtaLink href="/dashboard" arrow>
+                Go to your dashboard
+              </CtaLink>
+            ) : (
+              <CtaLink href="/signup" arrow>
                 Start free trial
-                <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
-              </Link>
-              <a
-                href="#how"
-                className="inline-flex items-center gap-2 rounded-full border border-brand-line bg-white/60 px-7 py-3.5 font-semibold text-ink backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-brand"
-              >
-                ▶ See how it works
-              </a>
-            </div>
-          </Reveal>
+              </CtaLink>
+            )}
+            <CtaLink href="#how" variant="secondary">
+              See how it works ↓
+            </CtaLink>
+          </div>
 
-          <Reveal delay={320}>
-            <div className="mt-8 flex items-center gap-3.5 text-[.92rem] text-muted">
-              <div className="flex">
-                {heroFaces.map((seed, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={seed}
-                    src={avatarUri(seed)}
-                    alt=""
-                    width={34}
-                    height={34}
-                    className="-ml-2.5 h-[34px] w-[34px] rounded-full border-2 border-bg bg-brand-soft first:ml-0"
-                    style={{ zIndex: heroFaces.length - i }}
-                  />
-                ))}
-              </div>
-              Loved by tutors who&apos;d rather teach than type up notes.
-            </div>
-          </Reveal>
+          <div
+            className="ct-rise mt-6 flex flex-col gap-1 text-[.92rem] text-ink-soft"
+            style={{ animationDelay: "340ms" }}
+          >
+            {!signedIn && <span>Free for 1 student and 2 lessons · no card required</span>}
+            <span>You confirm every note before it&apos;s sent</span>
+          </div>
         </div>
 
         {/* visual */}

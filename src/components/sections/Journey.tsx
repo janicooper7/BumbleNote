@@ -13,7 +13,7 @@ export default function Journey() {
       <div className="mx-auto w-full max-w-[1160px] px-8">
         <Reveal>
           <div
-            className="relative overflow-hidden rounded-[32px] p-12 text-white md:p-16"
+            className="relative overflow-hidden rounded-[32px] p-7 text-white sm:p-12 md:p-16"
             style={{ background: "linear-gradient(150deg,var(--panel),var(--panel-lift))" }}
           >
             <div

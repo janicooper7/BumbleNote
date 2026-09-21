@@ -11,9 +11,6 @@ export default function PrivacyBadge() {
         <Reveal>
           <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-x-6 gap-y-3 rounded-2xl border border-brand-line bg-brand-soft/50 px-6 py-4 text-center text-sm font-medium text-ink-soft">
             <span className="inline-flex items-center gap-2">
-              <Shield /> Audio is never stored — only your notes
-            </span>
-            <span className="inline-flex items-center gap-2">
               <Shield /> Tutor confirms every note before it&apos;s sent
             </span>
           </div>
