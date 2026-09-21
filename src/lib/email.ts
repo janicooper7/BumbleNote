@@ -59,7 +59,7 @@ export async function sendLessonReportEmail(args: {
       <div style="padding:28px 30px;color:#1f2430;font-size:17px;">
         <p style="margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>
         <p style="margin:0 0 16px;color:#3f4750;">
-          Great work in today's lesson! Your personal session report is attached as a PDF,
+          Great work in the lesson! Your personal session report is attached as a PDF,
           with everything you covered together in one place.
         </p>
         <p style="margin:0 0 16px;color:#3f4750;">
