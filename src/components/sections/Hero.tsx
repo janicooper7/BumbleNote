@@ -1,73 +1,59 @@
-import Link from "next/link";
-import Reveal from "../Reveal";
+import CtaLink from "../CtaLink";
 import HeroVisual from "./HeroVisual";
-import { avatarUri } from "@/lib/avatar";
+import { Display, Script } from "../bn/Bn";
 
-const heroFaces = ["Ava tutor", "Marco tutor", "Lena tutor", "Sofia tutor"];
+// The original hero layout — headline and copy on the left, the live lesson
+// card on the right — in the site's type: Gilda capitals with the Pinyon script
+// line across them, Jost for the copy and pills, like every other section.
+// Nothing in here waits on client JS to become visible: the entrance is a plain
+// CSS animation (`ct-rise`), so the headline paints with the first HTML instead
+// of after hydration.
 
-export default function Hero() {
+export default function Hero({ signedIn = false }: { signedIn?: boolean }) {
   return (
-    <section className="pb-16 pt-20">
-      <div className="mx-auto grid w-full max-w-[1160px] grid-cols-1 items-center gap-16 px-8 md:grid-cols-[1.05fr_.95fr]">
+    <section className="bg-white pb-16 pt-16 md:pt-20">
+      <div className="mx-auto grid w-full max-w-[1160px] grid-cols-1 items-center gap-12 px-5 sm:px-8 md:grid-cols-[1.2fr_.8fr]">
         {/* copy */}
         <div>
-          <Reveal delay={80}>
-            <h1 className="mt-6 font-display text-[clamp(2.6rem,5.6vw,4.3rem)] font-medium leading-[1.05] tracking-tight">
-              Teach the lesson.{" "}
-              <em className="italic text-brand-deep">
-                The feedback writes itself.
-                <span className="ml-1 inline-block h-[0.82em] w-[3px] translate-y-[0.08em] rounded-sm bg-ink ct-caret align-baseline" />
-              </em>
-            </h1>
-          </Reveal>
+          <Display
+            as="h1"
+            className="ct-rise text-[clamp(2.1rem,4.4vw,3.8rem)] text-cocoa"
+            style={{ animationDelay: "80ms" }}
+          >
+            <span className="whitespace-nowrap">Teach the lesson.</span>
+            <Script block className="text-sky-deep">
+              the feedback
+            </Script>
+            writes itself.
+          </Display>
 
-          <Reveal delay={160}>
-            <p className="mt-5 max-w-[36ch] text-xl text-ink-soft">
-              BumbleNote listens in on your English lessons — Meet, Zoom, Preply, italki,
-              any browser call — and turns each one into finished feedback: vocabulary in
-              context, the mistakes you&apos;d never catch mid-lesson, and a progress plan
-              for every student. You just review and send.
-            </p>
-          </Reveal>
+          <p
+            className="ct-rise mt-7 max-w-[40ch] text-xl text-ink-soft"
+            style={{ animationDelay: "160ms" }}
+          >
+            BumbleNote records your 1-to-1 English lessons in your browser and turns
+            each one into finished feedback: vocabulary in context, the mistakes
+            you&apos;d never catch mid-lesson, and a progress plan for every student.
+            You just review and send.
+          </p>
 
-          <Reveal delay={240}>
-            <div className="mt-9 flex flex-wrap items-center gap-4">
-              <Link
-                href="/signup"
-                className="group inline-flex items-center gap-2 rounded-full bg-brand px-7 py-3.5 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5"
-                style={{ boxShadow: "0 10px 24px -10px rgba(210,140,0,.6)" }}
-              >
+          <div
+            className="ct-rise mt-9 flex flex-wrap items-center gap-4"
+            style={{ animationDelay: "240ms" }}
+          >
+            {signedIn ? (
+              <CtaLink href="/dashboard" arrow>
+                Go to your dashboard
+              </CtaLink>
+            ) : (
+              <CtaLink href="/signup" arrow>
                 Start free trial
-                <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
-              </Link>
-              <a
-                href="#how"
-                className="inline-flex items-center gap-2 rounded-full border border-brand-line bg-white/60 px-7 py-3.5 font-semibold text-ink backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-brand"
-              >
-                ▶ See how it works
-              </a>
-            </div>
-          </Reveal>
-
-          <Reveal delay={320}>
-            <div className="mt-8 flex items-center gap-3.5 text-[.92rem] text-muted">
-              <div className="flex">
-                {heroFaces.map((seed, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={seed}
-                    src={avatarUri(seed)}
-                    alt=""
-                    width={34}
-                    height={34}
-                    className="-ml-2.5 h-[34px] w-[34px] rounded-full border-2 border-bg bg-brand-soft first:ml-0"
-                    style={{ zIndex: heroFaces.length - i }}
-                  />
-                ))}
-              </div>
-              Loved by tutors who&apos;d rather teach than type up notes.
-            </div>
-          </Reveal>
+              </CtaLink>
+            )}
+            <CtaLink href="#how" variant="outline" className="bg-white/50 text-cocoa">
+              See how it works
+            </CtaLink>
+          </div>
         </div>
 
         {/* visual */}

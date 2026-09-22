@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { signUpWithPassword, type AuthFormState } from "@/app/actions/auth";
 import { MIN_PASSWORD_LENGTH, PASSWORD_HINT } from "@/lib/password-policy";
 import AuthField from "./AuthField";
+import AuthSubmit from "./AuthSubmit";
 import PlanIntentFields, { type PlanIntent } from "./PlanIntentFields";
 
 const initial: AuthFormState = {};
@@ -59,24 +60,22 @@ export default function SignupForm({
       />
 
       {state.errors?.acceptTerms && !accepted ? (
-        <p role="alert" className="text-sm text-[#d9534f]">
+        <p role="alert" className="text-sm text-[#c0392b]">
           {state.errors.acceptTerms}
         </p>
       ) : null}
 
       {state.formError ? (
-        <p role="alert" className="text-sm text-[#d9534f]">
+        <p role="alert" className="text-sm text-[#c0392b]">
           {state.formError}
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={pending || !accepted}
-        className="w-full rounded-xl bg-brand px-6 py-3.5 font-semibold text-ink shadow-soft-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-      >
-        {pending ? "Creating your account…" : "Create account"}
-      </button>
+      <AuthSubmit pending={pending} pendingLabel="Creating your account…" disabled={!accepted}>
+
+        Create account
+
+      </AuthSubmit>
     </form>
   );
 }

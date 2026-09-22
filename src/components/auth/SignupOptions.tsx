@@ -18,20 +18,20 @@ export default function SignupOptions({ intent }: { intent?: PlanIntent }) {
 
   return (
     <>
-      <label className="mb-6 flex cursor-pointer items-start gap-3 rounded-xl border border-brand-line bg-brand-soft/40 px-4 py-3.5 text-sm text-ink-soft">
+      <label className="mb-6 flex cursor-pointer items-start gap-3 rounded-[24px] bg-sky-soft px-5 py-4 text-sm leading-relaxed text-ink-soft">
         <input
           type="checkbox"
           checked={accepted}
           onChange={(e) => setAccepted(e.target.checked)}
-          className="mt-0.5 h-4 w-4 flex-none accent-brand"
+          className="mt-0.5 h-4 w-4 flex-none accent-cocoa"
         />
         <span>
           I agree to the{" "}
-          <Link href="/terms" target="_blank" className="font-semibold text-brand-deep hover:underline">
+          <Link href="/terms" target="_blank" className="font-semibold text-cocoa underline underline-offset-2 hover:text-sky-deep">
             Terms of Service
           </Link>{" "}
           and{" "}
-          <Link href="/privacy" target="_blank" className="font-semibold text-brand-deep hover:underline">
+          <Link href="/privacy" target="_blank" className="font-semibold text-cocoa underline underline-offset-2 hover:text-sky-deep">
             Privacy Policy
           </Link>
           , and I&apos;ll get my students&apos; consent before recording their lessons.

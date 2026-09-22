@@ -3,10 +3,10 @@
 
 export default function AuthDivider({ label = "or" }: { label?: string }) {
   return (
-    <div className="my-6 flex items-center gap-4" aria-hidden>
-      <span className="h-px flex-1 bg-brand-line" />
-      <span className="text-sm text-muted">{label}</span>
-      <span className="h-px flex-1 bg-brand-line" />
+    <div className="my-7 flex items-center gap-4" aria-hidden>
+      <span className="h-px flex-1 bg-cocoa/15" />
+      <span className="text-[.72rem] font-medium uppercase tracking-[.2em] text-muted">{label}</span>
+      <span className="h-px flex-1 bg-cocoa/15" />
     </div>
   );
 }

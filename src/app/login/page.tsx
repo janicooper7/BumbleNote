@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import AuthDivider from "@/components/auth/AuthDivider";
 import AuthLayout from "@/components/auth/AuthLayout";
+import { Script } from "@/components/bn/Bn";
 import GoogleAuthForm from "@/components/auth/GoogleAuthForm";
 import LoginForm from "@/components/auth/LoginForm";
 import { planIntentFrom } from "@/lib/plan-intent";
@@ -19,7 +20,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
   return (
     <AuthLayout
-      heading="Welcome back"
+      heading={<>Welcome <Script className="text-sky-deep">back</Script></>}
       sub={
         intent.planName
           ? `Log in to continue to ${intent.planName}.`
@@ -32,9 +33,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
       <LoginForm intent={intent} />
 
-      <p className="mt-6 text-center text-ink-soft">
+      <p className="mt-8 text-center text-ink-soft">
         New to BumbleNote?{" "}
-        <Link href={`/signup${intent.query}`} className="font-semibold text-brand-deep hover:underline">
+        <Link href={`/signup${intent.query}`} className="font-semibold text-cocoa underline underline-offset-2 hover:text-sky-deep">
           Create an account
         </Link>
       </p>

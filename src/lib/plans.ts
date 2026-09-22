@@ -1,8 +1,9 @@
 // Plan definitions — the single source of truth for what each tier allows.
 //
-// These numbers are the ones advertised on the pricing page
-// (src/components/sections/Pricing.tsx); if you change one, change both — and
-// the USD amounts live in PLAN_PRICES_USD in src/lib/billing.ts. The limits bound
+// The pricing page (src/components/sections/Pricing.tsx) and the FAQ read these
+// numbers directly, so changing one here changes what's advertised; only the
+// feature lists in Pricing.tsx are hand-written. The USD amounts live in
+// PLAN_PRICES_USD in src/lib/pricing.ts. The limits bound
 // Deepgram + Anthropic spend per tutor. Every new tutor lands on `free`; after
 // that `tutors.plan` is set only by Stripe, via syncSubscription().
 

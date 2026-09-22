@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { requestPasswordReset, type AuthFormState } from "@/app/actions/auth";
 import AuthField from "./AuthField";
+import AuthSubmit from "./AuthSubmit";
 
 const initial: AuthFormState = {};
 
@@ -13,14 +14,16 @@ export default function ForgotPasswordForm() {
   // see requestPasswordReset. Everything specific is said in the email itself.
   if (state.sent) {
     return (
-      <div className="rounded-2xl border border-brand-line bg-white p-6 text-center shadow-soft-sm">
-        <div className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-brand/20 text-lg">
-          ✉️
-        </div>
-        <p className="mt-4 font-semibold text-ink">Check your inbox</p>
+      <div role="status" className="animate-[ct-rise_.5s_var(--ease-smooth)_both] rounded-[28px] bg-sky-soft p-7 text-center">
+        <span className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-cocoa text-lg text-butter">
+          ✉
+        </span>
+        <p className="mt-4 text-[.9rem] font-semibold uppercase tracking-[.14em] text-cocoa">
+          Check your inbox
+        </p>
         <p className="mt-2 text-ink-soft">
           If there&apos;s a BumbleNote account for{" "}
-          <span className="font-medium text-ink">{state.values?.email}</span>, we&apos;ve
+          <span className="font-semibold text-cocoa">{state.values?.email}</span>, we&apos;ve
           sent it a link to reset the password. It expires in an hour.
         </p>
         <p className="mt-4 text-sm text-muted">
@@ -43,18 +46,16 @@ export default function ForgotPasswordForm() {
       />
 
       {state.formError ? (
-        <p role="alert" className="text-sm text-[#d9534f]">
+        <p role="alert" className="text-sm text-[#c0392b]">
           {state.formError}
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full rounded-xl bg-brand px-6 py-3.5 font-semibold text-ink shadow-soft-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-      >
-        {pending ? "Sending…" : "Send reset link"}
-      </button>
+      <AuthSubmit pending={pending} pendingLabel="Sending…">
+
+        Send reset link
+
+      </AuthSubmit>
     </form>
   );
 }

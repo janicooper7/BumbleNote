@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import CtaLink from "@/components/CtaLink";
 import AuthLayout from "@/components/auth/AuthLayout";
+import { Script } from "@/components/bn/Bn";
 import ResetPasswordForm from "@/components/auth/ResetPasswordForm";
 import { checkResetToken } from "@/lib/reset-tokens";
 
@@ -22,19 +24,16 @@ export default async function ResetPasswordPage({
   if (!check.ok) {
     return (
       <AuthLayout
-        heading="That link has expired"
+        heading={<>That link has <Script className="text-sky-deep">expired</Script></>}
         sub="Reset links work once and last an hour, so this one can't be used."
       >
-        <Link
-          href="/forgot"
-          className="block w-full rounded-xl bg-brand px-6 py-3.5 text-center font-semibold text-ink shadow-soft-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-md"
-        >
+        <CtaLink href="/forgot" arrow className="w-full">
           Send a new link
-        </Link>
+        </CtaLink>
 
-        <p className="mt-6 text-center text-ink-soft">
+        <p className="mt-8 text-center text-ink-soft">
           Or{" "}
-          <Link href="/login" className="font-semibold text-brand-deep hover:underline">
+          <Link href="/login" className="font-semibold text-cocoa underline underline-offset-2 hover:text-sky-deep">
             go back to log in
           </Link>
         </p>
@@ -44,7 +43,7 @@ export default async function ResetPasswordPage({
 
   return (
     <AuthLayout
-      heading="Choose a new password"
+      heading={<>Choose a new <Script className="text-sky-deep">password</Script></>}
       sub={`Setting a new password for ${check.email}.`}
     >
       <ResetPasswordForm token={token ?? ""} />

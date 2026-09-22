@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { logInWithPassword, type AuthFormState } from "@/app/actions/auth";
 import AuthField from "./AuthField";
+import AuthSubmit from "./AuthSubmit";
 import PlanIntentFields, { type PlanIntent } from "./PlanIntentFields";
 
 const initial: AuthFormState = {};
@@ -30,25 +31,23 @@ export default function LoginForm({ intent }: { intent?: PlanIntent }) {
           autoComplete="current-password"
         />
         <div className="mt-2 text-right">
-          <Link href="/forgot" className="text-sm text-brand-deep hover:underline">
+          <Link href="/forgot" className="text-sm text-sky-deep underline-offset-2 hover:underline">
             Forgot your password?
           </Link>
         </div>
       </div>
 
       {state.formError ? (
-        <p role="alert" className="text-sm text-[#d9534f]">
+        <p role="alert" className="text-sm text-[#c0392b]">
           {state.formError}
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full rounded-xl bg-brand px-6 py-3.5 font-semibold text-ink shadow-soft-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-      >
-        {pending ? "Logging in…" : "Log in"}
-      </button>
+      <AuthSubmit pending={pending} pendingLabel="Logging in…">
+
+        Log in
+
+      </AuthSubmit>
     </form>
   );
 }

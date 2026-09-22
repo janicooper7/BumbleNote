@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Reveal from "../Reveal";
+
+// Colours from the template pack: cocoa header, butter for the tutor's voice,
+// powder blue for the student's.
 
 // bar heights (%) for each separated voice track — two distinct patterns
 const WAVE_YOU = [42, 74, 54, 86, 60, 90, 48, 78, 44, 68, 58, 82, 50];
@@ -108,12 +110,12 @@ export default function HeroVisual() {
   };
 
   return (
-    <Reveal delay={160} className="relative">
+    <div className="ct-rise relative" style={{ animationDelay: "160ms" }}>
       {/* ambient aurora — the one saturated flourish, drifting behind the card */}
       <div aria-hidden className="pointer-events-none absolute -inset-8 -z-10">
-        <div className="ct-aurora absolute right-2 top-0 h-56 w-56 rounded-full bg-brand/25 blur-3xl" />
+        <div className="ct-aurora absolute right-2 top-0 h-56 w-56 rounded-full bg-white/60 blur-3xl" />
         <div
-          className="ct-aurora absolute -left-4 bottom-4 h-52 w-52 rounded-full bg-mint/20 blur-3xl"
+          className="ct-aurora absolute -left-4 bottom-4 h-52 w-52 rounded-full bg-white/70 blur-3xl"
           style={{ animationDelay: "-6s", animationDuration: "18s" }}
         />
       </div>
@@ -150,11 +152,11 @@ export default function HeroVisual() {
             <div className="animate-float overflow-hidden rounded-[26px] border border-line bg-white shadow-soft-lg">
               {/* ── capture header: the lesson, as sound ── */}
               <div
-                className="relative overflow-hidden px-6 pb-5 pt-5 text-white"
+                className="relative overflow-hidden px-6 pb-5 pt-5 text-butter"
                 style={{ background: "linear-gradient(150deg,var(--panel) 0%,var(--panel-lift) 100%)" }}
               >
                 <div className="relative flex items-center justify-between">
-                  <span className="inline-flex items-center gap-2 rounded-full bg-[#0b1728] px-3 py-1 text-[.72rem] font-semibold">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-black/25 px-3 py-1 text-[.72rem] font-semibold">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                       <path d="M4 11a1 1 0 0 1 2 0v2a1 1 0 0 1-2 0Zm5-4a1 1 0 0 1 2 0v10a1 1 0 0 1-2 0Zm5 3a1 1 0 0 1 2 0v4a1 1 0 0 1-2 0Zm5-5a1 1 0 0 1 2 0v14a1 1 0 0 1-2 0Z" />
                     </svg>
@@ -172,14 +174,14 @@ export default function HeroVisual() {
                   <VoicePanel
                     label="You"
                     sub="Tutor"
-                    tint="#ffd143"
+                    tint="var(--color-butter)"
                     bars={WAVE_YOU}
                     active={listening || writing}
                   />
                   <VoicePanel
                     label="Maria S."
                     sub="Student"
-                    tint="#7ff0dc"
+                    tint="var(--color-sky)"
                     bars={WAVE_STUDENT}
                     active={listening || writing}
                     shift={140}
@@ -188,25 +190,38 @@ export default function HeroVisual() {
               </div>
 
               {/* ── body: transcript captured → recap written ── */}
-              <div className="relative min-h-[288px] p-6 sm:min-h-[300px]">
-                {/* LISTEN: the raw lesson, arriving live */}
+              {/* All layers share one grid cell, and an invisible finished recap
+                  sizes it — so the card keeps one height across every phase and
+                  the centred hero copy beside it never jumps when the loop resets. */}
+              <div className="relative grid p-6">
+                <div aria-hidden className="invisible [grid-area:1/1]">
+                  <Recap instant />
+                </div>
+
+                {/* LISTEN: the raw lesson, arriving live. Stays mounted so it can
+                    fade out; the key remounts it (replaying its entrance) each loop. */}
                 <div
-                  className={`absolute inset-6 transition-all duration-500 ${
-                    listening ? "opacity-100" : "-translate-y-2 opacity-0"
+                  className={`transition-all duration-500 [grid-area:1/1] ${
+                    listening ? "opacity-100" : "pointer-events-none -translate-y-2 opacity-0"
                   }`}
                   aria-hidden={!listening}
                 >
-                  {listening && <Transcript key={`t-${cycle}`} />}
+                  <Transcript key={`t-${cycle}`} />
                 </div>
 
-                {/* WRITE + READY: the recap composing itself */}
+                {/* WRITE + READY: the recap composing itself. While listening it
+                    keeps the previous loop's finished recap so it fades out intact,
+                    then remounts (fresh animations) when writing starts. */}
                 <div
-                  className={`transition-all duration-500 ${
-                    listening ? "translate-y-2 opacity-0" : "opacity-100"
+                  className={`transition-all duration-500 [grid-area:1/1] ${
+                    listening ? "pointer-events-none translate-y-2 opacity-0" : "opacity-100"
                   }`}
                   aria-hidden={listening}
                 >
-                  {!listening && <Recap key={`r-${cycle}`} instant={reduced || ready} />}
+                  <Recap
+                    key={`r-${listening ? cycle - 1 : cycle}`}
+                    instant={reduced || ready || listening}
+                  />
                 </div>
               </div>
             </div>
@@ -214,10 +229,10 @@ export default function HeroVisual() {
         </div>
       </div>
 
-      <p className="mt-6 text-center text-sm text-muted">
+      <p className="mt-6 text-center text-sm text-ink-soft">
         Written the moment your lesson ended — you just review and send.
       </p>
-    </Reveal>
+    </div>
   );
 }
 
@@ -238,10 +253,10 @@ function VoicePanel({
   shift?: number;
 }) {
   return (
-    <div className="rounded-2xl bg-[#0b1728] p-3">
+    <div className="rounded-2xl bg-black/25 p-3">
       <div className="flex items-center gap-2">
         <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: tint }} />
-        <span className="truncate font-display text-[.92rem] font-semibold leading-none text-white">
+        <span className="truncate font-display text-[.92rem] font-semibold leading-none text-butter">
           {label}
         </span>
         <span className="ml-auto text-[.6rem] font-semibold uppercase tracking-wider text-[var(--panel-dim)]">
@@ -269,7 +284,7 @@ function VoicePanel({
 function StatusBadge({ phase, time }: { phase: number; time: string }) {
   if (phase === PHASE.LISTEN) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0b1728] px-2.5 py-1 text-[.72rem] font-bold tabular-nums">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-1 text-[.72rem] font-bold tabular-nums">
         <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-[#ff8080]" />
         REC {time}
       </span>
@@ -277,15 +292,15 @@ function StatusBadge({ phase, time }: { phase: number; time: string }) {
   }
   if (phase === PHASE.WRITE) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0b1728] px-2.5 py-1 text-[.72rem] font-bold">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-1 text-[.72rem] font-bold">
         <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-white" />
         Writing recap…
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0b1728] px-2.5 py-1 text-[.72rem] font-bold">
-      <span className="h-1.5 w-1.5 rounded-full bg-[#7ff0dc]" />
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-1 text-[.72rem] font-bold">
+      <span className="h-1.5 w-1.5 rounded-full bg-sky" />
       Draft ready
     </span>
   );
@@ -309,8 +324,8 @@ function Transcript() {
             <span
               className="mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-[.68rem] font-bold"
               style={{
-                color: l.me ? "var(--color-brand-deep)" : "#137e70",
-                background: l.me ? "var(--color-brand-soft)" : "rgba(43,182,164,.14)",
+                color: "var(--color-ink)",
+                background: l.me ? "var(--color-butter)" : "var(--color-sky)",
               }}
             >
               {l.who}
@@ -351,7 +366,7 @@ function Recap({ instant }: { instant: boolean }) {
             className={`absolute inset-y-0 left-0 overflow-hidden rounded-full ${instant ? "" : "ct-grow"}`}
             style={{
               width: "72%",
-              background: "linear-gradient(90deg,var(--color-brand),var(--color-brand-deep))",
+              background: "linear-gradient(90deg,var(--color-sky),var(--color-sky-deep))",
             }}
           >
             {!instant && (
@@ -397,10 +412,9 @@ function Recap({ instant }: { instant: boolean }) {
       <div className="ct-rise flex items-center justify-between gap-3 border-t border-line pt-4" style={{ animationDelay: "220ms" }}>
         <span className="text-[.78rem] text-muted">Builds on 11 past lessons</span>
         <span
-          className={`inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-[.8rem] font-semibold text-ink transition-all duration-500 ${
-            instant ? "ring-2 ring-brand/40" : "shadow-soft-sm"
+          className={`inline-flex items-center gap-1.5 rounded-full bg-cocoa px-4 py-2 text-[.8rem] font-semibold text-butter transition-all duration-500 ${
+            instant ? "ring-2 ring-cocoa/25" : "shadow-soft-sm"
           }`}
-          style={instant ? { boxShadow: "0 8px 22px -6px rgba(210,140,0,.65)" } : undefined}
         >
           Send recap
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
