@@ -14,7 +14,7 @@ export default function GoogleButton({
       type={submit ? "submit" : "button"}
       onClick={onClick}
       disabled={disabled}
-      className="flex w-full items-center justify-center gap-3 rounded-xl border border-brand-line bg-white px-5 py-3.5 font-semibold text-ink shadow-soft-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-brand hover:shadow-soft-md disabled:cursor-not-allowed disabled:opacity-60"
+      className="flex w-full items-center justify-center gap-3 rounded-full bg-white px-6 py-4 text-[.85rem] font-semibold uppercase tracking-[.12em] text-cocoa ring-[1.5px] ring-cocoa/20 transition-all duration-300 hover:-translate-y-0.5 hover:bg-butter-soft hover:ring-cocoa/40 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:bg-white"
     >
       <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
         <path

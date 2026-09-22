@@ -2,42 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// The lesson card is one continuous loop: it listens, writes the recap, shows it
-// ready, then replays. The one flourish is the voice timeline in the header —
-// tutor and student on a single strip, each in their own colour — because
-// telling the two voices apart is the thing BumbleNote does that a plain
-// recorder doesn't. Everything else stays quiet on purpose.
+// Colours from the template pack: cocoa header, butter for the tutor's voice,
+// powder blue for the student's.
 
-const TUTOR = "#ffd143";
-const STUDENT = "#7ff0dc";
-
-// Who is speaking, in bars: alternating turns, a little uneven like real talk.
-const TURNS: ["you" | "student", number][] = [
-  ["you", 9],
-  ["student", 13],
-  ["you", 6],
-  ["student", 16],
-  ["you", 8],
-  ["student", 10],
-  ["you", 5],
-  ["student", 7],
-];
-
-// Deterministic on purpose (no Math.random): the server and the client must
-// render identical bars. Heights are rounded so tiny float differences between
-// engines can't cause a hydration mismatch.
-const TIMELINE = TURNS.flatMap(([who, n]) => Array.from({ length: n }, () => who)).map(
-  (who, i) => ({
-    who,
-    h: Math.round(24 + 66 * Math.abs(Math.sin(i * 1.7) * Math.cos(i * 0.53))),
-  }),
-);
+// bar heights (%) for each separated voice track — two distinct patterns
+const WAVE_YOU = [42, 74, 54, 86, 60, 90, 48, 78, 44, 68, 58, 82, 50];
+const WAVE_STUDENT = [36, 62, 48, 88, 54, 72, 40, 80, 58, 66, 46, 84, 52];
 
 const VOCAB = ["to negotiate", "deadline", "on second thought"];
-const RULE = "Articles before abstract nouns";
+const CORRECTION = "“the advice” → advice — articles before abstract nouns";
 
+// The lesson card runs one continuous loop: it listens, writes the recap,
+// shows it ready, then replays. Phase durations (ms).
 const PHASE = { LISTEN: 0, WRITE: 1, READY: 2 } as const;
-const DUR = [4200, 5600, 3800]; // ms per phase
+const DUR = [4200, 5600, 3800];
 
 export default function HeroVisual() {
   const ref = useRef<HTMLDivElement>(null);
@@ -133,11 +111,11 @@ export default function HeroVisual() {
 
   return (
     <div className="ct-rise relative" style={{ animationDelay: "160ms" }}>
-      {/* ambient aurora — drifting behind the card */}
+      {/* ambient aurora — the one saturated flourish, drifting behind the card */}
       <div aria-hidden className="pointer-events-none absolute -inset-8 -z-10">
-        <div className="ct-aurora absolute right-2 top-0 h-56 w-56 rounded-full bg-brand/25 blur-3xl" />
+        <div className="ct-aurora absolute right-2 top-0 h-56 w-56 rounded-full bg-white/60 blur-3xl" />
         <div
-          className="ct-aurora absolute -left-4 bottom-4 h-52 w-52 rounded-full bg-mint/20 blur-3xl"
+          className="ct-aurora absolute -left-4 bottom-4 h-52 w-52 rounded-full bg-white/70 blur-3xl"
           style={{ animationDelay: "-6s", animationDuration: "18s" }}
         />
       </div>
@@ -152,97 +130,98 @@ export default function HeroVisual() {
         <div
           className="relative [transform-style:preserve-3d]"
           style={{
-            // A gentle parallax under the pointer, and nothing else: the card no
-            // longer bobs on its own, which read as a 2019 landing-page habit.
-            transform: "rotateX(calc(var(--py) * -4deg)) rotateY(calc(var(--px) * 5deg))",
+            transform:
+              "rotateX(calc(var(--py) * -7deg)) rotateY(calc(var(--px) * 9deg))",
             transition: "transform .4s var(--ease-smooth)",
           }}
         >
-          {/* earlier lessons, stacked behind — the running history */}
+          {/* stacked "past lessons" behind — hints at the running history */}
           <div
             aria-hidden
-            className="absolute inset-x-6 -top-2.5 h-40 rounded-[24px] border border-line bg-white/50"
+            className="absolute inset-x-5 -top-3 h-40 rounded-[26px] border border-line bg-white/55 shadow-soft-sm"
             style={{ transform: "translateZ(-40px)" }}
           />
           <div
             aria-hidden
-            className="absolute inset-x-3 -top-1 h-40 rounded-[24px] border border-line bg-white/80"
+            className="absolute inset-x-2.5 -top-1.5 h-40 rounded-[26px] border border-line bg-white/80 shadow-soft-sm"
             style={{ transform: "translateZ(-20px)" }}
           />
 
           {/* main lesson card */}
           <div className="relative z-10" style={{ transform: "translateZ(20px)" }}>
-            <div
-              className="overflow-hidden rounded-[24px] border border-black/[.06] bg-white"
-              style={{
-                boxShadow:
-                  "0 1px 0 rgba(255,255,255,.9) inset, 0 32px 64px -32px rgba(22,35,61,.35), 0 12px 24px -16px rgba(22,35,61,.16)",
-              }}
-            >
+            <div className="animate-float overflow-hidden rounded-[26px] border border-line bg-white shadow-soft-lg">
               {/* ── capture header: the lesson, as sound ── */}
               <div
-                className="relative overflow-hidden px-6 pb-5 pt-5 text-white"
-                style={{ background: "linear-gradient(160deg,var(--panel) 0%,var(--panel-lift) 140%)" }}
+                className="relative overflow-hidden px-6 pb-5 pt-5 text-butter"
+                style={{ background: "linear-gradient(150deg,var(--panel) 0%,var(--panel-lift) 100%)" }}
               >
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute -right-12 -top-20 h-48 w-48 rounded-full bg-brand/20 blur-3xl"
-                />
-
                 <div className="relative flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[.07] px-2.5 py-1 text-[.72rem] font-medium ring-1 ring-white/10">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-black/25 px-3 py-1 text-[.72rem] font-semibold">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <rect x="3" y="6" width="12" height="12" rx="2.5" />
-                      <path d="m15 10.5 6-3.5v10l-6-3.5" />
+                      <path d="M4 11a1 1 0 0 1 2 0v2a1 1 0 0 1-2 0Zm5-4a1 1 0 0 1 2 0v10a1 1 0 0 1-2 0Zm5 3a1 1 0 0 1 2 0v4a1 1 0 0 1-2 0Zm5-5a1 1 0 0 1 2 0v14a1 1 0 0 1-2 0Z" />
                     </svg>
                     Google Meet
                   </span>
                   <StatusBadge phase={phase} time={mmss} />
                 </div>
 
-                <div className="relative mt-4">
-                  <div className="text-[1.15rem] font-semibold leading-tight tracking-tight">
-                    Lesson 12
-                  </div>
-                  <div className="mt-0.5 text-[.8rem] text-[var(--panel-dim)]">
-                    Business English · with Maria S.
-                  </div>
+                <div className="relative mt-3 text-[.76rem] font-medium text-[var(--panel-dim)]">
+                  Lesson 12 · Business English
                 </div>
 
-                <VoiceTimeline active={listening || writing} />
-
-                <div className="relative mt-3 flex items-center gap-5 text-[.74rem] text-[var(--panel-dim)]">
-                  <Legend tint={TUTOR} name="You" role="Tutor" />
-                  <Legend tint={STUDENT} name="Maria S." role="Student" />
+                {/* two voices, told apart — tutor and student each on their own track */}
+                <div className="relative mt-3 grid grid-cols-2 gap-3">
+                  <VoicePanel
+                    label="You"
+                    sub="Tutor"
+                    tint="var(--color-butter)"
+                    bars={WAVE_YOU}
+                    active={listening || writing}
+                  />
+                  <VoicePanel
+                    label="Maria S."
+                    sub="Student"
+                    tint="var(--color-sky)"
+                    bars={WAVE_STUDENT}
+                    active={listening || writing}
+                    shift={140}
+                  />
                 </div>
               </div>
 
-              {/* ── body: transcript captured → recap written ──
-                  A grid rather than stacked/absolute layers: the live transcript,
-                  the recap and an invisible copy of the finished recap all sit in
-                  one cell, so the card is always as tall as the recap and never
-                  jumps when the loop swaps between them. */}
+              {/* ── body: transcript captured → recap written ── */}
+              {/* All layers share one grid cell, and an invisible finished recap
+                  sizes it — so the card keeps one height across every phase and
+                  the centred hero copy beside it never jumps when the loop resets. */}
               <div className="relative grid p-6">
+                <div aria-hidden className="invisible [grid-area:1/1]">
+                  <Recap instant />
+                </div>
+
+                {/* LISTEN: the raw lesson, arriving live. Stays mounted so it can
+                    fade out; the key remounts it (replaying its entrance) each loop. */}
                 <div
-                  className={`col-start-1 row-start-1 flex flex-col transition-all duration-500 ${
-                    listening ? "opacity-100" : "-translate-y-2 opacity-0"
+                  className={`transition-all duration-500 [grid-area:1/1] ${
+                    listening ? "opacity-100" : "pointer-events-none -translate-y-2 opacity-0"
                   }`}
                   aria-hidden={!listening}
                 >
-                  {listening && <Transcript key={`t-${cycle}`} />}
+                  <Transcript key={`t-${cycle}`} />
                 </div>
 
+                {/* WRITE + READY: the recap composing itself. While listening it
+                    keeps the previous loop's finished recap so it fades out intact,
+                    then remounts (fresh animations) when writing starts. */}
                 <div
-                  className={`col-start-1 row-start-1 transition-all duration-500 ${
-                    listening ? "translate-y-2 opacity-0" : "opacity-100"
+                  className={`transition-all duration-500 [grid-area:1/1] ${
+                    listening ? "pointer-events-none translate-y-2 opacity-0" : "opacity-100"
                   }`}
                   aria-hidden={listening}
                 >
-                  {!listening && <Recap key={`r-${cycle}`} instant={reduced || ready} />}
-                </div>
-
-                <div aria-hidden className="pointer-events-none invisible col-start-1 row-start-1">
-                  <Recap instant />
+                  <Recap
+                    key={`r-${listening ? cycle - 1 : cycle}`}
+                    instant={reduced || ready || listening}
+                  />
                 </div>
               </div>
             </div>
@@ -250,55 +229,62 @@ export default function HeroVisual() {
         </div>
       </div>
 
-      <p className="mt-6 text-center text-[.85rem] text-ink-soft">
-        Drafted as soon as you stop recording — you just review and send.
+      <p className="mt-6 text-center text-sm text-ink-soft">
+        Written the moment your lesson ended — you just review and send.
       </p>
     </div>
   );
 }
 
-/* ── the signature: both voices on one timeline, told apart by colour ── */
-function VoiceTimeline({ active }: { active: boolean }) {
+/* ── one separated voice track on the capture header ── */
+function VoicePanel({
+  label,
+  sub,
+  tint,
+  bars,
+  active,
+  shift = 0,
+}: {
+  label: string;
+  sub: string;
+  tint: string;
+  bars: number[];
+  active: boolean;
+  shift?: number;
+}) {
   return (
-    <div
-      role="img"
-      aria-label="Waveform of the lesson, with the tutor's and the student's voices in separate colours"
-      className="relative mt-5 flex h-12 items-center gap-[2px]"
-    >
-      {TIMELINE.map((b, i) => (
-        <span
-          key={i}
-          className={`flex-1 rounded-full ${active ? "ct-eq" : ""}`}
-          style={{
-            height: `${b.h}%`,
-            background: b.who === "you" ? TUTOR : STUDENT,
-            opacity: 0.92,
-            transformOrigin: "center",
-            animationDelay: `${(i * 53) % 900}ms`,
-          }}
-        />
-      ))}
+    <div className="rounded-2xl bg-black/25 p-3">
+      <div className="flex items-center gap-2">
+        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: tint }} />
+        <span className="truncate font-display text-[.92rem] font-semibold leading-none text-butter">
+          {label}
+        </span>
+        <span className="ml-auto text-[.6rem] font-semibold uppercase tracking-wider text-[var(--panel-dim)]">
+          {sub}
+        </span>
+      </div>
+      <div className="mt-3 flex h-7 items-end gap-[3px]">
+        {bars.map((h, i) => (
+          <span
+            key={i}
+            className={`w-full rounded-full ${active ? "ct-eq" : ""}`}
+            style={{
+              height: `${h}%`,
+              background: tint,
+              animationDelay: `${(i * 70 + shift) % 900}ms`,
+            }}
+          />
+        ))}
+      </div>
     </div>
-  );
-}
-
-function Legend({ tint, name, role }: { tint: string; name: string; role: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className="h-2 w-2 rounded-full" style={{ background: tint }} />
-      <span className="font-semibold text-white">{name}</span>
-      {role}
-    </span>
   );
 }
 
 /* ── header status: recording → writing → ready ── */
 function StatusBadge({ phase, time }: { phase: number; time: string }) {
-  const pill =
-    "inline-flex items-center gap-1.5 rounded-full bg-white/[.07] px-2.5 py-1 text-[.72rem] font-semibold ring-1 ring-white/10";
   if (phase === PHASE.LISTEN) {
     return (
-      <span className={`${pill} tabular-nums`}>
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-1 text-[.72rem] font-bold tabular-nums">
         <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-[#ff8080]" />
         REC {time}
       </span>
@@ -306,66 +292,57 @@ function StatusBadge({ phase, time }: { phase: number; time: string }) {
   }
   if (phase === PHASE.WRITE) {
     return (
-      <span className={pill}>
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-1 text-[.72rem] font-bold">
         <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-white" />
         Writing recap…
       </span>
     );
   }
   return (
-    <span className={pill}>
-      <span className="h-1.5 w-1.5 rounded-full bg-[#7ff0dc] shadow-[0_0_0_3px_rgba(127,240,220,.22)]" />
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-1 text-[.72rem] font-bold">
+      <span className="h-1.5 w-1.5 rounded-full bg-sky" />
       Draft ready
     </span>
   );
 }
 
-/* ── LISTEN layer: live transcript, the caught line underlined ── */
+/* ── LISTEN layer: live transcript, the caught line highlighted ── */
 function Transcript() {
   const lines = [
-    { who: "You", initial: "Y", me: true, text: <>So — how did the negotiation go?</> },
-    {
-      who: "Maria",
-      initial: "M",
-      me: false,
-      text: (
-        <>
-          We{" "}
-          <span className="font-medium underline decoration-amber decoration-2 underline-offset-4">
-            postpone
-          </span>{" "}
-          the deadline until Friday.
-        </>
-      ),
-    },
+    { who: "You", text: "So — how did the negotiation go?", me: true },
+    { who: "Maria", text: "We postpone the deadline until Friday.", me: false, flag: true },
   ];
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="mb-4 flex items-center gap-2 text-[.78rem] font-medium text-ink-soft">
-        <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-[#e0605f]" />
+    <div className="flex h-full flex-col">
+      <div className="mb-3 flex items-center gap-2 text-[.68rem] font-bold uppercase tracking-widest text-muted">
+        <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-brand" />
         Live transcript
       </div>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         {lines.map((l, i) => (
-          <div key={i} className="ct-rise flex items-start gap-3" style={{ animationDelay: `${300 + i * 900}ms` }}>
+          <div key={i} className="ct-rise flex gap-2.5" style={{ animationDelay: `${300 + i * 900}ms` }}>
             <span
-              className="grid h-7 w-7 flex-none place-items-center rounded-full text-[.7rem] font-bold"
+              className="mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-[.68rem] font-bold"
               style={{
-                color: l.me ? "var(--color-brand-deep)" : "#137e70",
-                background: l.me ? "var(--color-brand-soft)" : "rgba(43,182,164,.14)",
+                color: "var(--color-ink)",
+                background: l.me ? "var(--color-butter)" : "var(--color-sky)",
               }}
             >
-              {l.initial}
+              {l.who}
             </span>
-            <div>
-              <div className="text-[.72rem] font-semibold text-muted">{l.who}</div>
-              <div className="text-[.95rem] leading-relaxed text-ink">
-                {l.text}
-                {i === lines.length - 1 && (
-                  <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-[3px] bg-ink ct-caret" />
-                )}
-              </div>
-            </div>
+            <span className="text-[.95rem] leading-relaxed text-ink">
+              {l.flag ? (
+                <>
+                  We <span className="rounded bg-amber/20 px-1 font-medium text-brand-deep">postpone</span> the
+                  deadline until Friday.
+                </>
+              ) : (
+                l.text
+              )}
+              {i === lines.length - 1 && (
+                <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-[3px] bg-ink ct-caret" />
+              )}
+            </span>
           </div>
         ))}
       </div>
@@ -381,20 +358,15 @@ function Transcript() {
 function Recap({ instant }: { instant: boolean }) {
   return (
     <div className="flex flex-col">
-      {/* level — a real level-up, made visual */}
-      <div className="ct-rise mb-5" style={{ animationDelay: "60ms" }}>
-        <div className="mb-2 flex items-center justify-between text-[.78rem] font-medium">
-          <span className="text-ink-soft">Level progress</span>
-          <span className="tabular-nums text-muted">
-            B1 <span aria-hidden>→</span> <span className="font-semibold text-brand-deep">B2</span>
-          </span>
-        </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-brand-soft">
+      {/* CEFR jump — a real level-up, made visual */}
+      <div className="ct-rise mb-5 flex items-center gap-3" style={{ animationDelay: "60ms" }}>
+        <span className="font-display text-sm font-semibold text-ink-soft">B1</span>
+        <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-brand-soft">
           <div
-            className={`relative h-full overflow-hidden rounded-full ${instant ? "" : "ct-grow"}`}
+            className={`absolute inset-y-0 left-0 overflow-hidden rounded-full ${instant ? "" : "ct-grow"}`}
             style={{
               width: "72%",
-              background: "linear-gradient(90deg,var(--color-brand-lit),var(--color-brand))",
+              background: "linear-gradient(90deg,var(--color-sky),var(--color-sky-deep))",
             }}
           >
             {!instant && (
@@ -402,12 +374,13 @@ function Recap({ instant }: { instant: boolean }) {
             )}
           </div>
         </div>
+        <span className="font-display text-sm font-semibold text-brand-deep">B2</span>
       </div>
 
-      <div className="ct-rise mb-2 text-[.78rem] font-medium text-ink-soft" style={{ animationDelay: "160ms" }}>
+      <div className="ct-rise mb-2 text-[.72rem] font-bold uppercase tracking-wider text-muted" style={{ animationDelay: "160ms" }}>
         New vocabulary
       </div>
-      <div className="mb-5 flex flex-wrap gap-1.5">
+      <div className="mb-4 flex flex-wrap gap-2">
         {VOCAB.map((w, i) => (
           <span
             key={w}
@@ -419,49 +392,29 @@ function Recap({ instant }: { instant: boolean }) {
         ))}
       </div>
 
-      {/* what a tutor never catches mid-lesson — a diff, not a warning */}
+      {/* the thing a tutor never catches mid-lesson — typed out live */}
       <div
-        className={`mb-5 rounded-2xl border border-brand-line/70 bg-gradient-to-b from-brand-soft/70 to-white p-4 ${
-          instant ? "" : "ct-rise"
-        }`}
+        className={`mb-5 rounded-xl border border-amber/30 bg-amber/10 p-3.5 ${instant ? "" : "ct-rise"}`}
         style={instant ? undefined : { animationDelay: "760ms" }}
       >
-        <div className="mb-2.5 flex items-center gap-2 text-[.78rem] font-semibold text-brand-deep">
-          <span className="grid h-5 w-5 place-items-center rounded-md bg-brand/20">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z" />
-            </svg>
-          </span>
+        <div className="mb-1.5 flex items-center gap-1.5 text-[.7rem] font-bold uppercase tracking-wider text-brand-deep">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M12 3 2 21h20L12 3Z" />
+            <path d="M12 9v5M12 17.5v.5" />
+          </svg>
           Caught for you
         </div>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[.95rem]">
-          <del className="rounded bg-danger/10 px-1.5 py-0.5 text-danger-deep decoration-danger/60">
-            the advice
-          </del>
-          <span aria-hidden className="text-muted">
-            →
-          </span>
-          <ins className="rounded bg-success/10 px-1.5 py-0.5 font-medium text-success-deep no-underline">
-            advice
-          </ins>
-        </div>
-        <p className="mt-1.5 min-h-[1.25rem] text-[.84rem] text-ink-soft">
-          <Typewriter key={RULE} text={RULE} startDelay={1000} instant={instant} />
+        <p className="min-h-[1.4rem] text-[.92rem] text-ink">
+          <Typewriter key={CORRECTION} text={CORRECTION} startDelay={1000} instant={instant} />
         </p>
       </div>
 
       <div className="ct-rise flex items-center justify-between gap-3 border-t border-line pt-4" style={{ animationDelay: "220ms" }}>
-        <span className="inline-flex items-center gap-1.5 text-[.8rem] text-ink-soft">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-            <path d="M3 3v5h5" />
-            <path d="M12 7v5l3 2" />
-          </svg>
-          Builds on 11 past lessons
-        </span>
+        <span className="text-[.78rem] text-muted">Builds on 11 past lessons</span>
         <span
-          className="inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-[.82rem] font-semibold text-ink"
-          style={{ boxShadow: "0 8px 20px -8px rgba(210,140,0,.6)" }}
+          className={`inline-flex items-center gap-1.5 rounded-full bg-cocoa px-4 py-2 text-[.8rem] font-semibold text-butter transition-all duration-500 ${
+            instant ? "ring-2 ring-cocoa/25" : "shadow-soft-sm"
+          }`}
         >
           Send recap
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -507,11 +460,9 @@ function Typewriter({ text, startDelay, instant }: { text: string; startDelay: n
   );
 }
 
-// Not interactive, so it doesn't lift on hover — that would promise a click.
 function Chip({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[.84rem] font-medium text-ink shadow-[0_1px_2px_rgba(22,35,61,.05)]">
-      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-brand" />
+    <span className="inline-block rounded-full border border-brand-line bg-brand-soft px-3 py-1.5 text-sm font-medium text-brand-deep transition-transform duration-200 hover:-translate-y-0.5">
       {children}
     </span>
   );

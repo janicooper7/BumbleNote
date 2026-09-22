@@ -1,33 +1,34 @@
 import Reveal from "../Reveal";
 import CtaLink from "../CtaLink";
+import { Asterisk, Display, Eyebrow, Script } from "../bn/Bn";
 
+// The closing call to action, laid out like the pack's announcement posts
+// ("GET READY / SOMETHING *etheral* IS COMING" — 12): small caps, capitals with
+// a script word across them, one pill. A plain rounded butter panel on cocoa.
 export default function CtaBand({ signedIn = false }: { signedIn?: boolean }) {
   return (
-    <section className="py-24">
-      <div className="mx-auto w-full max-w-[1160px] px-8">
+    <section className="relative overflow-hidden bg-cocoa py-24">
+      <Asterisk className="pointer-events-none absolute left-[8%] top-16 hidden h-9 w-9 text-sky md:block" />
+      <Asterisk className="pointer-events-none absolute bottom-20 right-[9%] hidden h-12 w-12 text-butter md:block" />
+      <div className="mx-auto w-full max-w-[880px] px-5 sm:px-8">
         <Reveal>
-          <div className="relative overflow-hidden rounded-[32px] border border-line bg-surface px-10 py-18 text-center shadow-soft-md">
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(50% 80% at 50% -10%, rgba(253,179,0,.2), transparent 60%)",
-              }}
-            />
-            <h2 className="relative font-display text-[clamp(2rem,4vw,3rem)] font-medium tracking-tight">
-              Give every student better feedback — in less time.
-            </h2>
-            <p className="relative mx-auto mt-4 max-w-[46ch] text-lg text-ink-soft">
-              Spend your energy teaching. Let BumbleNote remember, write, and track the
-              rest.
+          <div className="rounded-[36px] bg-butter px-8 py-16 text-center sm:px-16 sm:py-20">
+            <Eyebrow className="text-ink-soft">Spend your energy teaching</Eyebrow>
+            <Display className="mt-6 text-[clamp(2.2rem,5vw,3.6rem)] text-cocoa">
+              Better feedback
+              <Script block className="text-sky-deep">
+                for every
+              </Script>
+              student
+            </Display>
+            <p className="mx-auto mt-6 max-w-[40ch] text-lg text-ink-soft">
+              Let BumbleNote remember, write, and track the rest.
             </p>
-            <CtaLink href={signedIn ? "/dashboard" : "/signup"} arrow className="relative mt-8">
+            <CtaLink href={signedIn ? "/dashboard" : "/signup"} arrow className="mt-9">
               {signedIn ? "Go to your dashboard" : "Start free trial"}
             </CtaLink>
             {!signedIn && (
-              <p className="relative mt-4 text-[.9rem] text-ink-soft">
-                Free for 1 student and 2 lessons · no card required
-              </p>
+              <Eyebrow className="mt-5 text-ink-soft">1 student · 2 lessons · no card</Eyebrow>
             )}
           </div>
         </Reveal>

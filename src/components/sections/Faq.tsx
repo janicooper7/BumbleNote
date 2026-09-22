@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Reveal from "../Reveal";
+import { Display, Eyebrow, Script } from "../bn/Bn";
 import { MIN_COUNTED_LESSON_MIN } from "@/lib/plans";
 
 // The questions a tutor asks before they'll put a recorder in front of a
@@ -39,7 +40,7 @@ const faqs: { q: string; a: React.ReactNode }[] = [
         everyone taking part must agree in advance. You&apos;re responsible for getting your
         student&apos;s agreement before you record — see &ldquo;Recording other people&rdquo; in
         our{" "}
-        <Link href="/terms#consent" className="font-semibold text-brand-deep underline-offset-4 hover:underline">
+        <Link href="/terms#consent" className="font-semibold text-cocoa underline underline-offset-4">
           Terms
         </Link>
         .
@@ -60,35 +61,39 @@ const faqs: { q: string; a: React.ReactNode }[] = [
   },
 ];
 
+// Template 40 ("FAQS"): the answers as soft butter note cards; an open card
+// turns powder blue.
 export default function Faq() {
   return (
-    <section id="faq" className="py-24">
-      <div className="mx-auto w-full max-w-3xl px-8">
-        <Reveal className="mb-10 text-center">
-          <div className="text-[.82rem] font-bold uppercase tracking-widest text-brand-deep">
-            FAQ
-          </div>
-          <h2 className="mt-4 font-display text-[clamp(2rem,3.8vw,2.9rem)] font-medium tracking-tight">
-            Questions before you start.
-          </h2>
+    <section id="faq" className="bg-white py-24">
+      <div className="mx-auto w-full max-w-3xl px-5 sm:px-8">
+        <Reveal className="mb-12 text-center">
+          <Eyebrow className="text-ink-soft">FAQ</Eyebrow>
+          <Display className="mt-5 text-[clamp(2.3rem,5vw,3.8rem)] text-cocoa">
+            Questions
+            <Script block className="text-sky-deep">
+              before you
+            </Script>
+            start
+          </Display>
         </Reveal>
 
-        <Reveal className="flex flex-col gap-3">
+        <Reveal className="flex flex-col gap-3.5">
           {faqs.map((f) => (
             <details
               key={f.q}
-              className="group rounded-[18px] border border-line bg-surface px-5 shadow-soft-sm open:border-brand-line"
+              className="group rounded-[22px] bg-butter-soft px-6 transition-colors duration-300 open:bg-sky"
             >
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-left font-display text-lg font-medium text-ink [&::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 text-left font-display text-[1.3rem] leading-snug text-cocoa [&::-webkit-details-marker]:hidden">
                 {f.q}
                 <span
                   aria-hidden
-                  className="grid h-7 w-7 flex-none place-items-center rounded-full bg-brand-soft text-brand-deep transition-transform duration-300 group-open:rotate-45"
+                  className="grid h-8 w-8 flex-none place-items-center rounded-full bg-cocoa text-lg text-butter transition-transform duration-300 group-open:rotate-45"
                 >
                   +
                 </span>
               </summary>
-              <p className="pb-5 text-[.98rem] leading-relaxed text-ink-soft">{f.a}</p>
+              <p className="pb-6 text-[1rem] leading-relaxed text-ink-soft">{f.a}</p>
             </details>
           ))}
         </Reveal>

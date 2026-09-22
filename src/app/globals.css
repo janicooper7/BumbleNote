@@ -36,8 +36,23 @@
   --color-success:      #3faa6d;
   --color-success-deep: #1c7a4c;
 
+  /* The marketing pack ("Bumble note - social media templates"): chocolate,
+     butter and powder blue. The page itself stays white; brown carries text,
+     the dark pills and the dark sections, butter and blue are accents and
+     feature fields. */
+  --color-cocoa:       #412e28;
+  --color-cocoa-lift:  #573e35;
+  --color-butter:      #fff0b5;
+  --color-butter-soft: #fff7d9;
+  --color-sky:         #c1d9e6;
+  --color-sky-soft:    #e4eff5;
+  /* readable blue for small text on butter, white or sky (≥4.5:1 on all three) */
+  --color-sky-deep:    #2f5d7c;
+
   --font-display: var(--font-fraunces), Georgia, serif;
   --font-sans:    var(--font-hanken), system-ui, sans-serif;
+  /* set for real inside .theme-bn, where the script font is loaded */
+  --font-script:  cursive;
 
   --ease-smooth: cubic-bezier(.22,.61,.36,1);
 }
@@ -55,6 +70,50 @@
   --shadow-md: 0 12px 34px -14px rgba(22,35,61,.20);
   --shadow-lg: 0 30px 70px -28px rgba(22,35,61,.30);
 }
+
+/* The marketing pages in the template-pack look. Everything inside re-reads the
+   shared tokens, so the product demos (hero card, how-it-works window) pick up
+   the palette without a second copy of their markup. Blue takes over the
+   "brand" slot: it's the fill that sits behind cocoa text, as on the pack's
+   feature pills. */
+.theme-bn {
+  --color-bg:         #ffffff;
+  --color-bg-tint:    #fff7d9;
+  --color-surface:    #fffdf5;
+  --color-ink:        #412e28;
+  --color-ink-soft:   #5a4238;
+  /* ≥4.5:1 on butter, white and sky */
+  --color-muted:      #6b5245;
+  --color-brand:      #c1d9e6;
+  --color-brand-lit:  #d7e8f1;
+  --color-brand-deep: #2f5d7c;
+  --color-brand-soft: #e4eff5;
+  --color-brand-line: #b3cddc;
+  --color-mint:       #e0a940;
+  --color-amber:      #c0773a;
+  --color-line:       #eadcb0;
+
+  /* Re-declared here rather than only in @theme: the font variables come from
+     next/font classes on this same element, and a custom property resolves its
+     var() where it's declared — on :root they'd be undefined. */
+  --font-display: var(--font-gilda), Georgia, serif;
+  --font-sans:    var(--font-jost), system-ui, sans-serif;
+  --font-script:  var(--font-pinyon), cursive;
+
+  --panel:     #412e28;
+  --panel-lift: #573e35;
+  --panel-text: #fff0b5;
+  --panel-dim:  #dccaa0;
+
+  --shadow-sm: 0 2px 10px rgba(65,46,40,.07);
+  --shadow-md: 0 14px 34px -14px rgba(65,46,40,.28);
+  --shadow-lg: 0 30px 70px -28px rgba(65,46,40,.38);
+
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+.theme-bn ::selection { background: var(--color-sky); color: var(--color-cocoa); }
 
 * { box-sizing: border-box; }
 /* scroll-padding clears the 78px sticky header, so every #anchor lands with its
@@ -152,20 +211,22 @@ body::after {
   0%,100% { transform: translateY(0) rotate(-5deg); }
   50%     { transform: translateY(-13px) rotate(5deg); }
 }
+/* seen from above, a wingbeat is a quick sweep about the shoulder that
+   foreshortens the wing at the top of the stroke */
 @keyframes bee-flap {
-  from { transform: rotate(-17deg); }
-  to   { transform: rotate(15deg); }
+  from { transform: rotate(-12deg) scaleX(1); }
+  to   { transform: rotate(10deg) scaleX(.7); }
 }
 .bee-lane   { animation: bee-cross linear both; will-change: transform; }
 .bee-wander { animation: bee-wander ease-in-out both; }
 .bee-bob    { animation: bee-bob ease-in-out infinite; }
-/* the wing pivots at the shoulder end of its ellipse, not the middle */
+/* the wing pivots at its shoulder — the inner end, beside the body */
 .bee-wing {
   transform-box: fill-box;
-  transform-origin: 88% 78%;
+  transform-origin: 94% 50%;
   animation: bee-flap .12s ease-in-out infinite alternate;
 }
-.bee-wing-far { animation-duration: .13s; animation-delay: -.06s; }
+.bee-wing-low { animation-duration: .13s; animation-delay: -.06s; }
 
 /* reveal on scroll */
 .reveal { opacity: 0; transform: translateY(26px); transition: opacity .8s var(--ease-smooth), transform .8s var(--ease-smooth); }

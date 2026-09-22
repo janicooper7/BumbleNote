@@ -13,6 +13,7 @@ import Pricing from "@/components/sections/Pricing";
 import Faq from "@/components/sections/Faq";
 import CtaBand from "@/components/sections/CtaBand";
 import SiteFooter from "@/components/sections/SiteFooter";
+import { bnFontVars } from "@/components/bn/fonts";
 
 // Title and description are inherited from the root layout — this exists only to
 // declare the canonical, which has to be set per page rather than once in the
@@ -27,7 +28,9 @@ export default async function Home() {
   const signedIn = !!session?.user;
 
   return (
-    <>
+    // The marketing page wears the template-pack look (brown / butter / blue,
+    // Gilda + Pinyon + Jost); see .theme-bn in globals.css.
+    <div className={`theme-bn ${bnFontVars}`}>
       {/* Scroll-reveal starts sections at opacity 0 and needs JS to lift it; with
           scripts off, show everything rather than a blank page. */}
       <noscript>
@@ -48,6 +51,6 @@ export default async function Home() {
         <CtaBand signedIn={signedIn} />
       </main>
       <SiteFooter />
-    </>
+    </div>
   );
 }

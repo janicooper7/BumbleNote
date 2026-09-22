@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Reveal from "../Reveal";
+import { Display, Eyebrow, Script } from "../bn/Bn";
 
 const STEP_MS = 7200;
 
@@ -70,16 +71,16 @@ export default function HowItWorks() {
   const auto = inView && !reduced && !manual;
 
   return (
-    <section id="how" className="py-24">
-      <div className="mx-auto w-full max-w-[1160px] px-8">
-        <Reveal className="mb-14 max-w-2xl">
-          <div className="text-[.82rem] font-bold uppercase tracking-widest text-brand-deep">
-            How it works
-          </div>
-          <h2 className="mt-4 font-display text-[clamp(2rem,3.8vw,2.9rem)] font-medium tracking-tight">
-            From live lesson to polished feedback, automatically.
-          </h2>
-          <p className="mt-4 text-lg text-ink-soft">
+    // Template 14: the steps as a stack of cocoa pills, here on white.
+    <section id="how" className="bg-white py-24">
+      <div className="mx-auto w-full max-w-[1200px] px-5 sm:px-8">
+        <Reveal className="mx-auto mb-14 max-w-3xl text-center">
+          <Eyebrow className="text-ink-soft">How it works</Eyebrow>
+          <Display className="mt-5 text-[clamp(2.3rem,5vw,3.8rem)] text-cocoa">
+            From live lesson <Script>to</Script>
+            <br className="hidden sm:block" /> polished feedback
+          </Display>
+          <p className="mx-auto mt-6 max-w-[52ch] text-lg text-ink-soft">
             Start your lesson as usual. BumbleNote handles the rest and hands you a draft
             when you stop recording.
           </p>
@@ -105,23 +106,21 @@ export default function HowItWorks() {
                       setManual(true);
                     }}
                     aria-current={isActive ? "step" : undefined}
-                    className={`group flex w-full gap-4 rounded-[18px] border p-4 text-left transition-all duration-300 sm:p-5 ${
+                    className={`group flex w-full items-start gap-4 rounded-[30px] p-4 text-left transition-all duration-300 sm:px-6 sm:py-5 ${
                       isActive
-                        ? "border-brand-line bg-surface shadow-soft-sm"
-                        : "border-transparent hover:border-line hover:bg-surface/60"
+                        ? "bg-cocoa text-butter"
+                        : "bg-cocoa/[.08] text-cocoa hover:bg-cocoa/[.14]"
                     }`}
                   >
                     <span
-                      className={`grid h-[38px] w-[38px] shrink-0 place-items-center rounded-[12px] font-display text-lg font-semibold transition-colors duration-300 ${
-                        isActive
-                          ? "bg-brand text-ink"
-                          : "bg-brand-soft text-brand-deep"
+                      className={`grid h-10 w-10 shrink-0 place-items-center rounded-full font-display text-xl transition-colors duration-300 ${
+                        isActive ? "bg-butter text-cocoa" : "bg-cocoa text-butter"
                       }`}
                     >
                       {s.n}
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-display text-lg font-medium text-ink">
+                    <span className="min-w-0 flex-1 pt-1.5">
+                      <span className="block text-[.92rem] font-semibold uppercase tracking-[.12em]">
                         {s.title}
                       </span>
                       <span
@@ -131,15 +130,19 @@ export default function HowItWorks() {
                             : "grid-rows-[0fr] opacity-0"
                         }`}
                       >
-                        <span className="min-h-0 text-[.94rem] text-ink-soft">
+                        <span className="min-h-0 text-[.97rem] text-butter/85">
                           {s.body}
                         </span>
                       </span>
                       {/* auto-advance progress bar */}
-                      <span className="mt-3 block h-[3px] overflow-hidden rounded-full bg-line">
+                      <span
+                        className={`mt-3 block h-[3px] overflow-hidden rounded-full ${
+                          isActive ? "bg-butter/20" : "bg-cocoa/10"
+                        }`}
+                      >
                         <span
                           key={active}
-                          className="block h-full rounded-full bg-brand"
+                          className="block h-full rounded-full bg-butter"
                           style={
                             isActive
                               ? auto
@@ -172,14 +175,14 @@ export default function HowItWorks() {
             aria-hidden
             onMouseEnter={() => setPaused(true)}
             onMouseLeave={() => setPaused(false)}
-            className="overflow-hidden rounded-[24px] border border-line bg-surface shadow-soft-lg"
+            className="overflow-hidden rounded-[28px] border-[1.5px] border-cocoa bg-surface"
           >
             {/* window chrome */}
-            <div className="flex items-center gap-2 border-b border-line bg-bg-tint/60 px-4 py-3">
-              <span className="h-3 w-3 rounded-full bg-[#f3b7b1]" />
-              <span className="h-3 w-3 rounded-full bg-[#ffd97a]" />
-              <span className="h-3 w-3 rounded-full bg-[#a9dcbc]" />
-              <span className="ml-3 rounded-md bg-surface px-2.5 py-1 text-[.7rem] font-semibold tracking-wide text-muted">
+            <div className="flex items-center gap-2 border-b-[1.5px] border-cocoa bg-butter px-4 py-3">
+              <span className="h-3 w-3 rounded-full bg-cocoa" />
+              <span className="h-3 w-3 rounded-full bg-sky ring-1 ring-cocoa/30" />
+              <span className="h-3 w-3 rounded-full bg-white ring-1 ring-cocoa/30" />
+              <span className="ml-3 rounded-full bg-cocoa px-3 py-1 text-[.66rem] font-semibold uppercase tracking-[.16em] text-butter">
                 bumblenote · {steps[active].tag}
               </span>
             </div>
@@ -298,8 +301,8 @@ function SceneListen({ playing }: { playing: boolean }) {
             <span
               className="mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-[.7rem] font-bold"
               style={{
-                color: l.me ? "var(--color-brand-deep)" : "#137e70",
-                background: l.me ? "var(--color-brand-soft)" : "rgba(43,182,164,.14)",
+                color: "var(--color-ink)",
+                background: l.me ? "var(--color-butter)" : "var(--color-sky)",
               }}
             >
               {l.who}

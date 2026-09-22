@@ -3,7 +3,7 @@ import Image from 'next/image'
 // The lockup is a stacked mark (bee above the wordmark), not a wide side-by-side
 // lockup — it's drawn to a 112 x 64 box. The asset ships at 3x that (336 x 192)
 // and is served unoptimized: Next 16 pins `quality` to an allowlist (default
-// [75]), and a lossy pass at that setting rings around the wordmark's hard black
+// [75]), and a lossy pass at that setting rings around the wordmark's hard dark
 // edges. A palette PNG of flat artwork is both sharper and smaller here.
 const BOX = { width: 112, height: 64 }
 const RATIO = BOX.width / BOX.height
@@ -14,7 +14,7 @@ const RATIO = BOX.width / BOX.height
  * to it.
  *
  * `tone="light"` swaps in the variant whose wordmark is cream. The stock
- * wordmark is black and disappears on the dark panels.
+ * wordmark is brown and disappears on the dark panels.
  */
 export default function Logo({
   height = BOX.height,

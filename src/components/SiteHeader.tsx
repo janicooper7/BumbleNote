@@ -8,7 +8,7 @@ import CtaLink from "./CtaLink";
 const links = [
   { href: "#how", label: "How it works" },
   { href: "#feedback", label: "Sample recap" },
-  { href: "#journey", label: "Student progress" },
+  { href: "#journey", label: "Progress" },
   { href: "#pricing", label: "Pricing" },
   { href: "#faq", label: "FAQ" },
 ];
@@ -18,6 +18,8 @@ type SiteHeaderUser = {
   email?: string | null;
 };
 
+// White, like the page, so it runs straight into the hero. The cocoa hairline
+// only appears once the page scrolls under it.
 export default function SiteHeader({ user }: { user?: SiteHeaderUser | null }) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
@@ -42,41 +44,38 @@ export default function SiteHeader({ user }: { user?: SiteHeaderUser | null }) {
 
   return (
     <header
-      className={`sticky top-0 z-50 border-b transition-all duration-300 ${
-        scrolled || open
-          ? "border-line bg-bg/90 backdrop-blur-md backdrop-saturate-150"
-          : "border-transparent"
+      className={`sticky top-0 z-50 border-b bg-white text-cocoa transition-colors duration-300 ${
+        scrolled || open ? "border-cocoa/15" : "border-transparent"
       }`}
     >
-      <div className="mx-auto flex h-[78px] w-full max-w-[1160px] items-center justify-between px-8">
+      <div className="mx-auto flex h-[78px] w-full max-w-[1200px] items-center justify-between px-5 sm:px-8">
         <a href="#" className="flex items-center gap-2.5">
           <Logo />
         </a>
 
-        <nav aria-label="Main" className="hidden items-center gap-8 font-medium text-ink-soft lg:flex xl:gap-10">
+        <nav
+          aria-label="Main"
+          className="hidden items-center gap-7 text-[.8rem] font-medium uppercase tracking-[.18em] text-ink-soft lg:flex xl:gap-9"
+        >
           {links.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="group relative transition-colors hover:text-ink"
-            >
+            <a key={l.href} href={l.href} className="group relative transition-colors hover:text-cocoa">
               {l.label}
-              <span className="absolute -bottom-1.5 left-0 h-0.5 w-0 rounded-full bg-brand transition-all duration-300 group-hover:w-full" />
+              <span className="absolute -bottom-1.5 left-0 h-px w-0 bg-cocoa transition-all duration-300 group-hover:w-full" />
             </a>
           ))}
         </nav>
 
-        <div className="flex items-center gap-3 sm:gap-5">
+        <div className="flex items-center gap-3 sm:gap-4">
           {signedIn ? (
             <CtaLink href="/dashboard" size="md" arrow>
               Dashboard
             </CtaLink>
           ) : (
             <>
-              <Link href="/login" className="hidden font-semibold text-ink-soft transition-colors hover:text-ink sm:block">
+              <CtaLink href="/login" size="md" variant="outline" className="hidden sm:inline-flex">
                 Log in
-              </Link>
-              <CtaLink href="/signup" size="md" arrow>
+              </CtaLink>
+              <CtaLink href="/signup" size="md">
                 Start free
               </CtaLink>
             </>
@@ -88,7 +87,7 @@ export default function SiteHeader({ user }: { user?: SiteHeaderUser | null }) {
             aria-expanded={open}
             aria-controls="mobile-nav"
             aria-label={open ? "Close menu" : "Open menu"}
-            className="grid h-11 w-11 place-items-center rounded-full border border-line bg-white/60 text-ink lg:hidden"
+            className="grid h-11 w-11 place-items-center rounded-full border border-cocoa/30 text-cocoa lg:hidden"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
               {open ? <path d="M6 6l12 12M18 6 6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
@@ -98,18 +97,14 @@ export default function SiteHeader({ user }: { user?: SiteHeaderUser | null }) {
       </div>
 
       {open && (
-        <nav
-          id="mobile-nav"
-          aria-label="Main"
-          className="border-t border-line bg-bg/95 px-8 pb-6 pt-3 shadow-soft-md backdrop-blur-md lg:hidden"
-        >
-          <ul className="mx-auto flex max-w-[1160px] flex-col">
+        <nav id="mobile-nav" aria-label="Main" className="border-t border-cocoa/15 bg-white px-5 pb-6 pt-2 sm:px-8 lg:hidden">
+          <ul className="mx-auto flex max-w-[1200px] flex-col">
             {links.map((l) => (
               <li key={l.href}>
                 <a
                   href={l.href}
                   onClick={() => setOpen(false)}
-                  className="block border-b border-line py-3.5 text-lg font-medium text-ink"
+                  className="block border-b border-cocoa/15 py-4 font-display text-xl uppercase tracking-wide text-cocoa"
                 >
                   {l.label}
                 </a>
@@ -121,7 +116,7 @@ export default function SiteHeader({ user }: { user?: SiteHeaderUser | null }) {
                 <Link
                   href="/login"
                   onClick={() => setOpen(false)}
-                  className="block py-3.5 text-lg font-semibold text-ink"
+                  className="block py-4 font-display text-xl uppercase tracking-wide text-cocoa"
                 >
                   Log in
                 </Link>

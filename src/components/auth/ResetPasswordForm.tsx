@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { resetPassword, type AuthFormState } from "@/app/actions/auth";
 import { MIN_PASSWORD_LENGTH, PASSWORD_HINT } from "@/lib/password-policy";
 import AuthField from "./AuthField";
+import AuthSubmit from "./AuthSubmit";
 
 const initial: AuthFormState = {};
 
@@ -35,7 +36,7 @@ export default function ResetPasswordForm({ token }: { token: string }) {
       />
 
       {state.formError ? (
-        <div role="alert" className="text-sm text-[#d9534f]">
+        <div role="alert" className="text-sm text-[#c0392b]">
           {state.formError}{" "}
           <Link href="/forgot" className="font-semibold underline">
             Request a new link
@@ -43,13 +44,11 @@ export default function ResetPasswordForm({ token }: { token: string }) {
         </div>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full rounded-xl bg-brand px-6 py-3.5 font-semibold text-ink shadow-soft-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-      >
-        {pending ? "Saving…" : "Set new password"}
-      </button>
+      <AuthSubmit pending={pending} pendingLabel="Saving…">
+
+        Set new password
+
+      </AuthSubmit>
     </form>
   );
 }

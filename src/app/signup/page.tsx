@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import AuthLayout from "@/components/auth/AuthLayout";
+import { Script } from "@/components/bn/Bn";
 import SignupOptions from "@/components/auth/SignupOptions";
 import { planIntentFrom } from "@/lib/plan-intent";
 
@@ -17,7 +18,7 @@ export default async function SignupPage({ searchParams }: PageProps<"/signup">)
 
   return (
     <AuthLayout
-      heading="Create your account"
+      heading={<>Create your <Script className="text-sky-deep">account</Script></>}
       sub={
         intent.planName
           ? `Create your account, then choose how to pay for ${intent.planName}.`
@@ -26,9 +27,9 @@ export default async function SignupPage({ searchParams }: PageProps<"/signup">)
     >
       <SignupOptions intent={intent} />
 
-      <p className="mt-6 text-center text-ink-soft">
+      <p className="mt-8 text-center text-ink-soft">
         Already have an account?{" "}
-        <Link href={`/login${intent.query}`} className="font-semibold text-brand-deep hover:underline">
+        <Link href={`/login${intent.query}`} className="font-semibold text-cocoa underline underline-offset-2 hover:text-sky-deep">
           Log in
         </Link>
       </p>
