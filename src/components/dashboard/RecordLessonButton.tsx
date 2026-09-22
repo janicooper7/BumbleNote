@@ -67,7 +67,7 @@ export default function RecordLessonButton({
     <>
       <button
         onClick={() => setPickerOpen(true)}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 font-semibold text-ink shadow-soft-sm transition-all duration-300 hover:-translate-y-0.5"
+        className="flex w-full items-center justify-center gap-2 rounded-full bg-cocoa px-4 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
       >
         <RecDot /> Record a lesson
       </button>
@@ -83,7 +83,7 @@ export default function RecordLessonButton({
           <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-7 shadow-soft-md">
             {status === "idle" && (
               <>
-                <div className="mb-1 font-display text-lg font-medium text-ink">
+                <div className="mb-1 font-display text-lg text-ink uppercase tracking-[.03em]">
                   Record a lesson
                 </div>
                 <p className="mb-4 text-sm text-ink-soft">Who is this lesson with?</p>
@@ -117,7 +117,7 @@ export default function RecordLessonButton({
                     <Link
                       href="/dashboard/settings"
                       onClick={closeIdle}
-                      className="mt-3 block rounded-lg bg-brand px-4 py-2 text-center font-semibold text-ink"
+                      className="mt-3 block rounded-full bg-cocoa px-4 py-2 text-center font-semibold text-butter uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
                     >
                       {quota.trial ? "Choose a plan" : "Upgrade plan"}
                     </Link>
@@ -128,7 +128,7 @@ export default function RecordLessonButton({
                     <Link
                       href="/dashboard/students/new"
                       onClick={closeIdle}
-                      className="mt-3 block rounded-lg bg-brand px-4 py-2 text-center font-semibold text-ink"
+                      className="mt-3 block rounded-full bg-cocoa px-4 py-2 text-center font-semibold text-butter uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
                     >
                       Add a student
                     </Link>
@@ -174,7 +174,7 @@ export default function RecordLessonButton({
                       type="checkbox"
                       checked={trial}
                       onChange={(e) => setTrial(e.target.checked)}
-                      className="h-4 w-4 accent-[#d28c00]"
+                      className="h-4 w-4 accent-[#412e28]"
                     />
                     This is a trial lesson — help fill in their profile
                   </label>
@@ -257,7 +257,7 @@ export default function RecordLessonButton({
                 {canRetry && (
                   <button
                     onClick={() => void retry()}
-                    className="mt-5 w-full rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5"
+                    className="mt-5 w-full rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
                   >
                     Try again
                   </button>

@@ -43,7 +43,7 @@ export default function FailedLessons({ items }: { items: FailedLessonItem[] }) 
 
   return (
     <section className="mb-8 rounded-2xl border border-[#f1c4c2] bg-[#fdf6f5] p-6 shadow-soft-sm">
-      <h2 className="font-display text-xl font-medium text-ink">
+      <h2 className="font-display text-xl text-ink uppercase tracking-[.03em]">
         {items.length === 1 ? "A lesson didn’t finish" : `${items.length} lessons didn’t finish`}
       </h2>
       <p className="mt-1 text-sm text-ink-soft">
@@ -83,7 +83,7 @@ export default function FailedLessons({ items }: { items: FailedLessonItem[] }) 
               <button
                 onClick={() => void retry(item.uploadId)}
                 disabled={row.phase === "running"}
-                className="inline-flex flex-none items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-ink shadow-soft-sm transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0"
+                className="inline-flex flex-none items-center gap-2 rounded-full bg-cocoa px-4 py-2 text-sm font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0 uppercase tracking-[.1em] hover:bg-cocoa-lift"
               >
                 {row.phase === "running" ? (
                   <>

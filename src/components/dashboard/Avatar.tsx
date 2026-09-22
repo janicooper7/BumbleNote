@@ -1,8 +1,8 @@
 import { PersonAvatarIcon } from "./icons";
 
 /**
- * Renders a student's icon: the classic initial-letter tile on a warm
- * gradient when a name is available, falling back to a neutral person glyph
+ * Renders a student's icon: the classic initial-letter disc in
+ * butter when a name is available, falling back to a neutral person glyph
  * when it isn't (e.g. a picker rendered before any student is loaded).
  */
 export default function Avatar({
@@ -17,12 +17,13 @@ export default function Avatar({
   if (initial) {
     return (
       <span
-        className={`grid flex-none place-items-center rounded-[13px] font-display font-semibold text-ink ${className}`}
+        className={`grid flex-none place-items-center rounded-full font-display text-cocoa ${className}`}
         style={{
           width: size,
           height: size,
           fontSize: size * 0.4,
-          background: "linear-gradient(145deg,#ffd143,#f0a500)",
+          background: "var(--color-butter)",
+          boxShadow: "inset 0 0 0 1.5px rgba(65,46,40,.14)",
         }}
       >
         {initial}
@@ -32,8 +33,8 @@ export default function Avatar({
 
   return (
     <span
-      className={`grid flex-none place-items-center rounded-[13px] text-white ${className}`}
-      style={{ width: size, height: size, background: "linear-gradient(145deg,#c7ccd6,#9aa1b0)" }}
+      className={`grid flex-none place-items-center rounded-full text-white ${className}`}
+      style={{ width: size, height: size, background: "var(--color-sky)" }}
     >
       <PersonAvatarIcon size={size * 0.56} />
     </span>

@@ -30,7 +30,7 @@ export default function LessonSection({
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-1 px-1">
-        <h2 className="font-display text-lg font-semibold text-ink">{title}</h2>
+        <h2 className="font-display text-lg text-ink uppercase tracking-[.03em]">{title}</h2>
         <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${pill}`}>
           {sessions.length}
         </span>

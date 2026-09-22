@@ -207,7 +207,7 @@ export default function StudentDetailView({
                   className="w-full rounded-lg border border-brand-line bg-white px-3 py-1.5 font-display text-xl font-medium text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/30"
                 />
               ) : (
-                <div className="truncate font-display text-xl font-medium text-ink">{profile.name}</div>
+                <div className="truncate font-display text-xl text-ink uppercase tracking-[.03em]">{profile.name}</div>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {editingProfile ? (
@@ -245,7 +245,7 @@ export default function StudentDetailView({
                 <button
                   onClick={saveProfile}
                   disabled={savingProfile}
-                  className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-ink transition-transform hover:-translate-y-0.5 disabled:opacity-60"
+                  className="rounded-full bg-cocoa px-3 py-1.5 text-xs font-semibold text-butter transition-transform hover:-translate-y-0.5 disabled:opacity-60 uppercase tracking-[.1em] hover:bg-cocoa-lift"
                 >
                   {savingProfile ? "Saving…" : "Save"}
                 </button>
@@ -451,11 +451,11 @@ export default function StudentDetailView({
         {/* journey + sessions */}
         <div className="flex flex-col gap-6">
           <section
-            className="relative overflow-hidden rounded-2xl p-6 text-white shadow-soft-sm"
+            className="relative overflow-hidden rounded-2xl p-6 text-butter shadow-soft-sm"
             style={{ background: "linear-gradient(150deg,var(--panel),var(--panel-lift))" }}
           >
-            <div className="text-xs font-bold uppercase tracking-wide text-brand-lit">Suggested next</div>
-            <h2 className="mt-2 font-display text-xl font-medium">Where to take {firstName} next</h2>
+            <div className="text-xs font-bold uppercase tracking-[.18em] text-sky">Suggested next</div>
+            <h2 className="mt-2 font-display text-xl uppercase tracking-[.03em]">Where to take {firstName} next</h2>
             <p className="mt-2 text-[var(--panel-text)]">
               {lessonsTaught === 0 ? (
                 <>Record your first lesson with {firstName} and BumbleNote will start building their journey — vocabulary, areas to improve, and what to work on next.</>
@@ -474,7 +474,7 @@ export default function StudentDetailView({
 
             {warmUp.length > 0 && (
               <div className="mt-4 rounded-xl border border-white/15 bg-white/10 p-4">
-                <div className="text-xs font-bold uppercase tracking-wide text-brand-lit">
+                <div className="text-xs font-bold uppercase tracking-[.18em] text-sky">
                   Warm-up exercise
                 </div>
                 <p className="mt-1.5 text-[var(--panel-text)]">
@@ -494,7 +494,7 @@ export default function StudentDetailView({
           {lessonsTaught > 0 && (
             <section className="rounded-2xl border border-line bg-surface p-6 shadow-soft-sm">
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                <h2 className="font-display text-xl font-medium text-ink">The journey so far</h2>
+                <h2 className="font-display text-xl text-ink uppercase tracking-[.03em]">The journey so far</h2>
                 <TrajectoryChip trajectory={journey.trajectory} />
               </div>
 
@@ -578,7 +578,7 @@ export default function StudentDetailView({
 
           <section className="rounded-2xl border border-line bg-surface p-6 shadow-soft-sm">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-display text-xl font-medium text-ink">Lesson history</h2>
+              <h2 className="font-display text-xl text-ink uppercase tracking-[.03em]">Lesson history</h2>
             </div>
             <div className="flex flex-col gap-3">
               {sortedHistory.map((s) => {
@@ -605,7 +605,7 @@ export default function StudentDetailView({
                         />
                         <button
                           onClick={() => saveTitle(s.id)}
-                          className="flex-none rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-ink transition-transform hover:-translate-y-0.5"
+                          className="flex-none rounded-full bg-cocoa px-3 py-2 text-xs font-semibold text-butter transition-transform hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift"
                         >
                           Save
                         </button>
@@ -683,7 +683,7 @@ function Stat({ k, v }: { k: string; v: string }) {
   return (
     <div className="rounded-xl border border-line bg-white/60 px-3.5 py-3">
       <dt className="text-xs font-medium text-muted">{k}</dt>
-      <dd className="mt-1 font-display text-lg font-medium text-ink">{v}</dd>
+      <dd className="mt-1 font-display text-lg text-ink uppercase tracking-[.03em]">{v}</dd>
     </div>
   );
 }

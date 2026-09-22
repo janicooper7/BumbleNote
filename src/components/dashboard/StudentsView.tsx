@@ -41,7 +41,7 @@ export default function StudentsView({ list }: { list: Student[] }) {
         </div>
         <Link
           href="/dashboard/students/new"
-          className="flex-none rounded-xl bg-brand px-4 py-2.5 text-center text-sm font-semibold text-ink shadow-soft-sm transition-all duration-300 hover:-translate-y-0.5"
+          className="flex-none rounded-full bg-cocoa px-4 py-2.5 text-center text-sm font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift"
         >
           + Add student
         </Link>
@@ -163,7 +163,7 @@ function StudentRow({
 function RowStat({ n, label }: { n: number | string; label: string }) {
   return (
     <div className="w-16 text-right">
-      <div className="font-display text-sm font-semibold text-ink">{n}</div>
+      <div className="font-display text-sm text-ink uppercase tracking-[.03em]">{n}</div>
       <div className="text-[11px] text-muted">{label}</div>
     </div>
   );

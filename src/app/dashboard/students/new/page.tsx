@@ -76,7 +76,7 @@ export default function NewStudentPage() {
         <div className="px-6 py-10 lg:px-10">
           <div className="mx-auto max-w-xl rounded-2xl border border-line bg-surface p-8 text-center shadow-soft-sm">
             <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-mint/15 text-2xl text-mint">✓</div>
-            <h2 className="mt-5 font-display text-2xl font-medium text-ink">
+            <h2 className="mt-5 font-display text-2xl text-ink uppercase tracking-[.03em]">
               {created.name} is ready to go
             </h2>
             <p className="mt-2 text-ink-soft">
@@ -86,8 +86,8 @@ export default function NewStudentPage() {
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <Link
                 href={`/dashboard/students/${created.id}`}
-                className="inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5"
-                style={{ boxShadow: "0 10px 24px -10px rgba(210,140,0,.6)" }}
+                className="inline-flex items-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
+                style={{ boxShadow: "0 10px 24px -10px rgba(65,46,40,.45)" }}
               >
                 View {created.name.split(" ")[0]}&apos;s profile →
               </Link>
@@ -229,8 +229,8 @@ export default function NewStudentPage() {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ boxShadow: "0 10px 24px -10px rgba(210,140,0,.6)" }}
+              className="inline-flex items-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
+              style={{ boxShadow: "0 10px 24px -10px rgba(65,46,40,.45)" }}
             >
               {saving ? "Adding…" : "Add student"}
             </button>

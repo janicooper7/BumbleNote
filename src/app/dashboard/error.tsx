@@ -27,7 +27,7 @@ export default function DashboardError({
       <Topbar title="Something went wrong" subtitle="This page didn't load" />
       <div className="p-8">
         <div className="mx-auto max-w-[520px] rounded-2xl border border-line bg-surface p-8 text-center shadow-soft-sm">
-          <h2 className="font-display text-[1.6rem] leading-tight text-ink">
+          <h2 className="font-display text-[1.6rem] leading-tight text-ink uppercase tracking-[.03em]">
             We couldn&rsquo;t load this page
           </h2>
           <p className="mt-3 text-ink-soft">
@@ -38,7 +38,7 @@ export default function DashboardError({
           <button
             type="button"
             onClick={() => unstable_retry()}
-            className="mt-7 rounded-xl bg-brand px-6 py-3 font-semibold text-ink shadow-soft-sm transition-all duration-200 hover:bg-brand-lit"
+            className="mt-7 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-200 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
           >
             Try again
           </button>

@@ -52,7 +52,7 @@ export default function ProfileSettings({
       <div className="mt-5 flex items-center gap-4">
         <Avatar initial={initial} size={56} />
         <div className="min-w-0">
-          <div className="truncate font-display text-lg font-medium text-ink">{saved}</div>
+          <div className="truncate font-display text-lg text-ink uppercase tracking-[.03em]">{saved}</div>
           <div className="truncate text-sm text-muted">{email}</div>
         </div>
       </div>
@@ -83,7 +83,7 @@ export default function ProfileSettings({
           <button
             onClick={save}
             disabled={!dirty || pending}
-            className="flex-none rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-ink transition-all duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-45"
+            className="flex-none rounded-full bg-cocoa px-5 py-2.5 text-sm font-semibold text-butter transition-all duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-45 uppercase tracking-[.1em] hover:bg-cocoa-lift"
           >
             {pending ? "Saving…" : "Save"}
           </button>

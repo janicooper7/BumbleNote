@@ -103,7 +103,7 @@ export default async function DashboardHome() {
               className="rounded-2xl border border-line bg-surface p-5 shadow-soft-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-md"
             >
               <div className="text-sm text-ink-soft">{s.label}</div>
-              <div className="mt-1.5 font-display text-[2rem] font-semibold leading-none tracking-tight text-ink">
+              <div className="mt-1.5 font-display text-[2rem] leading-none text-ink uppercase tracking-[.03em]">
                 {s.value}
               </div>
               <div
@@ -123,7 +123,7 @@ export default async function DashboardHome() {
           {/* review queue */}
           <section className="rounded-2xl border border-line bg-surface p-6 shadow-soft-sm">
             <div className="mb-5 flex items-center justify-between">
-              <h2 className="font-display text-xl font-medium text-ink">Awaiting you</h2>
+              <h2 className="font-display text-xl text-ink uppercase tracking-[.03em]">Awaiting you</h2>
               <Link
                 href="/dashboard/lessons"
                 className="text-sm font-semibold text-brand-deep hover:underline"
@@ -148,7 +148,7 @@ export default async function DashboardHome() {
           {/* students snapshot */}
           <section className="rounded-2xl border border-line bg-surface p-6 shadow-soft-sm">
             <div className="mb-5 flex items-center justify-between">
-              <h2 className="font-display text-xl font-medium text-ink">Your students</h2>
+              <h2 className="font-display text-xl text-ink uppercase tracking-[.03em]">Your students</h2>
               <Link href="/dashboard/students" className="text-sm font-semibold text-brand-deep hover:underline">
                 View all
               </Link>

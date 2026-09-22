@@ -282,7 +282,7 @@ export default function SessionReview({
         <div className='flex items-center gap-4'>
           <Avatar initial={session.studentInitial} size={56} />
           <div>
-            <div className='font-display text-xl font-medium text-ink'>
+            <div className='font-display text-xl text-ink uppercase tracking-[.03em]'>
               {title}
             </div>
             <div className='text-sm text-muted'>
@@ -293,7 +293,7 @@ export default function SessionReview({
         <div className='flex items-center gap-3'>
           {session.isTrial && (
             <span
-              className='rounded-full bg-mint/15 px-2.5 py-1 text-xs font-semibold text-[#137e70]'
+              className='rounded-full bg-mint/15 px-2.5 py-1 text-xs font-semibold text-cocoa'
               title="Marked as this student's trial lesson — any interests, focus areas or notes their profile was still missing were filled in from this lesson."
             >
               Trial lesson
@@ -330,7 +330,7 @@ export default function SessionReview({
             <div className='text-xs font-bold uppercase tracking-wide text-brand-deep'>
               For the student · emailed PDF
             </div>
-            <div className='font-display text-xl font-medium text-ink'>
+            <div className='font-display text-xl text-ink uppercase tracking-[.03em]'>
               Student feedback
             </div>
           </div>
@@ -389,10 +389,10 @@ export default function SessionReview({
         {/* tutor notes */}
         <div className='overflow-hidden rounded-2xl border border-line bg-surface shadow-soft-sm'>
           <div className='border-b border-line bg-mint/10 px-6 py-4'>
-            <div className='text-xs font-bold uppercase tracking-wide text-[#137e70]'>
+            <div className='text-xs font-bold uppercase tracking-wide text-cocoa'>
               For you · private notes
             </div>
-            <div className='font-display text-xl font-medium text-ink'>
+            <div className='font-display text-xl text-ink uppercase tracking-[.03em]'>
               Tutor notes
             </div>
           </div>
@@ -409,12 +409,12 @@ export default function SessionReview({
                 <span className='text-sm font-medium text-ink-soft'>
                   Observed level this lesson
                 </span>
-                <span className='rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-[#137e70]'>
+                <span className='rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-cocoa'>
                   {session.observedLevel}
                 </span>
               </div>
               {student && !isLevelDetermined(student.lessonCount) && (
-                <p className='mt-2 text-xs text-[#137e70]/80'>
+                <p className='mt-2 text-xs text-cocoa/80'>
                   One data point toward a level — BumbleNote waits for{' '}
                   {LEVEL_DETERMINATION_LESSONS} taught lessons before calling{' '}
                   {session.studentName.split(' ')[0]}&rsquo;s level determined
@@ -596,7 +596,7 @@ export default function SessionReview({
                 <button
                   onClick={resend}
                   disabled={resending}
-                  className='rounded-xl bg-brand px-5 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60'
+                  className='rounded-full bg-cocoa px-5 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]'
                 >
                   {resending ? 'Resending…' : 'Yes, resend'}
                 </button>
@@ -619,8 +619,8 @@ export default function SessionReview({
                       ? 'Save or cancel your edits before resending.'
                       : undefined
                 }
-                className='inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60'
-                style={{ boxShadow: '0 10px 24px -10px rgba(210,140,0,.6)' }}
+                className='inline-flex items-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]'
+                style={{ boxShadow: '0 10px 24px -10px rgba(65,46,40,.45)' }}
               >
                 Resend to student ↻
               </button>
@@ -632,8 +632,8 @@ export default function SessionReview({
               title={
                 !confirmed ? 'Confirm the lesson before sending.' : undefined
               }
-              className='inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60'
-              style={{ boxShadow: '0 10px 24px -10px rgba(210,140,0,.6)' }}
+              className='inline-flex items-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]'
+              style={{ boxShadow: '0 10px 24px -10px rgba(65,46,40,.45)' }}
             >
               {pending === 'sent' ? 'Sending…' : 'Send to student →'}
             </button>
@@ -757,7 +757,7 @@ function MergePanel({
                       checked={selected.has(c.id)}
                       disabled={isSelf || merging}
                       onChange={() => toggle(c.id)}
-                      className='h-4 w-4 accent-[#d28c00]'
+                      className='h-4 w-4 accent-[#412e28]'
                     />
                     <span
                       className='min-w-0 flex-1 truncate font-medium text-ink'
@@ -817,7 +817,7 @@ function MergePanel({
               <button
                 onClick={merge}
                 disabled={!canMerge}
-                className='rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-60'
+                className='rounded-full bg-cocoa px-4 py-2 text-sm font-semibold text-butter transition-colors disabled:cursor-not-allowed disabled:opacity-60 uppercase tracking-[.1em] hover:bg-cocoa-lift'
               >
                 {merging
                   ? 'Combining… (about a minute)'
@@ -849,7 +849,7 @@ function TalkTimeMeter({ studentPct }: { studentPct: number }) {
     <div>
       <div className='flex items-center justify-between text-sm font-semibold'>
         <span className='text-brand-deep'>Student {studentPct}%</span>
-        <span className='text-[#137e70]'>Tutor {tutorPct}%</span>
+        <span className='text-cocoa'>Tutor {tutorPct}%</span>
       </div>
       <div className='mt-2 flex h-3 overflow-hidden rounded-full bg-brand-soft'>
         <div className='bg-brand' style={{ width: `${studentPct}%` }} />

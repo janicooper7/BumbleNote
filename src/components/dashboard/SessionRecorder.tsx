@@ -22,7 +22,7 @@ export default function SessionRecorder({
       {status === "idle" && (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="font-display text-lg font-medium text-ink">
+            <div className="font-display text-lg text-ink uppercase tracking-[.03em]">
               Record this session with {firstName}
             </div>
             <p className="mt-0.5 text-sm text-ink-soft">
@@ -34,15 +34,15 @@ export default function SessionRecorder({
                 type="checkbox"
                 checked={trial}
                 onChange={(e) => setTrial(e.target.checked)}
-                className="h-4 w-4 accent-[#d28c00]"
+                className="h-4 w-4 accent-[#412e28]"
               />
               This is a trial lesson — use it to help fill in {firstName}&apos;s profile
             </label>
           </div>
           <button
             onClick={() => start(studentId, trial)}
-            className="inline-flex flex-none items-center justify-center gap-2 rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5"
-            style={{ boxShadow: "0 10px 24px -10px rgba(210,140,0,.6)" }}
+            className="inline-flex flex-none items-center justify-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
+            style={{ boxShadow: "0 10px 24px -10px rgba(65,46,40,.45)" }}
           >
             <MicIcon /> Record a session
           </button>
@@ -111,7 +111,7 @@ export default function SessionRecorder({
             )}
             <button
               onClick={canRetry ? retry : reset}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
             >
               {canRetry ? "Try again" : "Start over"}
             </button>

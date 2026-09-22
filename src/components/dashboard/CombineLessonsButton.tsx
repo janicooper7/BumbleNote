@@ -134,7 +134,7 @@ export default function CombineLessonsButton({ students }: { students: PickStude
           <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-7 shadow-soft-md">
             {!chosen ? (
               <>
-                <div className="mb-1 font-display text-lg font-medium text-ink">Combine lessons</div>
+                <div className="mb-1 font-display text-lg text-ink uppercase tracking-[.03em]">Combine lessons</div>
                 <p className="mb-4 text-sm text-ink-soft">
                   Call dropped mid-lesson? Pick the student, then the recordings to turn into
                   one lesson and one report.
@@ -191,7 +191,7 @@ export default function CombineLessonsButton({ students }: { students: PickStude
                 <div className="mb-1 flex items-center gap-3">
                   <Avatar initial={chosen.initial} size={36} />
                   <div className="min-w-0">
-                    <div className="truncate font-display text-lg font-medium text-ink">
+                    <div className="truncate font-display text-lg text-ink uppercase tracking-[.03em]">
                       {chosen.name}
                     </div>
                     <div className="text-xs text-muted">
@@ -227,7 +227,7 @@ export default function CombineLessonsButton({ students }: { students: PickStude
                                 checked={selected.has(l.id)}
                                 disabled={!!blocked || merging}
                                 onChange={() => toggle(l.id)}
-                                className="h-4 w-4 accent-[#d28c00]"
+                                className="h-4 w-4 accent-[#412e28]"
                               />
                               <span className="min-w-0 flex-1">
                                 <span className="block truncate font-medium text-ink" title={l.title}>
@@ -283,7 +283,7 @@ export default function CombineLessonsButton({ students }: { students: PickStude
                   <button
                     onClick={() => void combine()}
                     disabled={picked.length < 2 || merging}
-                    className="flex-[2] rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-ink transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex-[2] rounded-full bg-cocoa px-4 py-2 text-sm font-semibold text-butter transition-colors disabled:cursor-not-allowed disabled:opacity-60 uppercase tracking-[.1em] hover:bg-cocoa-lift"
                   >
                     {merging
                       ? "Combining… (about a minute)"

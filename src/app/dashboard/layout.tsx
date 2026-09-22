@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { auth, currentTutorId } from "@/auth";
 import Sidebar from "@/components/dashboard/Sidebar";
+import { bnFontVars } from "@/components/bn/fonts";
 import { getStudents, getTutor, hasCombinableLessons } from "@/db/queries";
 import { lessonUsage } from "@/lib/quota";
 import { cookies } from "next/headers";
@@ -74,7 +75,9 @@ export default async function DashboardLayout({
     : session?.user ?? null;
 
   return (
-    <div className="flex min-h-screen">
+    // .theme-bn puts the dashboard in the homepage's template-pack look: the
+    // shared tokens re-read as cocoa / butter / sky and the Gilda + Jost fonts.
+    <div className={`theme-bn ${bnFontVars} flex min-h-screen`}>
       <Sidebar
         user={user}
         students={students}

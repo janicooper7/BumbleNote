@@ -70,7 +70,7 @@ export default function BillingCard({
           )}
           <a
             href="/dashboard/billing/portal"
-            className="mt-5 inline-flex rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-ink shadow-soft-sm transition-all duration-300 hover:-translate-y-0.5"
+            className="mt-5 inline-flex rounded-full bg-cocoa px-4 py-2 text-sm font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift"
           >
             {pastDue ? "Update payment method" : "Manage billing"}
           </a>
@@ -108,7 +108,7 @@ export default function BillingCard({
                   </a>
                   <a
                     href={`/dashboard/billing/checkout?plan=${id}&interval=year`}
-                    className="rounded-lg bg-brand px-3 py-1.5 text-[.84rem] font-semibold text-ink transition-all hover:-translate-y-0.5"
+                    className="rounded-full bg-cocoa px-3 py-1.5 text-[.84rem] font-semibold text-butter transition-all hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift"
                   >
                     ${PLAN_PRICES_USD[id].year}/yr
                   </a>
