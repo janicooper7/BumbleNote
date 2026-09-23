@@ -1,11 +1,12 @@
 import Reveal from "../Reveal";
 import CtaLink from "../CtaLink";
 import { Asterisk, Display, Eyebrow, Script } from "../bn/Bn";
+import { SignedIn, SignedOut } from "../SignedIn";
 
 // The closing call to action, laid out like the pack's announcement posts
 // ("GET READY / SOMETHING *etheral* IS COMING" — 12): small caps, capitals with
 // a script word across them, one pill. A plain rounded butter panel on cocoa.
-export default function CtaBand({ signedIn = false }: { signedIn?: boolean }) {
+export default function CtaBand() {
   return (
     <section className="relative overflow-hidden bg-cocoa py-24">
       <Asterisk className="pointer-events-none absolute left-[8%] top-16 hidden h-9 w-9 text-sky md:block" />
@@ -24,12 +25,17 @@ export default function CtaBand({ signedIn = false }: { signedIn?: boolean }) {
             <p className="mx-auto mt-6 max-w-[40ch] text-lg text-ink-soft">
               Let BumbleNote remember, write, and track the rest.
             </p>
-            <CtaLink href={signedIn ? "/dashboard" : "/signup"} arrow className="mt-9">
-              {signedIn ? "Go to your dashboard" : "Start free trial"}
-            </CtaLink>
-            {!signedIn && (
+            <SignedIn>
+              <CtaLink href="/dashboard" arrow className="mt-9">
+                Go to your dashboard
+              </CtaLink>
+            </SignedIn>
+            <SignedOut>
+              <CtaLink href="/signup" arrow className="mt-9">
+                Start free trial
+              </CtaLink>
               <Eyebrow className="mt-5 text-ink-soft">1 student · 2 lessons · no card</Eyebrow>
-            )}
+            </SignedOut>
           </div>
         </Reveal>
       </div>

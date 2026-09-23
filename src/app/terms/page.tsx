@@ -4,6 +4,9 @@
 //
 //   - §"Recording other people" puts the consent duty on the tutor, which is
 //     where it legally sits — we never meet the student.
+//   - §"Student data we process for you" is the UK GDPR Art. 28 processor
+//     contract. Every item in Art. 28(3)(a)–(h) maps to a point in it; don't drop
+//     one without checking the article.
 //   - §"The AI drafts, you decide" is why the review step in the product exists.
 //     If a tutor sends an unreviewed report containing a mistake, that is on them,
 //     and the product is deliberately built so nothing sends without confirmation.
@@ -40,7 +43,9 @@ export default function TermsPage() {
           accept these terms for it.
         </p>
         <p>
-          You must be 18 or over to hold an account.
+          You must be 18 or over to hold an account. BumbleNote is a tool for your
+          tutoring work: you use it in the course of your business or profession, not
+          as a consumer.
         </p>
       </Clause>
 
@@ -60,9 +65,7 @@ export default function TermsPage() {
       <Clause id="account" heading="Your account">
         <p>
           You are responsible for what happens under your account, including keeping
-          your sign-in secure. If you connect the lesson-capture extension, the access
-          token it uses is equivalent to a password — treat it as one, and regenerate
-          it from Settings if you think it has been exposed.
+          your sign-in secure.
         </p>
         <p>
           One account is for one tutor. Please do not share a login with colleagues.
@@ -95,6 +98,71 @@ export default function TermsPage() {
           accepts no responsibility for a recording made without it. If a claim is
           brought against us because you recorded someone without their agreement, you
           agree to cover the reasonable costs that claim causes us.
+        </p>
+      </Clause>
+
+      <Clause id="data-processing" heading="Student data we process for you">
+        <p>
+          For your students&apos; data you are the controller and we are your
+          processor. This section is the contract UK GDPR requires between the two
+          of us.
+        </p>
+        <Points
+          items={[
+            <>
+              <strong>What, and for how long.</strong> We process your students&apos;
+              names, email addresses, the learning details you enter, lesson audio and
+              transcripts, and the notes generated from them. The purpose is to provide
+              BumbleNote to you, for as long as you have an account.
+            </>,
+            <>
+              <strong>Only on your instructions.</strong> These terms and the way you
+              use the product are your instructions. We will not use student data for
+              anything else. If the law ever requires us to, we will tell you first
+              unless the law forbids it, and we will tell you if we think an
+              instruction breaks data protection law.
+            </>,
+            <>
+              <strong>Confidentiality and security.</strong> Only the operator can
+              access production data, under a duty of confidentiality. We protect it
+              with the measures described in the{" "}
+              <Link href="/privacy#security">Privacy Policy</Link>.
+            </>,
+            <>
+              <strong>Our providers.</strong> You authorise the providers listed in the{" "}
+              <Link href="/privacy#processors">Privacy Policy</Link>. Each is bound by
+              data protection terms at least as protective as these. We will email you
+              at least {LEGAL.subprocessorNoticeDays} days before adding or replacing
+              one that handles student data. If you object, you may close your account
+              and we will refund any unused part of a paid period.
+            </>,
+            <>
+              <strong>Helping you with requests.</strong> You can view, correct, export,
+              and delete student data yourself in the product. For anything the product
+              can&apos;t do, we will help you answer a student&apos;s request.
+            </>,
+            <>
+              <strong>Breaches and assessments.</strong> We will tell you without undue
+              delay after we become aware of a breach affecting your students&apos;
+              data, with what you need to assess it and report it if necessary. We will
+              also give you reasonable help with a data protection impact assessment.
+            </>,
+            <>
+              <strong>When you leave.</strong> Deleting your account deletes all student
+              data we hold for you, and it leaves our backups within{" "}
+              {LEGAL.backupRetentionDays} days. Download it from Settings first if you
+              want to keep it.
+            </>,
+            <>
+              <strong>Checking on us.</strong> We will give you the information you
+              reasonably need to show we meet these obligations, and answer
+              reasonable written questions about how we handle your data.
+            </>,
+          ]}
+        />
+        <p>
+          Transfers outside the UK are covered by the safeguards described in the{" "}
+          <Link href="/privacy#processors">Privacy Policy</Link>.
         </p>
       </Clause>
 
@@ -207,7 +275,7 @@ export default function TermsPage() {
         <p>
           You can stop using BumbleNote and delete your account at any time from
           Settings. Deleting your account permanently removes your students and their
-          lessons — export anything you want to keep first.
+          lessons — download your data from Settings first if you want to keep it.
         </p>
         <p>
           We may end the agreement by giving you reasonable notice, or immediately if

@@ -1,6 +1,7 @@
 import CtaLink from "../CtaLink";
 import HeroVisual from "./HeroVisual";
 import { Display, Script } from "../bn/Bn";
+import { SignedIn, SignedOut } from "../SignedIn";
 
 // The original hero layout — headline and copy on the left, the live lesson
 // card on the right — in the site's type: Gilda capitals with the Pinyon script
@@ -9,7 +10,7 @@ import { Display, Script } from "../bn/Bn";
 // CSS animation (`ct-rise`), so the headline paints with the first HTML instead
 // of after hydration.
 
-export default function Hero({ signedIn = false }: { signedIn?: boolean }) {
+export default function Hero() {
   return (
     <section className="bg-white pb-16 pt-16 md:pt-20">
       <div className="mx-auto grid w-full max-w-[1160px] grid-cols-1 items-center gap-12 px-5 sm:px-8 md:grid-cols-[1.2fr_.8fr]">
@@ -41,15 +42,16 @@ export default function Hero({ signedIn = false }: { signedIn?: boolean }) {
             className="ct-rise mt-9 flex flex-wrap items-center gap-4"
             style={{ animationDelay: "240ms" }}
           >
-            {signedIn ? (
+            <SignedIn>
               <CtaLink href="/dashboard" arrow>
                 Go to your dashboard
               </CtaLink>
-            ) : (
+            </SignedIn>
+            <SignedOut>
               <CtaLink href="/signup" arrow>
                 Start free trial
               </CtaLink>
-            )}
+            </SignedOut>
             <CtaLink href="#how" variant="outline" className="bg-white/50 text-cocoa">
               See how it works
             </CtaLink>

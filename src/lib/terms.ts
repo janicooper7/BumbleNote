@@ -22,7 +22,7 @@ import { tutors } from "@/db/schema";
  * Bump to make every tutor re-accept — for material changes only. Cosmetic edits
  * to /terms shouldn't force a click-through on everyone.
  */
-export const TERMS_VERSION = "2026-09-14";
+export const TERMS_VERSION = "2026-09-23";
 
 export const TERMS_COOKIE = "bn_terms_accepted";
 

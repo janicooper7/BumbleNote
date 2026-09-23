@@ -112,6 +112,24 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
             </div>
           </div>
 
+          {/* Data export — sits right above deletion, since "take your data with
+              you first" is exactly what the delete card and the Terms advise. */}
+          <div className="rounded-2xl border border-line bg-surface p-6 shadow-soft-sm">
+            <div className="font-semibold text-ink">Download your data</div>
+            <p className="mt-1.5 text-sm text-ink-soft">
+              Your account, student profiles and lesson notes as a single JSON file.
+              Use it to keep a copy, move elsewhere, or answer a student who asks what
+              you hold about them.
+            </p>
+            <a
+              href="/dashboard/settings/export"
+              download
+              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-line bg-white px-4 py-2.5 text-sm font-semibold text-ink-soft transition-all duration-200 hover:-translate-y-0.5 hover:text-ink"
+            >
+              Download export
+            </a>
+          </div>
+
           {/* Last on the page, and set apart — the only irreversible control here. */}
           <DeleteAccountCard
             email={tutor.email}

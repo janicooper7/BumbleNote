@@ -85,6 +85,11 @@ async function transcribeTrack(
     language: "en",
     smart_format: true,
     punctuate: true,
+    // Keep lesson audio out of Deepgram's Model Improvement Program. Without this,
+    // Deepgram may use what we send to train its models — which would make the
+    // privacy policy's "providers don't train on your content" line false. Costs
+    // more per minute than the opted-in rate; that's the price of the promise.
+    mip_opt_out: true,
   });
 
   // Callback-mode responses have no `results`; we transcribe synchronously.

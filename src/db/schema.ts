@@ -66,7 +66,8 @@ export const tutors = pgTable("tutors", {
   // A version other than the current one sends them to /accept-terms.
   termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
   termsVersion: text("terms_version"),
-  // Bearer token the capture browser extension uses to upload lessons.
+  // SHA-256 of the bearer token the capture extension uploads with — never the
+  // token itself (src/lib/capture-auth.ts).
   captureToken: text("capture_token").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

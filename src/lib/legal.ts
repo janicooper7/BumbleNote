@@ -33,14 +33,14 @@ export const LEGAL = {
   addressNote: "A postal address is available on request by email.",
 
   /** Shown at the top of both documents, and cited in the change clauses. */
-  lastUpdated: "14 September 2026",
+  lastUpdated: "23 September 2026",
 
   /**
    * The same date, machine-readable, for the sitemap's <lastmod>. Kept next to
    * the display string above because the two must always name the same day —
    * change one and change the other.
    */
-  lastUpdatedISO: "2026-09-14",
+  lastUpdatedISO: "2026-09-23",
 
   /**
    * Retention window for lesson audio that a failed or abandoned upload leaves
@@ -51,6 +51,16 @@ export const LEGAL = {
 
   /** Days files attached to a lesson report are kept. Enforced by the same sweep. */
   attachmentRetentionDays: ATTACHMENT_RETENTION_DAYS,
+
+  /**
+   * How long deleted rows can survive in the database's point-in-time restore
+   * history. Must be >= the history retention configured on the Neon project —
+   * check it there before lowering this.
+   */
+  backupRetentionDays: 30,
+
+  /** Notice we give before adding or replacing a provider that handles student data. */
+  subprocessorNoticeDays: 30,
 } as const;
 
 /**
@@ -59,40 +69,55 @@ export const LEGAL = {
  * recipient, and because a tutor deciding whether to record a lesson deserves to
  * know exactly whose infrastructure their student's voice passes through.
  */
-export const SUBPROCESSORS: { name: string; role: string; data: string }[] = [
+export const SUBPROCESSORS: {
+  name: string;
+  role: string;
+  data: string;
+  /** Where the data is processed — UK GDPR Art. 13(1)(f) wants transfers named. */
+  location: string;
+}[] = [
   {
     name: "Netlify",
     role: "Hosting and temporary file storage",
     data: "Everything served by the site, plus lesson audio while it waits to be processed.",
+    location: "United States, with a global delivery network",
   },
   {
     name: "Neon",
     role: "Database hosting",
     data: "Tutor accounts, student profiles, lesson notes, and launch waitlist email addresses.",
+    // Verified from the connection host (eu-west-2). Update if the project moves.
+    location: "United Kingdom (London)",
   },
   {
     name: "Deepgram",
     role: "Speech-to-text",
-    data: "Lesson audio, converted to a transcript and then discarded.",
+    // mip_opt_out in src/lib/stt.ts is what keeps this audio out of training.
+    data: "Lesson audio, converted to a transcript. Opted out of Deepgram's model-improvement programme, so it is not used to train their models.",
+    location: "United States",
   },
   {
     name: "Anthropic",
     role: "Lesson analysis",
-    data: "The lesson transcript and the student profile fields that inform the feedback.",
+    data: "The lesson transcript and the student profile fields that inform the feedback. Kept by Anthropic only briefly for abuse monitoring under its commercial terms, and never used for training.",
+    location: "United States",
   },
   {
     name: "Resend",
     role: "Email delivery",
     data: "The student's name and email address, and the lesson report attached to the message. Waitlist email addresses, when we send the launch announcement.",
+    location: "United States",
   },
   {
     name: "Stripe",
     role: "Payments",
-    data: "The tutor's name, email address, billing address and payment details, for paid plans.",
+    data: "The tutor's name, email address, billing address and payment details, for paid plans. Stripe keeps payment and invoice records for as long as tax and anti-fraud law requires.",
+    location: "United States",
   },
   {
     name: "Google",
     role: "Sign-in",
     data: "The tutor's name and email address, when they choose to sign in with Google.",
+    location: "United States",
   },
 ];

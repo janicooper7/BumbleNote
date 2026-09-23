@@ -3,6 +3,7 @@ import { Fraunces, Hanken_Grotesk } from "next/font/google";
 import PrivacyNotice from "@/components/PrivacyNotice";
 import { SITE_URL } from "@/lib/app-url";
 import { gateEnabled } from "@/lib/site-gate";
+import { SITE_DESCRIPTION as DESCRIPTION, SITE_TITLE as TITLE } from "@/lib/site-meta";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -17,10 +18,6 @@ const hanken = Hanken_Grotesk({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
-
-const TITLE = "BumbleNote — AI lesson notes for online English tutors";
-const DESCRIPTION =
-  "BumbleNote records your 1-to-1 English lessons right in your browser — nothing to install — then writes the feedback for you: vocabulary, practice areas, and a progress journey for every student.";
 
 export const metadata: Metadata = {
   // Without metadataBase, every relative URL below (the canonical link and the
@@ -62,7 +59,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${hanken.variable}`}>
+    // en-GB to match the en_GB Open Graph locale: a UK business, UK spelling.
+    <html lang="en-GB" className={`${fraunces.variable} ${hanken.variable}`}>
       <body>
         {children}
         <PrivacyNotice />

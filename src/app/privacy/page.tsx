@@ -11,6 +11,11 @@
 //     step with AUDIO_RETENTION_MS.
 //   - "strictly necessary cookies only" — true because the project has no
 //     analytics, tag manager, or advertising code of any kind.
+//   - "not used to train their models" (Deepgram) — true because of
+//     mip_opt_out in src/lib/stt.ts. Remove that flag and this page lies.
+//   - the #students section is linked from every lesson-report email
+//     (src/lib/email.ts) and from the consent tick before each recording
+//     (src/components/dashboard/ConsentCheck.tsx). Keep the anchor stable.
 //
 // If you change what the product does with lesson data, change this page in the
 // same commit.
@@ -66,7 +71,10 @@ export default function PrivacyPage() {
         <p>
           The practical consequence: your students are your responsibility. If a
           student asks what data is held about them or wants it deleted, that request
-          goes to their tutor, and we will help that tutor answer it.
+          goes to their tutor, and we will help that tutor answer it. Tutors can
+          download everything held about their students from Settings at any time. The
+          terms we process student data under are set out in the{" "}
+          <Link href="/terms#data-processing">data processing section of our Terms</Link>.
         </p>
       </Clause>
 
@@ -79,9 +87,10 @@ export default function PrivacyPage() {
         </p>
         <p>
           <strong>When you create an account.</strong> If you sign in with Google, we
-          receive your name and email address from Google — nothing else, and never
-          your password. We also store which plan you are on, when you signed up, and
-          when you accepted our terms.
+          receive your name and email address from Google, and never your password.
+          Google&apos;s sign-in also passes along your profile picture and an account
+          identifier; we don&apos;t store either. We also store which plan you are on,
+          when you signed up, and when you accepted our terms.
         </p>
         <p>
           <strong>When you pay.</strong> Paid plans are processed by Stripe. Stripe
@@ -92,7 +101,8 @@ export default function PrivacyPage() {
         <p>
           <strong>What you type in.</strong> The student profiles you create: name and
           (optionally) email address, first language, level, learning goal, interests,
-          areas to improve, any target exam, and your own private notes.
+          areas to improve, any target exam, the hourly rate you charge them, and your
+          own private notes. Also any files you attach to a lesson report.
         </p>
         <p>
           <strong>What we record.</strong> When you start a lesson recording, BumbleNote
@@ -103,7 +113,10 @@ export default function PrivacyPage() {
         <p>
           <strong>What we generate.</strong> From the transcript: vocabulary covered,
           what went well, areas to improve, homework, a talk-time estimate, an observed
-          level, suggestions for the next lesson, and your private teaching notes.
+          level, suggestions for the next lesson, and your private teaching notes. If
+          you mark a lesson as a trial lesson, we also draft a starting profile for
+          the student — interests, areas to work on, notes — which only fills in
+          fields you have left empty, and which you can edit or delete.
         </p>
       </Clause>
 
@@ -202,7 +215,8 @@ export default function PrivacyPage() {
               <tr className="border-b border-line">
                 <th className="py-3 pr-4 font-semibold text-ink">Provider</th>
                 <th className="py-3 pr-4 font-semibold text-ink">Purpose</th>
-                <th className="py-3 font-semibold text-ink">What it sees</th>
+                <th className="py-3 pr-4 font-semibold text-ink">What it sees</th>
+                <th className="py-3 font-semibold text-ink">Where</th>
               </tr>
             </thead>
             <tbody>
@@ -210,17 +224,25 @@ export default function PrivacyPage() {
                 <tr key={p.name} className="border-b border-line/70 align-top">
                   <td className="py-3 pr-4 font-semibold text-ink">{p.name}</td>
                   <td className="py-3 pr-4">{p.role}</td>
-                  <td className="py-3">{p.data}</td>
+                  <td className="py-3 pr-4">{p.data}</td>
+                  <td className="py-3">{p.location}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <p>
-          Some of these providers operate outside the UK. Where data is transferred
-          abroad, it is covered by the safeguards UK law requires for international
-          transfers, such as an International Data Transfer Agreement or Standard
-          Contractual Clauses.
+          Our database is in the United Kingdom. The other providers above process
+          data in the United States. Those transfers rely on the UK Extension to the
+          EU–US Data Privacy Framework where the provider is certified under it, and
+          otherwise on the UK International Data Transfer Addendum to the EU Standard
+          Contractual Clauses, built into that provider&apos;s data processing terms.
+          Email us if you would like a copy of the relevant safeguard.
+        </p>
+        <p>
+          Before adding or replacing a provider that handles student or lesson data,
+          we will update this list and email account holders at least{" "}
+          {LEGAL.subprocessorNoticeDays} days in advance.
         </p>
       </Clause>
 
@@ -249,7 +271,17 @@ export default function PrivacyPage() {
             <>
               <strong>Your account</strong> — kept until you delete it. You can do that
               yourself, at any time, from Settings. Deleting your account deletes your
-              students and their lessons with it.
+              students and their lessons with it, and cancels any subscription.
+            </>,
+            <>
+              <strong>Backups</strong> — our database keeps a rolling restore history
+              for recovering from faults. Anything you delete leaves that history
+              within {LEGAL.backupRetentionDays} days and cannot be restored after that.
+            </>,
+            <>
+              <strong>Billing records</strong> — Stripe keeps payment and invoice records
+              for as long as tax and anti-fraud law requires, even after you delete
+              your account. We do not keep a separate copy.
             </>,
           ]}
         />
@@ -291,7 +323,7 @@ export default function PrivacyPage() {
             "Correct anything that is wrong.",
             "Delete your data — though for most of it you can simply delete your account yourself.",
             "Restrict or object to how we use it.",
-            "Provide it in a portable format.",
+            "Provide it in a portable format — or download it yourself, any time, from Settings.",
           ]}
         />
         <p>
@@ -302,6 +334,59 @@ export default function PrivacyPage() {
             ico.org.uk
           </a>
           , but we would rather you told us first so we can put it right.
+        </p>
+      </Clause>
+
+      <Clause id="students" heading="If you are a student">
+        <p>
+          If you received a lesson report from your tutor, this section is for you.
+        </p>
+        <Points
+          items={[
+            <>
+              <strong>Who is responsible.</strong> Your tutor decides to use BumbleNote
+              and is responsible for your data. We handle it only on their behalf, to
+              produce your lesson notes.
+            </>,
+            <>
+              <strong>What is used.</strong> The audio of your lesson, your name and
+              email address, and learning details your tutor has entered, such as your
+              level and goals. From the recording we produce a written summary of the
+              lesson: vocabulary, what went well, what to work on, and homework.
+            </>,
+            <>
+              <strong>What happens to the recording.</strong> It is turned into text,
+              analysed, and then deleted — usually within minutes, and never later
+              than {LEGAL.audioRetentionDays} days. Nobody listens to it, and it is
+              not used to train AI.
+            </>,
+            <>
+              <strong>Who else sees it.</strong> The providers listed above, for the
+              purposes described there. It is never sold or used for advertising.
+            </>,
+            <>
+              <strong>How long the notes are kept.</strong> Until your tutor deletes
+              them, your profile, or their account.
+            </>,
+            <>
+              <strong>Your rights.</strong> You can ask your tutor for a copy of what is
+              held about you, to correct it, or to delete it, and you can ask them to
+              stop recording your lessons at any time. If you can&apos;t reach your
+              tutor, email us at{" "}
+              <a href={`mailto:${LEGAL.contactEmail}`}>{LEGAL.contactEmail}</a> and we
+              will pass your request on and help them respond. You can also complain to
+              the ICO at{" "}
+              <a href="https://ico.org.uk" target="_blank" rel="noopener noreferrer">
+                ico.org.uk
+              </a>
+              .
+            </>,
+          ]}
+        />
+        <p>
+          <strong>Tutors:</strong> this is what to tell a student before you record
+          them for the first time. Sending them a link to this section is an easy way
+          to do it.
         </p>
       </Clause>
 

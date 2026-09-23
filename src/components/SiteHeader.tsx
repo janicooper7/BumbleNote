@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Logo from "./Logo";
 import CtaLink from "./CtaLink";
+import { useSignedIn } from "./SignedIn";
 
 const links = [
   { href: "#how", label: "How it works" },
@@ -13,17 +14,12 @@ const links = [
   { href: "#faq", label: "FAQ" },
 ];
 
-type SiteHeaderUser = {
-  name?: string | null;
-  email?: string | null;
-};
-
 // White, like the page, so it runs straight into the hero. The cocoa hairline
 // only appears once the page scrolls under it.
-export default function SiteHeader({ user }: { user?: SiteHeaderUser | null }) {
+export default function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
-  const signedIn = !!user;
+  const signedIn = useSignedIn();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);

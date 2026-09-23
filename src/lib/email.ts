@@ -10,6 +10,14 @@ function getClient(): Resend {
   return client;
 }
 
+/**
+ * Public origin for links inside student emails. Read directly rather than via
+ * src/lib/app-url: that module imports next/headers, and this file is bundled
+ * into the Netlify functions (through src/lib/alerts), where next/* can't resolve.
+ */
+const PUBLIC_ORIGIN =
+  process.env.APP_URL?.trim().replace(/\/+$/, "") || "https://bumblenote.com";
+
 function lessonTopic(title: string): string {
   return title.includes("·") ? title.split("·").slice(1).join("·").trim() : title;
 }
@@ -70,7 +78,10 @@ export async function sendLessonReportEmail(args: {
         <p style="margin:24px 0 0;color:#3f4750;">See you next time,<br/>${escapeHtml(tutorName)}</p>
       </div>
       <div style="padding:16px 30px;border-top:1px solid #f2ead9;font-size:13px;color:#8b909a;">
-        Sent with BumbleNote
+        Sent with BumbleNote. ${escapeHtml(tutorName)} recorded your lesson with your
+        agreement to write this report, and the recording has since been deleted.
+        <a href="${PUBLIC_ORIGIN}/privacy#students" style="color:#8b909a;">How your data is handled</a>
+        &middot; questions go to ${escapeHtml(tutorName)} &mdash; just reply to this email.
       </div>
     </div>
   </div>`;

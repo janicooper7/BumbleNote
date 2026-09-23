@@ -20,6 +20,7 @@ const POINTS = [
   "You get your student's consent before recording a lesson — and a parent's or guardian's if they're under 18.",
   "You check every AI-drafted report before sending it; once sent, it's yours.",
   "Recordings are deleted once your notes exist, and your material stays yours.",
+  "We process your students' data only on your behalf, under the data processing terms.",
 ];
 
 export default async function AcceptTermsPage({ searchParams }: PageProps<"/accept-terms">) {

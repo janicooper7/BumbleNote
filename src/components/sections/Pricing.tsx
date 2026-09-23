@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Reveal from "../Reveal";
 import CtaLink from "../CtaLink";
+import { useSignedIn } from "../SignedIn";
 import { Asterisk, Display, Eyebrow, Script } from "../bn/Bn";
 import { MIN_COUNTED_LESSON_MIN, PLANS } from "@/lib/plans";
 import { PLAN_PRICES_USD, type PaidPlanId } from "@/lib/pricing";
@@ -53,7 +54,8 @@ const cards: Card[] = [
   },
 ];
 
-export default function Pricing({ signedIn = false }: { signedIn?: boolean }) {
+export default function Pricing() {
+  const signedIn = useSignedIn();
   // One switch for the whole table, so the three plans are always compared in
   // the same billing period.
   const [annual, setAnnual] = useState(false);
