@@ -9,7 +9,7 @@ import { uploadStore, chunkKey, type ChunkMetadata, type Track } from "@/lib/upl
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, content-type",
 };
 
@@ -22,6 +22,28 @@ const ID_RE = /^[A-Za-z0-9_-]{8,100}$/;
 
 export function OPTIONS(): Response {
   return new Response(null, { status: 204, headers: CORS });
+}
+
+/**
+ * Which parts of an upload have already arrived, so a resumed upload (see
+ * lib/pending-uploads) sends only the missing ones. A blob write is atomic, so a
+ * part that's listed is a whole part. The unguessable uploadId is the capability,
+ * exactly as it is for writing chunks.
+ */
+export async function GET(req: NextRequest): Promise<Response> {
+  const tutorId = await resolveTutorId(req);
+  if (!tutorId) return json({ error: "Unauthorized." }, 401);
+
+  const uploadId = req.nextUrl.searchParams.get("uploadId") ?? "";
+  if (!ID_RE.test(uploadId)) return json({ error: "Bad uploadId." }, 400);
+
+  const parts: Record<Track, number[]> = { student: [], tutor: [] };
+  const { blobs } = await uploadStore().list({ prefix: `${uploadId}/chunk/` });
+  for (const { key } of blobs) {
+    const [, , track, part] = key.split("/");
+    if (track === "student" || track === "tutor") parts[track].push(Number(part));
+  }
+  return json({ parts });
 }
 
 export async function POST(req: NextRequest): Promise<Response> {

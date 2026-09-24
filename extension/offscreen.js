@@ -16,6 +16,29 @@ const CHUNK_SIZE = 4 * 1024 * 1024; // 4 MB, under Netlify's 6 MB function limit
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 15 * 60 * 1000;
 
+const MAX_ATTEMPTS = 5; // per request, incl. the first try.
+const RETRY_BASE_MS = 600; // exponential backoff base.
+
+// Network errors and 5xx/429/408 are worth resending (408 = Netlify's edge gave
+// up on a slow request body); other 4xx are real refusals. Same rules as
+// fetchRetry in src/lib/upload-client.ts.
+async function fetchRetry(url, init) {
+  let lastErr;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(url, init);
+      const transient = res.status >= 500 || res.status === 429 || res.status === 408;
+      if (!transient || attempt === MAX_ATTEMPTS) return res;
+      lastErr = new Error(`Server returned ${res.status}.`);
+    } catch (err) {
+      lastErr = err;
+      if (attempt === MAX_ATTEMPTS) break;
+    }
+    await new Promise((r) => setTimeout(r, RETRY_BASE_MS * 2 ** (attempt - 1)));
+  }
+  throw lastErr;
+}
+
 function partCount(blob) {
   return Math.max(1, Math.ceil(blob.size / CHUNK_SIZE));
 }
@@ -26,7 +49,7 @@ async function uploadTrack(base, token, uploadId, track, blob) {
   const parts = partCount(blob);
   for (let i = 0; i < parts; i++) {
     const slice = blob.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-    const res = await fetch(
+    const res = await fetchRetry(
       `${base}/api/upload/chunk?uploadId=${uploadId}&track=${track}&part=${i}`,
       { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: slice },
     );
@@ -100,7 +123,7 @@ async function upload() {
     };
 
     // 3. Finalize — kicks the background worker.
-    const completeRes = await fetch(`${base}/api/upload/complete`, {
+    const completeRes = await fetchRetry(`${base}/api/upload/complete`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${captureToken}`,

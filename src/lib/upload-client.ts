@@ -1,21 +1,30 @@
 // Client-side driver for the chunked lesson-audio upload (web app).
 //
-// Slices each track into sub-6 MB parts (so every request clears Netlify's
-// function-body limit), uploads them to /api/upload/chunk, finalizes via
-// /api/upload/complete, then polls /api/upload/status until the background worker
-// has produced the draft. Returns the new lesson id to navigate to.
+// Uploads a lesson from the browser outbox (lib/pending-uploads): slices each
+// track into sub-6 MB parts (so every request clears Netlify's function-body
+// limit), uploads them to /api/upload/chunk, finalizes via /api/upload/complete,
+// then polls /api/upload/status until the background worker has produced the
+// draft. Returns the new lesson id to navigate to.
 //
 // Each track is silence-trimmed first (see lib/audio-trim): it is a large cut in
 // the Deepgram bill, and the smaller upload is a free bonus. The resulting trim
 // maps travel with /complete so the worker can undo the compression.
 //
+// Uploads are resumable: the trimmed bytes are kept in the outbox and the upload
+// id never changes, so a retry asks the server which parts it already holds and
+// sends only the rest.
+//
 // The capture extension implements the same three-step flow in plain JS against
 // the same endpoints (see extension/offscreen.js) — keep them in sync.
 
-import { trimSilence, type TrimMap } from "@/lib/audio-trim";
+import { trimSilence } from "@/lib/audio-trim";
+import { deletePending, getPending, putPending, updatePending } from "@/lib/pending-uploads";
 
 const CHUNK_SIZE = 4 * 1024 * 1024; // 4 MB — comfortably under the 6 MB limit.
-const UPLOAD_CONCURRENCY = 4;
+// Parallel chunk requests share the tutor's upstream bandwidth, so each one
+// arrives slower. On a slow home connection 4 at once pushed single chunks past
+// Netlify's body timeout (408); 2 still overlaps request latency.
+const UPLOAD_CONCURRENCY = 2;
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 15 * 60 * 1000; // background function's own ceiling.
 const MAX_ATTEMPTS = 5; // per request, incl. the first try.
@@ -26,11 +35,18 @@ type Track = "student" | "tutor";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
+ * Statuses that mean "try again", not "you asked for something wrong". 408 is
+ * Netlify's edge giving up on a request body that arrived too slowly — the
+ * function never ran, so resending is both safe and usually enough.
+ */
+const isTransient = (status: number) => status >= 500 || status === 429 || status === 408;
+
+/**
  * fetch with bounded exponential-backoff retries. A long lesson uploads as
  * dozens of chunks; without retries a single transient network blip on any one
  * of them ("fetch failed" / "Failed to fetch") kills the whole upload. We retry
- * network errors and 5xx/429 responses, but surface 4xx (a real client error)
- * immediately. Honours an AbortSignal so cancel still works.
+ * network errors and transient statuses (see isTransient), but surface other 4xx
+ * (a real client error) immediately. Honours an AbortSignal so cancel still works.
  */
 async function fetchRetry(url: string, init: RequestInit, signal?: AbortSignal): Promise<Response> {
   let lastErr: unknown;
@@ -40,7 +56,7 @@ async function fetchRetry(url: string, init: RequestInit, signal?: AbortSignal):
       const res = await fetch(url, init);
       // Retry only on transient server statuses; return everything else (incl.
       // 4xx) to the caller, which decides how to report it.
-      if (res.status >= 500 || res.status === 429) {
+      if (isTransient(res.status)) {
         if (attempt === MAX_ATTEMPTS) return res;
         lastErr = new Error(`Server returned ${res.status}.`);
       } else {
@@ -143,77 +159,135 @@ export async function retryLessonProcessing(uploadId: string): Promise<{ lessonI
   return pollUntilDone(uploadId, {});
 }
 
-export type UploadLessonAudioOptions = {
+/** Queue a finished recording in the outbox before any network is touched. */
+export async function queueLessonRecording(opts: {
   studentId: string;
   durationMin: number;
+  isTrial?: boolean;
   student: Blob;
   tutor: Blob;
-  /** Marked by the tutor as this student's trial/introductory lesson. */
-  isTrial?: boolean;
-  /** Bearer token for the extension; the web app relies on session cookies. */
-  authToken?: string;
-  signal?: AbortSignal;
-};
-
-export async function uploadLessonAudio(
-  opts: UploadLessonAudioOptions,
-): Promise<{ lessonId: string }> {
-  const { studentId, durationMin, isTrial, authToken, signal } = opts;
+}): Promise<string> {
   const uploadId = crypto.randomUUID();
+  await putPending({
+    uploadId,
+    studentId: opts.studentId,
+    durationMin: opts.durationMin,
+    isTrial: !!opts.isTrial,
+    createdAt: Date.now(),
+    raw: { student: opts.student, tutor: opts.tutor },
+  });
+  return uploadId;
+}
 
-  // Trim before slicing: every byte of silence we drop here is a byte we do not
-  // upload and a second Deepgram does not bill. One track at a time — decoding a
-  // long lesson holds a few hundred MB, and doing both at once has no upside
-  // (it is CPU-bound, not IO-bound) beyond doubling the peak.
-  const studentTrim = await trimSilence(opts.student);
-  const tutorTrim = await trimSilence(opts.tutor);
-  const student = studentTrim.blob;
-  const tutor = tutorTrim.blob;
-  const trimMaps: { student?: TrimMap; tutor?: TrimMap } = {
-    student: studentTrim.map,
-    tutor: tutorTrim.map,
-  };
-  const authHeader: Record<string, string> = authToken
-    ? { authorization: `Bearer ${authToken}` }
-    : {};
-
-  const tracks: Record<Track, Blob> = { student, tutor };
-  const parts = { student: partCount(student), tutor: partCount(tutor) };
-
-  // Build the flat list of chunk uploads across both tracks, then run the pool.
-  const jobs: { track: Track; part: number; blob: Blob }[] = [];
-  for (const track of ["student", "tutor"] as const) {
-    const blob = tracks[track];
-    for (let i = 0; i < parts[track]; i++) {
-      jobs.push({ track, part: i, blob: blob.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE) });
-    }
+/** Parts of this upload the server already holds, per track. Best effort. */
+async function uploadedParts(uploadId: string): Promise<Record<Track, Set<number>>> {
+  const none = { student: new Set<number>(), tutor: new Set<number>() };
+  try {
+    const res = await fetch(`/api/upload/chunk?uploadId=${uploadId}`);
+    if (!res.ok) return none;
+    const data: { parts?: Partial<Record<Track, number[]>> } = await res.json();
+    return {
+      student: new Set(data.parts?.student ?? []),
+      tutor: new Set(data.parts?.tutor ?? []),
+    };
+  } catch {
+    return none; // worst case we resend parts; the server just overwrites them.
   }
+}
 
-  // Everything up to a successful /complete is "reupload": the server has no
-  // usable job yet, so the only retry is sending the recording again. A 4xx is a
-  // real refusal (quota, unknown student) that resending won't change.
-  const refusal = (status: number) => (status >= 500 || status === 429 ? "reupload" : null);
+/**
+ * Send a queued lesson to the server and wait for its draft. Safe to call again
+ * after any failure: it resumes where the last attempt stopped. The outbox entry
+ * is removed as soon as /complete accepts the upload — from there the audio is
+ * the server's, and a processing failure is retried from the server copy.
+ */
+export async function sendPendingLesson(
+  uploadId: string,
+  signal?: AbortSignal,
+): Promise<{ lessonId: string }> {
+  const lesson = await getPending(uploadId);
+  if (!lesson) throw new UploadError("This recording is no longer saved on this device.", null);
 
   try {
-    await runPool(jobs, UPLOAD_CONCURRENCY, async ({ track, part, blob }) => {
-      const url = `/api/upload/chunk?uploadId=${uploadId}&track=${track}&part=${part}`;
-      const res = await fetchRetry(
-        url,
-        { method: "POST", headers: authHeader, body: blob, signal },
-        signal,
-      );
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new UploadError(data.error || `Upload failed (${res.status}).`, refusal(res.status));
+    // Trim before slicing: every byte of silence we drop here is a byte we do not
+    // upload and a second Deepgram does not bill. One track at a time — decoding a
+    // long lesson holds a few hundred MB, and doing both at once has no upside
+    // (it is CPU-bound, not IO-bound) beyond doubling the peak.
+    let trimmed = lesson.trimmed;
+    if (!trimmed) {
+      if (!lesson.raw) throw new UploadError("This recording came through empty.", null);
+      const studentTrim = await trimSilence(lesson.raw.student);
+      const tutorTrim = await trimSilence(lesson.raw.tutor);
+      trimmed = {
+        student: studentTrim.blob,
+        tutor: tutorTrim.blob,
+        trimMaps: { student: studentTrim.map, tutor: tutorTrim.map },
+      };
+      // Swap raw for trimmed so the outbox holds one copy, and a resume re-sends
+      // byte-identical chunks.
+      await putPending({ ...lesson, raw: undefined, trimmed });
+    }
+
+    const tracks: Record<Track, Blob> = { student: trimmed.student, tutor: trimmed.tutor };
+    const parts = { student: partCount(tracks.student), tutor: partCount(tracks.tutor) };
+    const have = await uploadedParts(uploadId);
+
+    // Build the flat list of chunk uploads across both tracks, then run the pool.
+    const jobs: { track: Track; part: number; blob: Blob }[] = [];
+    for (const track of ["student", "tutor"] as const) {
+      const blob = tracks[track];
+      for (let i = 0; i < parts[track]; i++) {
+        if (have[track].has(i)) continue;
+        jobs.push({ track, part: i, blob: blob.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE) });
       }
-    });
+    }
+
+    // Everything up to a successful /complete can be resumed from the outbox. A
+    // non-transient 4xx is a real refusal (quota, unknown student) that resending
+    // won't change.
+    const refusal = (status: number) => (isTransient(status) ? "reupload" : null);
+
+    // Stop the other workers on the first failure instead of letting them keep
+    // uploading for minutes behind an error the tutor is already looking at.
+    const stop = new AbortController();
+    const abortAll = () => stop.abort();
+    signal?.addEventListener("abort", abortAll);
+    try {
+      await runPool(jobs, UPLOAD_CONCURRENCY, async ({ track, part, blob }) => {
+        if (stop.signal.aborted) return;
+        const url = `/api/upload/chunk?uploadId=${uploadId}&track=${track}&part=${part}`;
+        try {
+          const res = await fetchRetry(url, { method: "POST", body: blob, signal: stop.signal }, stop.signal);
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new UploadError(
+              data.error || `Upload failed (${res.status}).`,
+              refusal(res.status),
+              uploadId,
+            );
+          }
+        } catch (err) {
+          stop.abort();
+          throw err;
+        }
+      });
+    } finally {
+      signal?.removeEventListener("abort", abortAll);
+    }
 
     const completeRes = await fetchRetry(
       "/api/upload/complete",
       {
         method: "POST",
-        headers: { "content-type": "application/json", ...authHeader },
-        body: JSON.stringify({ uploadId, studentId, durationMin, isTrial, parts, trimMaps }),
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          uploadId,
+          studentId: lesson.studentId,
+          durationMin: lesson.durationMin,
+          isTrial: lesson.isTrial,
+          parts,
+          trimMaps: trimmed.trimMaps,
+        }),
         signal,
       },
       signal,
@@ -223,17 +297,28 @@ export async function uploadLessonAudio(
       throw new UploadError(
         completeData.error || `Couldn't start processing (${completeRes.status}).`,
         refusal(completeRes.status),
+        uploadId,
       );
     }
   } catch (err) {
-    if (err instanceof UploadError) throw err;
-    if (signal?.aborted) throw new UploadError("Upload cancelled.", null);
-    // Network failure that outlasted fetchRetry's backoff.
-    throw new UploadError(
-      "We couldn't upload the recording — check your connection.",
-      "reupload",
-    );
+    const failure =
+      err instanceof UploadError
+        ? err
+        : signal?.aborted
+          ? new UploadError("Upload cancelled.", "reupload", uploadId)
+          : // Network failure that outlasted fetchRetry's backoff.
+            new UploadError(
+              "We couldn't upload the recording — check your connection.",
+              "reupload",
+              uploadId,
+            );
+    await updatePending(uploadId, {
+      lastError: failure.message,
+      retryable: failure.retry !== null,
+    });
+    throw failure;
   }
 
-  return pollUntilDone(uploadId, authHeader, signal);
+  await deletePending(uploadId);
+  return pollUntilDone(uploadId, {}, signal);
 }

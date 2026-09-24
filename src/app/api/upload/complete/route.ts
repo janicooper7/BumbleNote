@@ -127,6 +127,18 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   const store = uploadStore();
+
+  // A resumed upload (see lib/pending-uploads) can reach here a second time — the
+  // first /complete succeeded but its response never made it back. Kicking the
+  // worker again would transcribe and draft the lesson twice, so a job that is
+  // already running or done just answers as if it had been accepted now. A job
+  // whose start failed (error status) falls through and is started again.
+  const existing = (await store.get(statusKey(uploadId), {
+    type: "json",
+    consistency: "strong",
+  })) as UploadStatus | null;
+  if (existing && existing.state !== "error") return json({ uploadId });
+
   const job: UploadJob = {
     tutorId,
     studentId,

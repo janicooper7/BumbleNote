@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { auth, currentTutorId } from "@/auth";
 import Sidebar from "@/components/dashboard/Sidebar";
+import PendingUploads from "@/components/dashboard/PendingUploads";
 import { bnFontVars } from "@/components/bn/fonts";
 import { getStudents, getTutor, hasCombinableLessons } from "@/db/queries";
 import { lessonUsage } from "@/lib/quota";
@@ -85,6 +86,8 @@ export default async function DashboardLayout({
         canCombineLessons={canCombineLessons}
       />
       <div className="min-w-0 flex-1">{children}</div>
+      <PendingUploads students={students} />
+
     </div>
   );
 }

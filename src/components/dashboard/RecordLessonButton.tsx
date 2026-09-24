@@ -261,7 +261,7 @@ export default function RecordLessonButton({
                 <p className="text-sm text-ink-soft">{error}</p>
                 {canRetry && (
                   <p className="mt-1 text-xs text-muted">
-                    Your recording is safe — try again without re-recording.
+                    Your recording is safe — try again now, or close this and pick it up from your dashboard later.
                   </p>
                 )}
                 {canRetry && (

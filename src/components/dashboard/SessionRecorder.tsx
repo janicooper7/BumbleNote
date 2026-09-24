@@ -101,7 +101,7 @@ export default function SessionRecorder({
             <p className="mt-0.5 text-sm text-ink-soft">{error}</p>
             {canRetry && (
               <p className="mt-1 text-xs text-muted">
-                Your recording is safe — try again without re-recording.
+                Your recording is safe — try again now, or close this and pick it up from your dashboard later.
               </p>
             )}
           </div>

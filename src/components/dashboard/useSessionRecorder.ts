@@ -4,12 +4,20 @@
 // (SessionRecorder) and the global sidebar button (RecordLessonButton).
 //
 // Captures the lesson tab's audio via getDisplayMedia (= student) and the mic
-// via getUserMedia (= tutor) as two separate tracks, then on stop uploads both
-// to a session-authed Server Action that transcribes and drafts the lesson.
+// via getUserMedia (= tutor) as two separate tracks. On stop the recording goes
+// straight into the browser outbox (lib/pending-uploads) and is uploaded from
+// there, so a failed upload or a closed tab no longer loses the lesson — the
+// dashboard banner (PendingUploads) picks up anything left behind.
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { retryLessonProcessing, uploadLessonAudio, UploadError } from "@/lib/upload-client";
+import {
+  queueLessonRecording,
+  retryLessonProcessing,
+  sendPendingLesson,
+  UploadError,
+} from "@/lib/upload-client";
+import { withUploadLock } from "@/lib/pending-uploads";
 
 export type RecorderStatus = "idle" | "recording" | "processing" | "error";
 
@@ -37,8 +45,8 @@ export function useSessionRecorder() {
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const studentId = useRef("");
   const isTrial = useRef(false);
-  // Fixed at the first upload attempt, so a retry minutes later doesn't inflate it.
-  const durationMin = useRef(0);
+  // The outbox entry for the last recording; set once it is safely queued.
+  const queuedId = useRef<string | null>(null);
   const failure = useRef<UploadError | null>(null);
   const [canRetry, setCanRetry] = useState(false);
 
@@ -115,7 +123,7 @@ export function useSessionRecorder() {
 
       const studentStream = new MediaStream([tabAudio]);
       blobs.current = {};
-      durationMin.current = 0;
+      queuedId.current = null;
       failure.current = null;
       remaining.current = 2;
       recorders.current = [
@@ -155,6 +163,7 @@ export function useSessionRecorder() {
   function finish(id: string) {
     stopTracks();
     blobs.current = {};
+    queuedId.current = null;
     failure.current = null;
     // Draft is ready — clear the recording UI (the sidebar button lives in the
     // persistent layout, so it won't unmount on navigation) and open the lesson.
@@ -170,30 +179,39 @@ export function useSessionRecorder() {
     setError(err instanceof Error ? err.message : "Couldn't process the recording.");
     setCanRetry(
       failure.current?.retry === "reprocess" ||
-        (failure.current?.retry === "reupload" && !!blobs.current.student && !!blobs.current.tutor),
+        (failure.current?.retry === "reupload" && !!queuedId.current),
     );
     setStatus("error");
   }
 
   async function upload() {
-    if (!durationMin.current) {
-      durationMin.current = Math.max(1, Math.round((Date.now() - startedAt.current) / 60000));
-    }
     try {
-      if (!blobs.current.student || !blobs.current.tutor) {
-        throw new Error("The recording came through empty — please try again.");
+      if (!queuedId.current) {
+        const { student, tutor } = blobs.current;
+        if (!student || !tutor) {
+          throw new Error("The recording came through empty — please try again.");
+        }
+        // Into the outbox before anything touches the network: from here the
+        // lesson survives a failed upload, a closed tab, or a crashed browser.
+        queuedId.current = await queueLessonRecording({
+          studentId: studentId.current,
+          isTrial: isTrial.current,
+          // Fixed now, so a retry minutes later doesn't inflate it.
+          durationMin: Math.max(1, Math.round((Date.now() - startedAt.current) / 60000)),
+          student,
+          tutor,
+        });
+        blobs.current = {}; // the outbox holds them now
       }
+      const id = queuedId.current;
       // Chunk-upload the two tracks to Netlify Blobs, then a background worker
       // transcribes + drafts and we poll for the finished lesson id. (A single
       // upload would blow Netlify's 6 MB body limit and 26–60 s function timeout.)
-      const { lessonId } = await uploadLessonAudio({
-        studentId: studentId.current,
-        durationMin: durationMin.current,
-        isTrial: isTrial.current,
-        student: blobs.current.student,
-        tutor: blobs.current.tutor,
-      });
-      finish(lessonId);
+      const result = await withUploadLock(id, () => sendPendingLesson(id));
+      if (!result) {
+        throw new UploadError("This lesson is already uploading in another tab.", null);
+      }
+      finish(result.lessonId);
     } catch (err) {
       fail(err);
     }
@@ -201,8 +219,7 @@ export function useSessionRecorder() {
 
   /**
    * Try a failed lesson again without re-recording it. Which way depends on where
-   * it failed — see UploadError. The recording stays in memory until the lesson
-   * is drafted, so a re-upload works as long as this page hasn't been closed.
+   * it failed — see UploadError. A re-upload resumes from the outbox copy.
    */
   async function retry() {
     const f = failure.current;
@@ -219,7 +236,10 @@ export function useSessionRecorder() {
   }
 
   function reset() {
+    // Deliberately leaves the outbox alone: closing the error dialog must not
+    // throw away a lesson that hasn't reached the server yet.
     blobs.current = {};
+    queuedId.current = null;
     failure.current = null;
     setCanRetry(false);
     setStatus("idle");
