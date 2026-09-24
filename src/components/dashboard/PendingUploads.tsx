@@ -103,7 +103,18 @@ export default function PendingUploads({
   // Finished rows stay until the tutor opens them; the outbox entry is already gone.
   const done = Object.entries(rows).flatMap(([id, r]) => (r.phase === "done" ? [{ id, r }] : []));
   const visible = items.filter((l) => !busyElsewhere.has(l.uploadId));
-  if (visible.length === 0 && done.length === 0) return null;
+  // Once /complete accepts an upload its outbox entry is deleted, but the draft
+  // is still being written — keep a row for it rather than vanish mid-way.
+  const inOutbox = new Set(items.map((l) => l.uploadId));
+  const drafting = Object.entries(rows).flatMap(([id, r]) =>
+    r.phase === "running" && !inOutbox.has(id) ? [id] : [],
+  );
+  // Uploaded but the draft failed: the server keeps the audio and the Overview
+  // page's FailedLessons card owns the retry from here.
+  const draftFailed = Object.entries(rows).flatMap(([id, r]) =>
+    r.phase === "error" && !inOutbox.has(id) ? [{ id, message: r.message }] : [],
+  );
+  if (!visible.length && !done.length && !drafting.length && !draftFailed.length) return null;
 
   return (
     <aside
@@ -111,7 +122,11 @@ export default function PendingUploads({
       className="fixed bottom-4 right-4 z-40 w-[min(24rem,calc(100vw-2rem))] rounded-2xl border border-line bg-surface p-5 shadow-soft-md"
     >
       <h2 className="font-display text-lg text-ink uppercase tracking-[.03em]">
-        {visible.length > 0 ? "Lessons waiting to upload" : "Lesson uploaded"}
+        {visible.length > 0
+          ? "Lessons waiting to upload"
+          : drafting.length > 0
+            ? "Lesson uploaded"
+            : "Lesson ready"}
       </h2>
       {visible.length > 0 && (
         <p className="mt-1 text-xs text-ink-soft">
@@ -121,6 +136,24 @@ export default function PendingUploads({
       )}
 
       <ul className="mt-3 flex flex-col gap-2">
+        {drafting.map((id) => (
+          <li key={id} className="rounded-xl border border-line px-3 py-2.5 text-sm text-ink-soft">
+            Transcribing &amp; drafting… this takes a minute or two.
+          </li>
+        ))}
+        {draftFailed.map(({ id, message }) => (
+          <li key={id} className="rounded-xl border border-line px-3 py-2.5 text-sm">
+            <div className="text-ink">Uploaded, but the draft didn’t finish.</div>
+            <div className="text-xs text-[#c0524e]">{message}</div>
+            <Link
+              href="/dashboard"
+              onClick={() => setRows((all) => ({ ...all, [id]: { phase: "waiting" } }))}
+              className="mt-1 inline-block text-xs font-semibold text-ink underline"
+            >
+              Retry from your overview
+            </Link>
+          </li>
+        ))}
         {done.map(({ id, r }) => (
           <li key={id} className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2.5">
             <span className="text-sm font-semibold text-ink">Draft ready</span>
