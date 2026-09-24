@@ -4,6 +4,7 @@
 // prefetch would create Checkout sessions nobody asked for.
 
 import { isEntitled, PAID_PLAN_IDS, PLAN_PRICES_USD } from "@/lib/billing";
+import { formatUsd } from "@/lib/pricing";
 import { PLANS, type Plan } from "@/lib/plans";
 import type { TutorProfile } from "@/db/queries";
 
@@ -104,13 +105,13 @@ export default function BillingCard({
                     href={`/dashboard/billing/checkout?plan=${id}&interval=month`}
                     className="rounded-lg border border-brand-line bg-white px-3 py-1.5 text-[.84rem] font-semibold text-ink transition-colors hover:border-brand"
                   >
-                    ${PLAN_PRICES_USD[id].month}/mo
+                    ${formatUsd(PLAN_PRICES_USD[id].month)}/mo
                   </a>
                   <a
                     href={`/dashboard/billing/checkout?plan=${id}&interval=year`}
                     className="rounded-full bg-cocoa px-3 py-1.5 text-[.84rem] font-semibold text-butter transition-all hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift"
                   >
-                    ${PLAN_PRICES_USD[id].year}/yr
+                    ${formatUsd(PLAN_PRICES_USD[id].year)}/yr
                   </a>
                 </div>
               </li>

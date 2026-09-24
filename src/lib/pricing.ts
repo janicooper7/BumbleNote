@@ -16,10 +16,27 @@ export type BillingInterval = "month" | "year";
  * their old price until moved.
  */
 export const PLAN_PRICES_USD: Record<PaidPlanId, Record<BillingInterval, number>> = {
-  starter: { month: 19, year: 190 },
-  advanced: { month: 45, year: 450 },
-  pro: { month: 79, year: 790 },
+  starter: { month: 15.99, year: 159.9 },
+  advanced: { month: 39.99, year: 399.9 },
+  pro: { month: 59.99, year: 599.9 },
 };
+
+/** Whole cents, safe from float drift (15.99 * 100 is 1599.0000000000002). */
+export function toCents(usd: number): number {
+  return Math.round(usd * 100);
+}
+
+/** "15.99", "159.90", "19" — two decimals only when there are cents. */
+export function formatUsd(usd: number): string {
+  const cents = toCents(usd);
+  return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2);
+}
+
+/** What a year on annual billing saves over twelve monthly payments. */
+export function annualSavingUsd(plan: PaidPlanId): number {
+  const p = PLAN_PRICES_USD[plan];
+  return (toCents(p.month) * 12 - toCents(p.year)) / 100;
+}
 
 /** Name of the Stripe customer-portal configuration scripts/stripe-setup.ts maintains. */
 export const PORTAL_CONFIG_NAME = "BumbleNote";

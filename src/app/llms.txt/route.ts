@@ -12,7 +12,7 @@
 import { SITE_URL } from "@/lib/app-url";
 import { FAQS } from "@/lib/faq";
 import { PLANS } from "@/lib/plans";
-import { PAID_PLAN_IDS, PLAN_PRICES_USD } from "@/lib/pricing";
+import { formatUsd, PAID_PLAN_IDS, PLAN_PRICES_USD } from "@/lib/pricing";
 import { gateEnabled } from "@/lib/site-gate";
 import { SITE_DESCRIPTION } from "@/lib/site-meta";
 
@@ -23,7 +23,7 @@ export function GET() {
 
   const plans = PAID_PLAN_IDS.map((id) => {
     const price = PLAN_PRICES_USD[id];
-    return `- ${PLANS[id].name}: $${price.month}/month or $${price.year}/year, up to ${PLANS[id].lessons} lessons a month`;
+    return `- ${PLANS[id].name}: $${formatUsd(price.month)}/month or $${formatUsd(price.year)}/year, up to ${PLANS[id].lessons} lessons a month`;
   });
 
   const body = [

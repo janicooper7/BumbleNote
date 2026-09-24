@@ -7,7 +7,7 @@ import CtaLink from "../CtaLink";
 import { useSignedIn } from "../SignedIn";
 import { Asterisk, Display, Eyebrow, Script } from "../bn/Bn";
 import { MIN_COUNTED_LESSON_MIN, PLANS } from "@/lib/plans";
-import { PLAN_PRICES_USD, type PaidPlanId } from "@/lib/pricing";
+import { annualSavingUsd, formatUsd, PLAN_PRICES_USD, type PaidPlanId } from "@/lib/pricing";
 
 // Prices and lesson limits come straight from the same modules billing and quota
 // enforcement read, so the page can't advertise a number the product doesn't
@@ -115,7 +115,7 @@ export default function Pricing() {
           {cards.map((c, i) => {
             const plan = PLANS[c.id];
             const price = PLAN_PRICES_USD[c.id];
-            const saving = price.month * 12 - price.year;
+            const saving = formatUsd(annualSavingUsd(c.id));
             // Signed-in tutors already have an account: send them to billing
             // rather than round-tripping through signup.
             const href = signedIn
@@ -150,7 +150,7 @@ export default function Pricing() {
 
                   <div className="flex items-baseline gap-1.5">
                     <span className="font-display text-[3.2rem] leading-none">
-                      ${annual ? price.year : price.month}
+                      ${formatUsd(annual ? price.year : price.month)}
                     </span>
                     <span className={`font-medium ${c.featured ? "text-cocoa/75" : "text-muted"}`}>
                       / {annual ? "year" : "month"}

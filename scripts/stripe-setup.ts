@@ -25,6 +25,7 @@ import {
   PLAN_PRICES_USD,
   PORTAL_CONFIG_NAME,
   priceLookupKey,
+  toCents,
   type BillingInterval,
 } from "../src/lib/pricing";
 
@@ -65,7 +66,7 @@ async function setUpPrices(stripe: Stripe) {
     const prices: string[] = [];
     for (const interval of ["month", "year"] as BillingInterval[]) {
       const lookupKey = priceLookupKey(plan, interval);
-      const cents = PLAN_PRICES_USD[plan][interval] * 100;
+      const cents = toCents(PLAN_PRICES_USD[plan][interval]);
       const { data } = await stripe.prices.list({ lookup_keys: [lookupKey], limit: 1 });
       const current = data[0];
 
