@@ -55,7 +55,7 @@ vi.mock("@/lib/credits", async (importActual) => ({
   },
 }));
 
-import { checkoutPath, isEntitled, pauseEndsAt, syncSubscription } from "./billing";
+import { checkoutPath, isEntitled, pauseWindow, syncSubscription } from "./billing";
 
 const PERIOD_END = 1_790_000_000; // seconds
 const ANCHOR = PERIOD_END - 30 * 86400;
@@ -301,6 +301,55 @@ describe("syncSubscription", () => {
     expect((fake.updates[1].pauseResumesAt as Date).getTime()).toBeLessThanOrEqual(Date.now());
   });
 
+  describe("a pause set in the app", () => {
+    const from = Math.floor(Date.now() / 1000) + 10 * 86400;
+    const until = from + 30 * 86400;
+    const metadata = { tutorId: "tutor_1", pause_from: String(from), pause_until: String(until) };
+
+    it("records the billing month it skips, not the time it was set", async () => {
+      fake.subscription = subscription({ metadata, pauseResumesAt: from + 86400 });
+      await syncSubscription("sub_1");
+      expect(fake.updates[0]).toMatchObject({
+        pausedAt: new Date(from * 1000),
+        pauseResumesAt: new Date(until * 1000),
+      });
+    });
+
+    it("keeps that month after Stripe resumes collection", async () => {
+      fake.tutorRows = [
+        {
+          id: "tutor_1",
+          subscriptionId: "sub_1",
+          pausedAt: new Date(Date.now() - 86400_000),
+          pauseResumesAt: new Date(Date.now() + 29 * 86400_000),
+        },
+      ];
+      const started = Math.floor(Date.now() / 1000) - 86400;
+      fake.subscription = subscription({
+        metadata: { ...metadata, pause_from: String(started), pause_until: String(started + 30 * 86400) },
+      });
+      await syncSubscription("sub_1");
+      expect(fake.updates[0]).toMatchObject({
+        pausedAt: new Date(started * 1000),
+        pauseResumesAt: new Date((started + 30 * 86400) * 1000),
+      });
+    });
+
+    it("clears a scheduled pause that was called off", async () => {
+      fake.tutorRows = [
+        {
+          id: "tutor_1",
+          subscriptionId: "sub_1",
+          pausedAt: new Date(from * 1000),
+          pauseResumesAt: new Date(until * 1000),
+        },
+      ];
+      fake.subscription = subscription();
+      await syncSubscription("sub_1");
+      expect(fake.updates[0]).toMatchObject({ pausedAt: null, pauseResumesAt: null });
+    });
+  });
+
   it("reads a downgrade queued on the subscription's schedule", async () => {
     const at = Math.floor(Date.now() / 1000) + 10 * 86400;
     fake.subscription = subscription({
@@ -315,12 +364,20 @@ describe("syncSubscription", () => {
   });
 });
 
-describe("pauseEndsAt", () => {
-  it("is one calendar month later", () => {
-    expect(pauseEndsAt(new Date("2026-10-10T12:00:00Z"))).toEqual(new Date("2026-11-10T12:00:00Z"));
+describe("pauseWindow", () => {
+  it("skips the next billing month, not the one already paid for", () => {
+    const anchor = new Date("2026-09-25T20:00:00Z");
+    expect(pauseWindow(new Date("2026-10-25T20:00:00Z"), anchor)).toEqual({
+      from: new Date("2026-10-25T20:00:00Z"),
+      until: new Date("2026-11-25T20:00:00Z"),
+    });
   });
 
-  it("clamps to the end of a shorter month", () => {
-    expect(pauseEndsAt(new Date("2027-01-31T12:00:00Z"))).toEqual(new Date("2027-02-28T12:00:00Z"));
+  it("follows the anchor's day through a shorter month", () => {
+    const anchor = new Date("2027-01-31T12:00:00Z");
+    expect(pauseWindow(new Date("2027-02-28T12:00:00Z"), anchor)).toEqual({
+      from: new Date("2027-02-28T12:00:00Z"),
+      until: new Date("2027-03-31T12:00:00Z"),
+    });
   });
 });

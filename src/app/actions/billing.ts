@@ -1,6 +1,6 @@
 "use server";
 
-// Server Actions behind Settings → Billing: change plan, pause, resume. Scoped to
+// Server Actions behind Settings → Billing: change plan, pause, call off a pause. Scoped to
 // the signed-in tutor (the id comes from the session). The Stripe work lives in
 // src/lib/billing.ts; these only translate its outcome for the client.
 
@@ -11,7 +11,7 @@ import {
   changePlan as changePlanFor,
   isPaidPlanId,
   pauseSubscription as pauseFor,
-  resumeSubscription as resumeFor,
+  cancelPause as cancelPauseFor,
 } from "@/lib/billing";
 
 /**
@@ -46,6 +46,6 @@ export async function pauseSubscription(): Promise<BillingActionResult> {
   return run("pause", pauseFor);
 }
 
-export async function resumeSubscription(): Promise<BillingActionResult> {
-  return run("resume", resumeFor);
+export async function cancelPause(): Promise<BillingActionResult> {
+  return run("cancel pause", cancelPauseFor);
 }

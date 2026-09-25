@@ -28,7 +28,8 @@
       "PowerShell(node \"C:\\\\Users\\\\johny\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-johny-Desktop-cloudtutor\\\\6665f143-1f0d-4973-8161-b79af5a9b723\\\\scratchpad\\\\emit.js\")",
       "Bash(node -p \"require\\('./node_modules/next/package.json'\\).version\")",
       "PowerShell(npx tsc --noEmit -p . ; npx eslint src/components/kit src/components/sections/Hero.tsx src/components/CtaLink.tsx src/components/SiteHeader.tsx)",
-      "PowerShell(Add-Type -AssemblyName System.Drawing; Get-ChildItem 'c:\\\\Users\\\\johny\\\\Desktop\\\\Bumble note - social media templates' | Select-Object -First 3 | ForEach-Object { $i=[System.Drawing.Image]::FromFile\\($_.FullName\\); \"$\\($_.Name\\) $\\($i.Width\\)x$\\($i.Height\\) $\\([int]\\($_.Length/1kb\\)\\)KB\"; $i.Dispose\\(\\) })"
+      "PowerShell(Add-Type -AssemblyName System.Drawing; Get-ChildItem 'c:\\\\Users\\\\johny\\\\Desktop\\\\Bumble note - social media templates' | Select-Object -First 3 | ForEach-Object { $i=[System.Drawing.Image]::FromFile\\($_.FullName\\); \"$\\($_.Name\\) $\\($i.Width\\)x$\\($i.Height\\) $\\([int]\\($_.Length/1kb\\)\\)KB\"; $i.Dispose\\(\\) })",
+      "Bash(npx vitest *)"
     ]
   }
 }

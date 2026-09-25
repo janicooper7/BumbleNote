@@ -8,8 +8,8 @@
 import { useState, useTransition } from "react";
 import {
   changePlan,
+  cancelPause,
   pauseSubscription,
-  resumeSubscription,
   type BillingActionResult,
 } from "@/app/actions/billing";
 
@@ -30,11 +30,10 @@ export default function PlanControls({
   options,
   periodEnd,
   pendingPlan,
-  paused,
-  pauseResumes,
+  pause,
+  nextPause,
   canPause,
-  pauseUntil,
-  rolledOver,
+  rolloverCap,
   lessonsLeft,
   locked,
 }: {
@@ -45,14 +44,14 @@ export default function PlanControls({
   /** When a downgrade would take effect, e.g. "20 October 2026". */
   periodEnd: string | null;
   /** A downgrade already queued for renewal. */
-  pendingPlan: { name: string; at: string } | null;
-  paused: boolean;
-  pauseResumes: string | null;
+  pendingPlan: { id: string; name: string; at: string } | null;
+  /** A pause scheduled or running: the billing month it skips. */
+  pause: { from: string; until: string; started: boolean } | null;
+  /** The billing month a pause started now would skip. */
+  nextPause: { from: string; until: string } | null;
   canPause: boolean;
-  /** When a pause started now would end. */
-  pauseUntil: string;
-  /** Lessons carried into this month — what stays usable while paused. */
-  rolledOver: number;
+  /** Most unused lessons the plan carries into the next month. */
+  rolloverCap: number;
   /** Lessons left this month, which an upgrade keeps. */
   lessonsLeft: number;
   /** Why plan changes are unavailable right now (cancelling, card declined). */
@@ -73,35 +72,43 @@ export default function PlanControls({
 
   return (
     <div className="mt-5 grid gap-4">
-      {paused && (
+      {pause && (
         <div className="rounded-xl border border-brand-line bg-brand-soft/50 px-4 py-3 text-sm text-ink-soft">
           <div className="font-semibold text-ink">
-            Paused{pauseResumes ? ` until ${pauseResumes}` : ""}
+            {pause.started ? `Paused until ${pause.until}` : `Pause scheduled from ${pause.from}`}
           </div>
           <p className="mt-1">
-            You won&apos;t be charged while paused, and no new lessons are added for this month.
-            Lessons you carried over are still yours to use. Billing picks up again by itself.
+            {pause.started
+              ? `You're not charged for this month and no new lessons are added for it. Lessons you have left are still yours to use. Billing and your lessons pick up again on ${pause.until} by themselves.`
+              : `You keep your plan as normal until then. You won't be charged on ${pause.from} and no new lessons are added for the month to ${pause.until}; lessons you have left stay usable. Billing and your lessons pick up again on ${pause.until} by themselves.`}
           </p>
-          <button
-            onClick={() => act(resumeSubscription)}
-            disabled={busy}
-            className="mt-3 rounded-lg border border-brand-line bg-white px-3 py-1.5 text-[.84rem] font-semibold text-ink transition-colors hover:border-brand disabled:opacity-60"
-          >
-            {busy ? "Resuming…" : "Resume now"}
-          </button>
+          {!pause.started && (
+            <button
+              onClick={() => act(cancelPause)}
+              disabled={busy}
+              className="mt-3 rounded-lg border border-brand-line bg-white px-3 py-1.5 text-[.84rem] font-semibold text-ink transition-colors hover:border-brand disabled:opacity-60"
+            >
+              {busy ? "Cancelling…" : "Cancel the pause"}
+            </button>
+          )}
         </div>
       )}
 
       {pendingPlan && (
         <div className="rounded-xl border border-brand-line bg-brand-soft/50 px-4 py-3 text-sm text-ink-soft">
-          Switching to <span className="font-semibold text-ink">{pendingPlan.name}</span> on{" "}
-          {pendingPlan.at}. You keep {planName} until then.
+          <div className="font-semibold text-ink">
+            Downgrade to {pendingPlan.name} on {pendingPlan.at}
+          </div>
+          <p className="mt-1">
+            You&apos;ve paid for {planName} until then, so you keep it and its lessons. From{" "}
+            {pendingPlan.at} you&apos;ll be on {pendingPlan.name}.
+          </p>
           <button
             onClick={() => act(() => changePlan(planId))}
             disabled={busy}
-            className="ml-2 font-semibold text-brand-deep hover:underline disabled:opacity-60"
+            className="mt-2 font-semibold text-brand-deep hover:underline disabled:opacity-60"
           >
-            Keep {planName}
+            Cancel the downgrade and keep {planName}
           </button>
         </div>
       )}
@@ -123,7 +130,11 @@ export default function PlanControls({
                           {o.lessons} lessons a month · {o.price}
                         </div>
                       </div>
-                      {!open && (
+                      {pendingPlan?.id === o.id ? (
+                        <span className="rounded-full bg-brand-soft px-3 py-1 text-[.78rem] font-semibold text-ink-soft">
+                          From {pendingPlan.at}
+                        </span>
+                      ) : !open && (
                         <button
                           onClick={() => {
                             setError(null);
@@ -162,18 +173,23 @@ export default function PlanControls({
         )}
       </div>
 
-      {canPause && !paused && (
+      {canPause && nextPause && (
         <div>
           <div className="text-[.84rem] font-semibold text-ink">Taking a break?</div>
-          {confirming?.kind === "pause" ? (
+          {pendingPlan ? (
+            <p className="mt-1 text-[.82rem] text-muted">
+              You can pause once your switch to {pendingPlan.name} has happened, or cancel the
+              downgrade above to pause sooner.
+            </p>
+          ) : confirming?.kind === "pause" ? (
             <Confirm
               text={
-                `Your plan pauses until ${pauseUntil}, then carries on by itself. You won't be charged ` +
-                `for that month and no new lessons are added for it. Lessons you already have stay ` +
-                `usable${rolledOver > 0 ? ` (including ${rolledOver} carried over)` : ""}, and up to your ` +
-                `plan's rollover limit carries through the pause.`
+                `You keep this month as normal. Your plan then pauses from ${nextPause.from} to ` +
+                `${nextPause.until}: you won't be charged on ${nextPause.from} and no new lessons are ` +
+                `added for that month. Up to ${rolloverCap} unused lessons carry into it and stay usable. ` +
+                `Billing and your lessons pick up again on ${nextPause.until} by themselves.`
               }
-              confirmLabel="Pause for a month"
+              confirmLabel="Pause next month"
               busy={busy}
               onConfirm={() => act(pauseSubscription)}
               onCancel={() => setConfirming(null)}
@@ -181,7 +197,8 @@ export default function PlanControls({
           ) : (
             <>
               <p className="mt-1 text-[.82rem] text-muted">
-                Pause your plan for one month without cancelling. Billing resumes automatically.
+                Skip your next billing month, {nextPause.from} to {nextPause.until}, without
+                cancelling. Billing resumes automatically.
               </p>
               <button
                 onClick={() => {
@@ -191,7 +208,7 @@ export default function PlanControls({
                 disabled={busy}
                 className="mt-2 rounded-lg border border-brand-line bg-white px-3 py-1.5 text-[.84rem] font-semibold text-ink transition-colors hover:border-brand"
               >
-                Pause for a month
+                Pause next month
               </button>
             </>
           )}

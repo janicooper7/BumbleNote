@@ -323,7 +323,7 @@ export default function PrivacyPage() {
             "Correct anything that is wrong.",
             "Delete your data — though for most of it you can simply delete your account yourself.",
             "Restrict or object to how we use it.",
-            "Provide it in a portable format — or download it yourself, any time, from Settings.",
+            "Provide it in a portable format.",
           ]}
         />
         <p>

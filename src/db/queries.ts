@@ -182,6 +182,7 @@ export type TutorProfile = {
   subscriptionStatus: string | null;
   billingInterval: "month" | "year" | null;
   currentPeriodEnd: Date | null;
+  billingAnchor: Date | null;
   cancelAtPeriodEnd: boolean;
   pausedAt: Date | null;
   pauseResumesAt: Date | null;
@@ -208,6 +209,7 @@ export async function getTutor(): Promise<TutorProfile | undefined> {
       subscriptionStatus: tutors.subscriptionStatus,
       billingInterval: tutors.billingInterval,
       currentPeriodEnd: tutors.currentPeriodEnd,
+      billingAnchor: tutors.billingAnchor,
       cancelAtPeriodEnd: tutors.cancelAtPeriodEnd,
       pausedAt: tutors.pausedAt,
       pauseResumesAt: tutors.pauseResumesAt,

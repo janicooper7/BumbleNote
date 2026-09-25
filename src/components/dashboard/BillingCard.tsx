@@ -3,7 +3,7 @@
 // routes are plain <a>, not <Link> — they're redirects to Stripe, and a
 // prefetch would create Checkout sessions nobody asked for.
 
-import { isEntitled, PAID_PLAN_IDS, PLAN_PRICES_USD, pauseEndsAt } from "@/lib/billing";
+import { isEntitled, PAID_PLAN_IDS, PLAN_PRICES_USD, pauseWindow } from "@/lib/billing";
 import { isPausedAt } from "@/lib/credits";
 import { formatUsd, isPaidPlanId } from "@/lib/pricing";
 import { PLANS, type Plan } from "@/lib/plans";
@@ -35,22 +35,30 @@ const fmtDate = (d: Date) =>
 export default function BillingCard({
   tutor,
   plan,
-  rolledOver,
   lessonsLeft,
   notice,
 }: {
   tutor: TutorProfile;
   plan: Plan;
-  /** Lessons carried into this month, for the pause copy. */
-  rolledOver: number;
   /** Lessons left this month, which an upgrade keeps. */
   lessonsLeft: number;
   notice?: Notice;
 }) {
   const subscribed = isEntitled(tutor.subscriptionStatus);
   const pastDue = tutor.subscriptionStatus === "past_due";
-  const paused = isPausedAt(tutor.pausedAt, tutor.pauseResumesAt);
+  const now = new Date();
   const interval = tutor.billingInterval ?? "month";
+
+  // A pause skips one billing month: scheduled until it starts, then running.
+  const pauseRunning = isPausedAt(tutor.pausedAt, tutor.pauseResumesAt, now);
+  const pause =
+    tutor.pausedAt && tutor.pauseResumesAt && (pauseRunning || tutor.pausedAt > now)
+      ? { from: fmtDate(tutor.pausedAt), until: fmtDate(tutor.pauseResumesAt), started: pauseRunning }
+      : null;
+  // What pausing now would skip.
+  const nextPause = tutor.currentPeriodEnd
+    ? pauseWindow(tutor.currentPeriodEnd, tutor.billingAnchor ?? tutor.currentPeriodEnd)
+    : null;
 
   // The other paid plans, priced on the tutor's own interval.
   const current = isPaidPlanId(plan.id) ? plan.id : null;
@@ -82,9 +90,11 @@ export default function BillingCard({
             <p className="mt-1 text-[.86rem] text-muted">
               {tutor.cancelAtPeriodEnd
                 ? `Cancelled — you keep ${plan.name} until ${fmtDate(tutor.currentPeriodEnd)}, then move to Free.`
-                : paused
-                  ? null
-                  : `Renews on ${fmtDate(tutor.currentPeriodEnd)}.`}
+                : pause
+                  ? `Next payment on ${pause.until}.`
+                  : tutor.pendingPlan && tutor.pendingPlanAt
+                    ? `You're on ${plan.name} until ${fmtDate(tutor.pendingPlanAt)}, then ${PLANS[tutor.pendingPlan].name}.`
+                    : `Renews on ${fmtDate(tutor.currentPeriodEnd)}.`}
             </p>
           )}
           {pastDue && (
@@ -101,26 +111,34 @@ export default function BillingCard({
               periodEnd={tutor.currentPeriodEnd ? fmtDate(tutor.currentPeriodEnd) : null}
               pendingPlan={
                 tutor.pendingPlan && tutor.pendingPlanAt
-                  ? { name: PLANS[tutor.pendingPlan].name, at: fmtDate(tutor.pendingPlanAt) }
+                  ? {
+                      id: tutor.pendingPlan,
+                      name: PLANS[tutor.pendingPlan].name,
+                      at: fmtDate(tutor.pendingPlanAt),
+                    }
                   : null
               }
-              paused={paused}
-              pauseResumes={tutor.pauseResumesAt ? fmtDate(tutor.pauseResumesAt) : null}
+              pause={pause}
+              nextPause={
+                nextPause ? { from: fmtDate(nextPause.from), until: fmtDate(nextPause.until) } : null
+              }
               canPause={
                 interval === "month" &&
                 tutor.subscriptionStatus === "active" &&
-                !tutor.cancelAtPeriodEnd
+                !tutor.cancelAtPeriodEnd &&
+                !pause
               }
-              pauseUntil={fmtDate(pauseEndsAt())}
-              rolledOver={rolledOver}
+              rolloverCap={plan.rolloverCap}
               lessonsLeft={lessonsLeft}
               locked={
                 pastDue
                   ? "Update your card before changing plan."
                   : tutor.cancelAtPeriodEnd
                     ? "Your plan is set to cancel. Keep your subscription in Manage billing to change plan."
-                    : paused
-                      ? "Your plan is paused. Resume it to change plan."
+                    : pause
+                      ? pause.started
+                        ? `Your plan is paused. You can change plan from ${pause.until}.`
+                        : "You have a pause scheduled. Cancel it to change plan."
                       : null
               }
             />
@@ -132,7 +150,7 @@ export default function BillingCard({
             {pastDue ? "Update payment method" : "Manage billing"}
           </a>
           <p className="mt-2 text-[.8rem] text-muted">
-            Update your card, switch between monthly and yearly, download invoices or cancel.
+            Update your card, download invoices or cancel.
           </p>
         </>
       ) : plan.id === "legacy" ? (

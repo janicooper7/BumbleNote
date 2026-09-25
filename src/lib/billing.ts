@@ -8,14 +8,15 @@
 //                 hosted portal to update the card, see invoices, or cancel.
 //                 Plan changes are in-app only: the portal can't restart the
 //                 billing period, which an upgrade needs.
-//   In-app      — changePlan(), pauseSubscription() and resumeSubscription(),
+//   In-app      — changePlan(), pauseSubscription() and cancelPause(),
 //                 behind the Settings → Billing controls (src/app/actions/billing.ts).
 //                 Upgrades apply now and start a new billing period, with the new
 //                 plan's full price (less credit for the unused old one) charged
 //                 today and a fresh lesson period that keeps what was left;
 //                 downgrades are a
 //                 subscription schedule that switches price at renewal; a pause
-//                 voids invoices for one month and resumes by itself.
+//                 skips the next billing month (its invoice is voided) and
+//                 resumes by itself.
 //   Sync        — syncSubscription() is the ONLY code that writes `tutors.plan`
 //                 from Stripe. Both the webhook (/api/stripe/webhook) and the
 //                 checkout return (/dashboard/billing/success) call it, so the
@@ -34,7 +35,7 @@ import Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { tutors } from "@/db/schema";
-import { ensureCreditGrants, isPausedAt, startUpgradePeriod } from "@/lib/credits";
+import { ensureCreditGrants, isPausedAt, nextBillingDate, startUpgradePeriod } from "@/lib/credits";
 import { env } from "@/lib/env";
 import { PLANS, type PlanId } from "@/lib/plans";
 import {
@@ -257,10 +258,21 @@ export async function syncSubscription(subscriptionId: string): Promise<void> {
 
   const now = new Date();
   const pause = entitled ? sub.pause_collection : null;
+  const pauseSpan = entitled ? pauseWindowOf(sub) : null;
   const wasPaused = isPausedAt(tutor.pausedAt, tutor.pauseResumesAt, now);
   let pausedAt = tutor.pausedAt;
   let pauseResumesAt = tutor.pauseResumesAt;
-  if (pause) {
+  if (pauseSpan) {
+    // One of ours (pauseSubscription): the billing month it skips, which runs on
+    // after Stripe itself has resumed collection.
+    pausedAt = pauseSpan.from;
+    pauseResumesAt = pauseSpan.until;
+  } else if (tutor.pausedAt && tutor.pausedAt > now) {
+    // A scheduled pause, called off before it started.
+    pausedAt = null;
+    pauseResumesAt = null;
+  } else if (pause) {
+    // Set outside the app (Stripe dashboard): from now until Stripe resumes.
     // A pause that's already running keeps its start; a new one starts now.
     if (!wasPaused) pausedAt = now;
     pauseResumesAt = pause.resumes_at ? new Date(pause.resumes_at * 1000) : null;
@@ -364,15 +376,18 @@ export async function changePlan(tutorId: string, target: PaidPlanId): Promise<v
     throw new BillingError("Your last payment didn't go through. Update your card before changing plan.");
   }
 
+  const pauseSpan = pauseWindowOf(sub);
+  if (target !== current.plan && (sub.pause_collection || (pauseSpan && pauseSpan.until > new Date()))) {
+    // A pause voids invoices, so an upgrade during one would never be paid for;
+    // and a plan change would move the billing month the pause is meant to skip.
+    throw new BillingError("Your plan has a pause scheduled or running. You can change plan once it's over.");
+  }
+
   const existingSchedule = scheduleId(sub);
 
   if (target === current.plan) {
     if (existingSchedule) await stripe().subscriptionSchedules.release(existingSchedule);
   } else if (PLAN_RANK[target] > PLAN_RANK[current.plan]) {
-    if (sub.pause_collection) {
-      // A pause voids invoices, so an upgrade now would never be paid for.
-      throw new BillingError("Your plan is paused. Resume it before upgrading.");
-    }
     // An upgrade replaces any queued downgrade.
     if (existingSchedule) await stripe().subscriptionSchedules.release(existingSchedule);
     const updated = await stripe().subscriptions.update(sub.id, {
@@ -417,26 +432,46 @@ export async function changePlan(tutorId: string, target: PaidPlanId): Promise<v
   await syncSubscription(sub.id);
 }
 
-/** Pause length. One month, then billing and the monthly allowance resume on their own. */
-export function pauseEndsAt(from = new Date()): Date {
-  const end = new Date(from);
-  end.setUTCMonth(end.getUTCMonth() + 1);
-  // 31 Jan + 1 month overflows into March; clamp to the last day of February.
-  if (end.getUTCDate() !== from.getUTCDate()) end.setUTCDate(0);
-  return end;
+/**
+ * The billing month a pause started now would skip: from the next renewal —
+ * the month already paid for runs as normal — to the one after.
+ */
+export function pauseWindow(periodEnd: Date, anchor: Date): { from: Date; until: Date } {
+  return { from: periodEnd, until: nextBillingDate(anchor, periodEnd) };
+}
+
+const secs = (d: Date) => Math.floor(d.getTime() / 1000);
+
+/** The pause window pauseSubscription recorded on the subscription, if any. */
+function pauseWindowOf(sub: Stripe.Subscription): { from: Date; until: Date } | null {
+  const from = Number(sub.metadata?.pause_from);
+  const until = Number(sub.metadata?.pause_until);
+  if (!from || !until) return null;
+  return { from: new Date(from * 1000), until: new Date(until * 1000) };
 }
 
 /**
- * Pause a monthly subscription for one month. Invoices falling due while paused
- * are voided (not charged, not owed later), no allowance is granted for the month
- * the pause covers, and banked lessons stay usable. Stripe lifts the pause itself
- * at `resumes_at` and the webhook syncs it back.
+ * Pause a monthly subscription for its next billing month. The month already
+ * paid for runs as normal; the renewal at its end is voided (not charged, not
+ * owed later), no allowance is granted for the month it would have paid for,
+ * and banked lessons stay usable. Billing picks up by itself at the renewal
+ * after that.
+ *
+ * Stripe voids invoices raised while collection is paused, so collection is
+ * paused from now until a day after the skipped renewal — long enough to catch
+ * that one invoice and no other. The month we treat as paused (the window in
+ * the metadata) is the whole billing month, and syncSubscription() keeps it
+ * after Stripe resumes collection.
  */
 export async function pauseSubscription(tutorId: string): Promise<void> {
   const sub = await liveSubscription(tutorId);
-  const interval = parseLookupKey(sub.items.data[0]?.price.lookup_key ?? null)?.interval;
-  if (sub.pause_collection) throw new BillingError("Your plan is already paused.");
-  if (sub.status !== "active") {
+  const item = sub.items.data[0];
+  const interval = parseLookupKey(item?.price.lookup_key ?? null)?.interval;
+  const existing = pauseWindowOf(sub);
+  if (sub.pause_collection || (existing && existing.until > new Date())) {
+    throw new BillingError("Your plan already has a pause scheduled or running.");
+  }
+  if (!item || sub.status !== "active") {
     throw new BillingError("Your plan can't be paused right now. Update your card in Manage billing first.");
   }
   if (interval !== "month") {
@@ -445,26 +480,38 @@ export async function pauseSubscription(tutorId: string): Promise<void> {
   if (sub.cancel_at_period_end || sub.cancel_at !== null) {
     throw new BillingError("Your plan is already set to cancel, so there's nothing to pause.");
   }
+  if (scheduleId(sub)) {
+    throw new BillingError("You have a plan change scheduled. Cancel it before pausing.");
+  }
+  const { from, until } = pauseWindow(
+    new Date(item.current_period_end * 1000),
+    new Date(sub.billing_cycle_anchor * 1000),
+  );
   await stripe().subscriptions.update(sub.id, {
-    pause_collection: {
-      behavior: "void",
-      resumes_at: Math.floor(pauseEndsAt().getTime() / 1000),
-    },
+    pause_collection: { behavior: "void", resumes_at: secs(from) + 24 * 3600 },
+    metadata: { pause_from: String(secs(from)), pause_until: String(secs(until)) },
   });
   await syncSubscription(sub.id);
 }
 
-/** End a pause early. The month the pause covered keeps no allowance. */
-export async function resumeSubscription(tutorId: string): Promise<void> {
+/**
+ * Call off a pause that hasn't started yet. Once it has, the renewal it skips is
+ * already voided, and billing picks up by itself at the next one.
+ */
+export async function cancelPause(tutorId: string): Promise<void> {
   const sub = await liveSubscription(tutorId);
-  if (!sub.pause_collection) {
-    await syncSubscription(sub.id);
-    return;
+  const pauseSpan = pauseWindowOf(sub);
+  if (pauseSpan && pauseSpan.from <= new Date()) {
+    throw new BillingError("Your pause has already started. Billing picks up again by itself when it ends.");
   }
-  await stripe().subscriptions.update(sub.id, { pause_collection: "" });
+  if (sub.pause_collection || pauseSpan) {
+    await stripe().subscriptions.update(sub.id, {
+      pause_collection: "",
+      metadata: { pause_from: "", pause_until: "" },
+    });
+  }
   await syncSubscription(sub.id);
 }
-
 
 /**
  * Stop billing a tutor who is deleting their account. Immediate, not at period

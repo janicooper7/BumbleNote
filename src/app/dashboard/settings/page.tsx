@@ -103,7 +103,11 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
                                 `Includes ${lessons.rolledOver} carried over. `}
                               {lessons.paused
                                 ? "Paused — no new lessons are added this billing month."
-                                : `${lessons.plan.lessons} more arrive on ${renewsOn(lessons.renewsAt)}, your billing date; up to ${lessons.plan.rolloverCap} unused lessons carry over.`}
+                                : <>
+                                    Your allowance resets on {renewsOn(lessons.renewsAt)}, your billing date.
+                                    <br />
+                                    Up to {lessons.plan.rolloverCap} unused lessons carry over.
+                                  </>}
                             </>
                           : "Resets on the 1st of each month."}
                     </p>
@@ -120,7 +124,6 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
               <BillingCard
                 tutor={tutor}
                 plan={lessons.plan}
-                rolledOver={lessons.rolledOver}
                 lessonsLeft={lessons.remaining}
                 notice={isBillingNotice(billing) ? billing : undefined}
               />

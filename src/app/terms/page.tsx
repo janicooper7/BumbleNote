@@ -242,10 +242,12 @@ export default function TermsPage() {
           prices, we will give you at least 30 days&apos; notice before it affects you.
         </p>
         <p>
-          On monthly billing you can pause your plan from Settings for one month at a
-          time. You aren&apos;t charged for that month and no new allowance is added for
-          it, but lessons you already have stay usable. Your plan resumes automatically
-          after one month, or sooner if you choose.
+          On monthly billing you can pause your plan from Settings for one billing month
+          at a time. The pause starts at your next billing date, so the month you have
+          already paid for runs as normal. You aren&apos;t charged for the paused month and
+          no new allowance is added for it, but lessons you already have stay usable. Your
+          plan resumes automatically at the billing date after that, and you can cancel a
+          pause any time before it starts.
         </p>
         <p>
           If a payment fails, we keep your plan active while it is retried. If it still
@@ -292,7 +294,7 @@ export default function TermsPage() {
         <p>
           You can stop using BumbleNote and delete your account at any time from
           Settings. Deleting your account permanently removes your students and their
-          lessons — download your data from Settings first if you want to keep it.
+          lessons.
         </p>
         <p>
           We may end the agreement by giving you reasonable notice, or immediately if
