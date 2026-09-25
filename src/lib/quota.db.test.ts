@@ -40,7 +40,8 @@ vi.mock("@anthropic-ai/sdk", () => ({
 
 import { migrate, pg } from "@/test/pglite-neon";
 import { createDraftLessonCore } from "./lessons-core";
-import { isQuotaError, releaseLesson, reserveLesson } from "./quota";
+import { ensureCreditGrants, topUpCurrentMonth } from "./credits";
+import { isQuotaError, lessonUsage, releaseLesson, reserveLesson } from "./quota";
 import { rateLimit, rateLimitAll } from "./rate-limit";
 
 const T = "11111111-1111-1111-1111-111111111111";
@@ -170,6 +171,94 @@ describe("lesson credits on a monthly plan (Starter, 30)", () => {
   it("refuses with the monthly message at the limit", async () => {
     await addLessons(1, { prefix: "thirtieth" });
     expect(await quotaMessage(reserveLesson(T, "m3"))).toMatch(/all 30 lessons on the Starter plan/);
+  });
+});
+
+describe("rolling credits for a subscriber (Starter: 30 a month, up to 5 carried over)", () => {
+  const S = "22222222-2222-2222-2222-222222222222";
+  // First of the month, `n` months ago (UTC), plus a few days.
+  const monthsAgo = (n: number, days = 2) =>
+    `(date_trunc('month', now() at time zone 'UTC') at time zone 'UTC') - interval '${n} months' + interval '${days} days'`;
+  const grants = async (tutor = S) =>
+    (
+      await pg.query<{ lessons: number; carried_in: number }>(
+        `select lessons, carried_in from credit_grants where tutor_id = '${tutor}' order by month`,
+      )
+    ).rows.map((r) => [r.lessons, r.carried_in]);
+
+  async function lessonsFor(tutor: string, student: string, n: number, createdAt: string, prefix: string) {
+    if (n === 0) return;
+    await pg.exec(`
+      insert into sessions (id, tutor_id, student_id, student_name, student_initial, title, date, iso_date,
+        duration_min, level_from, level_to, observed_level, talk_time, created_at)
+      select '${prefix}-' || g, '${tutor}', '${student}', 'A', 'A', 't', 'd', '2026-09-01',
+        45, 'B1', 'B2', 'B1', '{"tutor":50,"student":50}', ${createdAt}
+      from generate_series(1, ${n}) g`);
+  }
+
+  beforeAll(async () => {
+    await pg.exec(`
+      insert into tutors (id, email, name, plan, subscription_status, credits_since)
+      values ('${S}', 's@x.io', 'S', 'starter', 'active', ${monthsAgo(3)});
+      insert into students (id, tutor_id, name, initial, level, goal, native, last_seen)
+      values ('ana', '${S}', 'Ana', 'A', 'B1', 'g', 'es', 'today');`);
+    await lessonsFor(S, "ana", 20, monthsAgo(3, 5), "m3"); // 10 left, capped to 5
+    await lessonsFor(S, "ana", 0, monthsAgo(2, 5), "m2"); // 35 left, capped to 5
+    await lessonsFor(S, "ana", 34, monthsAgo(1, 5), "m1"); // 1 left
+  });
+
+  it("backfills every month, carrying over the leftover up to the plan's cap", async () => {
+    await ensureCreditGrants(S);
+    expect(await grants()).toEqual([
+      [30, 0],
+      [30, 5],
+      [30, 5],
+      [30, 1],
+    ]);
+  });
+
+  it("reports this month's allowance plus what carried in", async () => {
+    const usage = await lessonUsage(S);
+    expect(usage).toMatchObject({ used: 0, limit: 31, rolledOver: 1, rollover: true, paused: false });
+  });
+
+  it("enforces the allowance plus carry-over, with the rollover message", async () => {
+    await lessonsFor(S, "ana", 30, "now()", "m0");
+    await reserveLesson(S, "r31");
+    await releaseLesson("r31");
+    await lessonsFor(S, "ana", 1, "now()", "m0-last");
+    expect(await quotaMessage(reserveLesson(S, "r32"))).toMatch(/all 31 lessons on the Starter plan this month, including any carried over/);
+  });
+
+  it("raises this month's allowance on an upgrade, never lowers it", async () => {
+    await pg.exec(`update tutors set plan = 'advanced' where id = '${S}'`);
+    await topUpCurrentMonth(S);
+    expect((await grants()).at(-1)).toEqual([75, 1]);
+    await pg.exec(`update tutors set plan = 'starter' where id = '${S}'`);
+    await topUpCurrentMonth(S);
+    expect((await grants()).at(-1)).toEqual([75, 1]);
+  });
+
+  it("grants nothing for a month paused over, but still carries the bank through it", async () => {
+    const P = "33333333-3333-3333-3333-333333333333";
+    await pg.exec(`
+      insert into tutors (id, email, name, plan, subscription_status, credits_since, paused_at, pause_resumes_at)
+      values ('${P}', 'p@x.io', 'P', 'pro', 'active', ${monthsAgo(2)},
+        ${monthsAgo(2, 20)}, ${monthsAgo(2, 20)} + interval '1 month');
+      insert into students (id, tutor_id, name, initial, level, goal, native, last_seen)
+      values ('bo', '${P}', 'Bo', 'B', 'B1', 'g', 'es', 'today');`);
+    await lessonsFor(P, "bo", 100, monthsAgo(2, 5), "p2"); // 30 left, capped to 15
+    await lessonsFor(P, "bo", 4, monthsAgo(1, 5), "p1"); // paused month: 15 − 4 = 11
+    await ensureCreditGrants(P);
+    expect(await grants(P)).toEqual([
+      [130, 0],
+      [0, 15],
+      [130, 11],
+    ]);
+  });
+
+  it("leaves a tutor without a live subscription on the plain monthly reset", async () => {
+    expect((await lessonUsage(T)).rollover).toBe(false);
   });
 });
 

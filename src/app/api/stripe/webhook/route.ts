@@ -8,6 +8,9 @@
 //   customer.subscription.created
 //   customer.subscription.updated
 //   customer.subscription.deleted
+//   subscription_schedule.updated / released / canceled / completed
+//     (a downgrade queued for renewal is a schedule; changing it doesn't always
+//     touch the subscription itself)
 //
 // Every event is reduced to a subscription id and handed to syncSubscription(),
 // which re-reads the subscription from Stripe. So a retried, duplicated or
@@ -33,6 +36,15 @@ function subscriptionIdOf(event: Stripe.Event): string | null {
     case "customer.subscription.updated":
     case "customer.subscription.deleted":
       return event.data.object.id;
+    case "subscription_schedule.updated":
+    case "subscription_schedule.released":
+    case "subscription_schedule.canceled":
+    case "subscription_schedule.completed": {
+      const schedule = event.data.object;
+      const sub = schedule.subscription ?? schedule.released_subscription;
+      if (!sub) return null;
+      return typeof sub === "string" ? sub : sub.id;
+    }
     default:
       return null;
   }

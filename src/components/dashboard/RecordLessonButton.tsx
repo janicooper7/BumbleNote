@@ -23,6 +23,8 @@ export type LessonQuotaView = {
   planName: string;
   /** Free trial: a lifetime allowance that never resets. */
   trial: boolean;
+  /** Subscription paused: no allowance this month, carried-over lessons only. */
+  paused: boolean;
 };
 
 export default function RecordLessonButton({
@@ -110,8 +112,9 @@ export default function RecordLessonButton({
                           You&apos;ve used all {quota.limit} lessons this month
                         </div>
                         <p className="mt-1">
-                          The {quota.planName} plan includes {quota.limit} lessons a month. Your
-                          allowance resets on the 1st.
+                          {quota.paused
+                            ? `Your ${quota.planName} plan is paused, so no new lessons are added this month. Resume it in Settings to keep recording.`
+                            : "Your next month's allowance arrives on the 1st."}
                         </p>
                       </>
                     )}

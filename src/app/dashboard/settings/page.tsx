@@ -92,7 +92,15 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
                     <p className="mt-2 text-[.82rem] text-muted">
                       {lessons.plan.lessonWindow === "lifetime"
                         ? "The trial doesn't reset — choose a plan to keep recording."
-                        : "Resets on the 1st of each month."}
+                        : lessons.rollover
+                          ? <>
+                              {lessons.rolledOver > 0 &&
+                                `Includes ${lessons.rolledOver} carried over from last month. `}
+                              {lessons.paused
+                                ? "Paused — no new lessons are added this month."
+                                : `${lessons.plan.lessons} more arrive on the 1st; up to ${lessons.plan.rolloverCap} unused lessons carry over.`}
+                            </>
+                          : "Resets on the 1st of each month."}
                     </p>
                   </>
                 )}
@@ -107,6 +115,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
               <BillingCard
                 tutor={tutor}
                 plan={lessons.plan}
+                rolledOver={lessons.rolledOver}
                 notice={isBillingNotice(billing) ? billing : undefined}
               />
             </div>

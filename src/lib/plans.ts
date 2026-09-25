@@ -26,15 +26,22 @@ export type Plan = {
   lessonWindow: "month" | "lifetime";
   /** Student profiles allowed, or null for no limit. */
   students: number | null;
+  /**
+   * Most unused lessons a subscriber can carry into the next month
+   * (src/lib/credits.ts). Kept small on purpose, so a tutor can't bank months of
+   * allowance and then pause or coast on it. 0 = no rollover.
+   */
+  rolloverCap: number;
 };
 
 export const PLANS: Record<PlanId, Plan> = {
   // Two trial lessons, ever, with one student.
-  free: { id: "free", name: "Free", lessons: 2, lessonWindow: "lifetime", students: 1 },
-  starter: { id: "starter", name: "Starter", lessons: 30, lessonWindow: "month", students: null },
-  advanced: { id: "advanced", name: "Advanced", lessons: 75, lessonWindow: "month", students: null },
-  pro: { id: "pro", name: "Pro", lessons: 130, lessonWindow: "month", students: null },
-  legacy: { id: "legacy", name: "Early access", lessons: 250, lessonWindow: "month", students: null },
+  free: { id: "free", name: "Free", lessons: 2, lessonWindow: "lifetime", students: 1, rolloverCap: 0 },
+  starter: { id: "starter", name: "Starter", lessons: 30, lessonWindow: "month", students: null, rolloverCap: 5 },
+  advanced: { id: "advanced", name: "Advanced", lessons: 75, lessonWindow: "month", students: null, rolloverCap: 10 },
+  pro: { id: "pro", name: "Pro", lessons: 130, lessonWindow: "month", students: null, rolloverCap: 15 },
+  // Not a subscription, so no bank: it keeps the plain calendar-month reset.
+  legacy: { id: "legacy", name: "Early access", lessons: 250, lessonWindow: "month", students: null, rolloverCap: 0 },
 };
 
 /**

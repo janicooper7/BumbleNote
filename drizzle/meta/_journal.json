@@ -141,6 +141,13 @@
       "when": 1790332983311,
       "tag": "0019_hot_path_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790342399748,
+      "tag": "0020_credit_rollover_and_pause",
+      "breakpoints": true
     }
   ]
 }

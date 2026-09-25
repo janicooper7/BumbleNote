@@ -66,6 +66,7 @@ export default async function DashboardLayout({
     allowed: usage.allowed,
     planName: usage.plan.name,
     trial: usage.plan.lessonWindow === "lifetime",
+    paused: usage.paused,
   };
 
   // Prefer the tutor row over the JWT: the token keeps whatever name Google

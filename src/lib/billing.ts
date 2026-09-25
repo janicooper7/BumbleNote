@@ -6,6 +6,11 @@
 //                 page for one plan + interval.
 //   Portal      — /dashboard/billing/portal sends a paying tutor to Stripe's
 //                 hosted portal to switch plan, update the card, or cancel.
+//   In-app      — changePlan(), pauseSubscription() and resumeSubscription(),
+//                 behind the Settings → Billing controls (src/app/actions/billing.ts).
+//                 Upgrades apply now with a prorated charge; downgrades are a
+//                 subscription schedule that switches price at renewal; a pause
+//                 voids invoices for one month and resumes by itself.
 //   Sync        — syncSubscription() is the ONLY code that writes `tutors.plan`
 //                 from Stripe. Both the webhook (/api/stripe/webhook) and the
 //                 checkout return (/dashboard/billing/success) call it, so the
@@ -24,6 +29,7 @@ import Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { tutors } from "@/db/schema";
+import { ensureCreditGrants, isPausedAt, topUpCurrentMonth } from "@/lib/credits";
 import { env } from "@/lib/env";
 import type { PlanId } from "@/lib/plans";
 import {
@@ -179,14 +185,23 @@ export async function portalUrl(tutorId: string, origin: string): Promise<string
  * Safe to call any number of times, in any order.
  */
 export async function syncSubscription(subscriptionId: string): Promise<void> {
-  const sub = await stripe().subscriptions.retrieve(subscriptionId);
+  // The schedule (with its prices) is expanded for a pending downgrade's plan.
+  const sub = await stripe().subscriptions.retrieve(subscriptionId, {
+    expand: ["schedule.phases.items.price"],
+  });
   const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
 
   // Metadata first (set at checkout); customer id as the fallback for a
   // subscription created by hand in the Stripe dashboard.
   const byMeta = sub.metadata?.tutorId;
   const [tutor] = await db
-    .select({ id: tutors.id, subscriptionId: tutors.stripeSubscriptionId })
+    .select({
+      id: tutors.id,
+      subscriptionId: tutors.stripeSubscriptionId,
+      creditsSince: tutors.creditsSince,
+      pausedAt: tutors.pausedAt,
+      pauseResumesAt: tutors.pauseResumesAt,
+    })
     .from(tutors)
     .where(byMeta ? eq(tutors.id, byMeta) : eq(tutors.stripeCustomerId, customerId))
     .limit(1);
@@ -213,6 +228,27 @@ export async function syncSubscription(subscriptionId: string): Promise<void> {
   }
 
   const plan: PlanId = entitled && parsed ? parsed.plan : "free";
+
+  // Settle the rollover bank up to now under the plan and pause as they stood,
+  // before this change can rewrite them (see src/lib/credits.ts).
+  await ensureCreditGrants(tutor.id);
+
+  const now = new Date();
+  const pause = entitled ? sub.pause_collection : null;
+  const wasPaused = isPausedAt(tutor.pausedAt, tutor.pauseResumesAt, now);
+  let pausedAt = tutor.pausedAt;
+  let pauseResumesAt = tutor.pauseResumesAt;
+  if (pause) {
+    // A pause that's already running keeps its start; a new one starts now.
+    if (!wasPaused) pausedAt = now;
+    pauseResumesAt = pause.resumes_at ? new Date(pause.resumes_at * 1000) : null;
+  } else if (wasPaused) {
+    // Resumed early (or the subscription ended mid-pause): close the window now.
+    pauseResumesAt = now;
+  }
+
+  const pending = entitled ? pendingChange(sub, parsed?.plan ?? null) : null;
+
   await db
     .update(tutors)
     .set({
@@ -225,9 +261,182 @@ export async function syncSubscription(subscriptionId: string): Promise<void> {
       // `cancel_at` covers cancellations scheduled for a date; the portal's
       // "cancel at end of period" sets cancel_at_period_end.
       cancelAtPeriodEnd: sub.cancel_at_period_end || sub.cancel_at !== null,
+      // The rollover bank lives exactly as long as the unbroken subscription.
+      creditsSince: entitled ? (tutor.creditsSince ?? now) : null,
+      pausedAt,
+      pauseResumesAt,
+      pendingPlan: pending?.plan ?? null,
+      pendingPlanAt: pending?.at ?? null,
     })
     .where(eq(tutors.id, tutor.id));
+
+  if (entitled) {
+    // A new subscriber's first grant, and an upgrade's bigger allowance now.
+    await ensureCreditGrants(tutor.id);
+    await topUpCurrentMonth(tutor.id);
+  }
 }
+
+/** A plan change a subscription schedule has queued for a later phase. */
+function pendingChange(
+  sub: Stripe.Subscription,
+  current: PaidPlanId | null,
+): { plan: PaidPlanId; at: Date } | null {
+  const schedule = sub.schedule;
+  if (!schedule || typeof schedule === "string") return null;
+  const nowSec = Date.now() / 1000;
+  const next = schedule.phases.find((p) => p.start_date > nowSec);
+  const price = next?.items[0]?.price;
+  const parsed = price && typeof price !== "string" && !price.deleted ? parseLookupKey(price.lookup_key) : null;
+  if (!next || !parsed || parsed.plan === current) return null;
+  return { plan: parsed.plan, at: new Date(next.start_date * 1000) };
+}
+
+/**
+ * A problem the tutor can act on, with a message written for them. Server Actions
+ * return it as a value (Next redacts thrown messages in production).
+ */
+export class BillingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BillingError";
+  }
+}
+
+const PLAN_RANK: Record<PaidPlanId, number> = { starter: 0, advanced: 1, pro: 2 };
+
+/** The tutor's live subscription, re-read from Stripe, or a BillingError. */
+async function liveSubscription(tutorId: string): Promise<Stripe.Subscription> {
+  const [row] = await db
+    .select({ subscriptionId: tutors.stripeSubscriptionId })
+    .from(tutors)
+    .where(eq(tutors.id, tutorId))
+    .limit(1);
+  if (!row?.subscriptionId) throw new BillingError("You don't have a subscription to change.");
+  const sub = await stripe().subscriptions.retrieve(row.subscriptionId);
+  if (!isEntitled(sub.status)) throw new BillingError("You don't have an active subscription to change.");
+  return sub;
+}
+
+function scheduleId(sub: Stripe.Subscription): string | null {
+  return typeof sub.schedule === "string" ? sub.schedule : (sub.schedule?.id ?? null);
+}
+
+/**
+ * Move the tutor to another paid plan, keeping their billing interval.
+ *
+ * Up: immediately, charging the prorated difference now. `pending_if_incomplete`
+ * means a declined card leaves them on their current plan instead of handing
+ * over the bigger one unpaid.
+ * Down: at the end of the period they've paid for, via a subscription schedule,
+ * so they keep what they paid for until then.
+ * Same plan: cancels a downgrade that was queued.
+ */
+export async function changePlan(tutorId: string, target: PaidPlanId): Promise<void> {
+  const sub = await liveSubscription(tutorId);
+  const item = sub.items.data[0];
+  const current = parseLookupKey(item?.price.lookup_key ?? null);
+  if (!item || !current) throw new BillingError("We couldn't read your current plan. Please contact us.");
+  if (sub.status === "past_due") {
+    throw new BillingError("Your last payment didn't go through. Update your card before changing plan.");
+  }
+
+  const existingSchedule = scheduleId(sub);
+
+  if (target === current.plan) {
+    if (existingSchedule) await stripe().subscriptionSchedules.release(existingSchedule);
+  } else if (PLAN_RANK[target] > PLAN_RANK[current.plan]) {
+    // An upgrade replaces any queued downgrade.
+    if (existingSchedule) await stripe().subscriptionSchedules.release(existingSchedule);
+    const updated = await stripe().subscriptions.update(sub.id, {
+      items: [{ id: item.id, price: await priceFor(target, current.interval) }],
+      proration_behavior: "always_invoice",
+      payment_behavior: "pending_if_incomplete",
+    });
+    if (updated.pending_update) {
+      throw new BillingError(
+        "Your card was declined, so you're still on your current plan. Update your card in Manage billing and try again.",
+      );
+    }
+  } else {
+    if (sub.cancel_at_period_end || sub.cancel_at !== null) {
+      throw new BillingError(
+        "Your plan is set to cancel. Keep your subscription in Manage billing before changing plan.",
+      );
+    }
+    const scheduleIdToUse =
+      existingSchedule ??
+      (await stripe().subscriptionSchedules.create({ from_subscription: sub.id })).id;
+    const schedule = await stripe().subscriptionSchedules.retrieve(scheduleIdToUse);
+    const phase = schedule.current_phase ?? schedule.phases[0];
+    await stripe().subscriptionSchedules.update(scheduleIdToUse, {
+      end_behavior: "release",
+      phases: [
+        {
+          items: [{ price: item.price.id, quantity: 1 }],
+          start_date: phase?.start_date ?? item.current_period_start,
+          end_date: item.current_period_end,
+        },
+        {
+          items: [{ price: await priceFor(target, current.interval), quantity: 1 }],
+          duration: { interval: current.interval, interval_count: 1 },
+          proration_behavior: "none",
+        },
+      ],
+    });
+  }
+
+  await syncSubscription(sub.id);
+}
+
+/** Pause length. One month, then billing and the monthly allowance resume on their own. */
+export function pauseEndsAt(from = new Date()): Date {
+  const end = new Date(from);
+  end.setUTCMonth(end.getUTCMonth() + 1);
+  // 31 Jan + 1 month overflows into March; clamp to the last day of February.
+  if (end.getUTCDate() !== from.getUTCDate()) end.setUTCDate(0);
+  return end;
+}
+
+/**
+ * Pause a monthly subscription for one month. Invoices falling due while paused
+ * are voided (not charged, not owed later), no allowance is granted for the month
+ * the pause covers, and banked lessons stay usable. Stripe lifts the pause itself
+ * at `resumes_at` and the webhook syncs it back.
+ */
+export async function pauseSubscription(tutorId: string): Promise<void> {
+  const sub = await liveSubscription(tutorId);
+  const interval = parseLookupKey(sub.items.data[0]?.price.lookup_key ?? null)?.interval;
+  if (sub.pause_collection) throw new BillingError("Your plan is already paused.");
+  if (sub.status !== "active") {
+    throw new BillingError("Your plan can't be paused right now. Update your card in Manage billing first.");
+  }
+  if (interval !== "month") {
+    throw new BillingError("Pausing is only available on monthly billing — yearly plans are already paid up front.");
+  }
+  if (sub.cancel_at_period_end || sub.cancel_at !== null) {
+    throw new BillingError("Your plan is already set to cancel, so there's nothing to pause.");
+  }
+  await stripe().subscriptions.update(sub.id, {
+    pause_collection: {
+      behavior: "void",
+      resumes_at: Math.floor(pauseEndsAt().getTime() / 1000),
+    },
+  });
+  await syncSubscription(sub.id);
+}
+
+/** End a pause early. The month the pause covered keeps no allowance. */
+export async function resumeSubscription(tutorId: string): Promise<void> {
+  const sub = await liveSubscription(tutorId);
+  if (!sub.pause_collection) {
+    await syncSubscription(sub.id);
+    return;
+  }
+  await stripe().subscriptions.update(sub.id, { pause_collection: "" });
+  await syncSubscription(sub.id);
+}
+
 
 /**
  * Stop billing a tutor who is deleting their account. Immediate, not at period

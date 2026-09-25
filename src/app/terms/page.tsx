@@ -218,17 +218,32 @@ export default function TermsPage() {
         <p>
           BumbleNote has a free trial of two lessons with one student, and paid plans
           with monthly lesson allowances. Current prices and limits are shown on our
-          pricing page. Paid allowances reset on the 1st of each month; the free trial
+          pricing page. A new allowance starts on the 1st of each month; the free trial
           does not reset.
+        </p>
+        <p>
+          <strong>Unused lessons roll over, within a limit.</strong> While your
+          subscription is active, lessons you don&apos;t use carry into the next month,
+          up to 5 on Starter, 10 on Advanced and 15 on Pro. Anything above that limit
+          expires at the end of the month. Carried-over lessons have no cash value and
+          end with your subscription.
         </p>
         <p>
           Paid plans are billed in US dollars, in advance, monthly or yearly, and renew
           automatically until you cancel. Payments are handled by Stripe; we never see or
           store your full card details. You can cancel at any time from Settings and keep
           access until the end of the period you have paid for; we do not refund
-          part-used periods except where the law requires it. If you switch plans
-          mid-period, the difference is adjusted on your next invoice. If we change
+          part-used periods except where the law requires it. If you upgrade, the new
+          plan starts straight away and we charge the prorated difference for the rest
+          of your billing period at that time. If you downgrade, the change takes effect
+          at your next renewal and you keep your current plan until then. If we change
           prices, we will give you at least 30 days&apos; notice before it affects you.
+        </p>
+        <p>
+          On monthly billing you can pause your plan from Settings for one month at a
+          time. You aren&apos;t charged for that month and no new allowance is added for
+          it, but lessons you already have stay usable. Your plan resumes automatically
+          after one month, or sooner if you choose.
         </p>
         <p>
           If a payment fails, we keep your plan active while it is retried. If it still
@@ -236,8 +251,8 @@ export default function TermsPage() {
           lessons are kept.
         </p>
         <p>
-          Reaching your limit stops new lessons being recorded until the limit resets
-          or you upgrade. It never deletes work you have already done.
+          Reaching your limit stops new lessons being recorded until your next
+          allowance arrives or you upgrade. It never deletes work you have already done.
         </p>
       </Clause>
 

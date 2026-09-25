@@ -60,6 +60,18 @@ export const tutors = pgTable("tutors", {
   billingInterval: text("billing_interval").$type<"month" | "year">(),
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
   cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+  // Start of the current unbroken paid subscription — the point the rollover
+  // bank counts from (src/lib/credits.ts). Set by syncSubscription() when a tutor
+  // becomes entitled, cleared when the subscription ends, so the bank doesn't
+  // survive a lapse. Null = not subscribed; quota then uses the plain calendar month.
+  creditsSince: timestamp("credits_since", { withTimezone: true }),
+  // The latest pause (Stripe pause_collection), kept after it ends: the month
+  // whose 1st falls inside [pausedAt, pauseResumesAt) gets no allowance.
+  pausedAt: timestamp("paused_at", { withTimezone: true }),
+  pauseResumesAt: timestamp("pause_resumes_at", { withTimezone: true }),
+  // A downgrade scheduled for renewal (a Stripe subscription schedule), for display.
+  pendingPlan: tutorPlan("pending_plan"),
+  pendingPlanAt: timestamp("pending_plan_at", { withTimezone: true }),
   // Lessons ever processed for this tutor. Only goes up — unlike counting
   // `sessions` rows, deleting a lesson doesn't lower it, so the free plan's
   // one-lesson trial can't be reset by deleting the trial lesson.
@@ -175,6 +187,29 @@ export const lessonReservations = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("lesson_reservations_tutor_idx").on(t.tutorId)],
+);
+
+/**
+ * Monthly lesson allowances granted to a subscriber (src/lib/credits.ts). One row
+ * per calendar month of an unbroken subscription, decided once and never
+ * re-decided: `lessons` is the plan's allowance (0 for a month the subscription
+ * was paused over) and `carried_in` what rolled over from the month before.
+ */
+export const creditGrants = pgTable(
+  "credit_grants",
+  {
+    tutorId: uuid("tutor_id")
+      .notNull()
+      .references(() => tutors.id, { onDelete: "cascade" }),
+    // First day of the month (UTC).
+    month: date("month", { mode: "string" }).notNull(),
+    lessons: integer("lessons").notNull(),
+    // Unused lessons carried in from the month before, capped at the plan's
+    // rolloverCap. Available this month = lessons + carried_in.
+    carriedIn: integer("carried_in").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.tutorId, t.month] })],
 );
 
 // The Neon driver sends and returns Buffers for bytea as-is (verified against the

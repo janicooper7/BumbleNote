@@ -19,6 +19,7 @@ import { currentTutorId } from "@/auth";
 import type { AttachmentMeta } from "@/lib/attachments";
 import { MERGE_WINDOW_HOURS, MERGEABLE_MAX_DURATION_MIN, type MergeCandidate } from "@/lib/merge";
 import type { Session, Student } from "@/lib/mock";
+import type { PlanId } from "@/lib/plans";
 
 function toStudent(r: DbStudent): Student {
   return {
@@ -182,6 +183,10 @@ export type TutorProfile = {
   billingInterval: "month" | "year" | null;
   currentPeriodEnd: Date | null;
   cancelAtPeriodEnd: boolean;
+  pausedAt: Date | null;
+  pauseResumesAt: Date | null;
+  pendingPlan: PlanId | null;
+  pendingPlanAt: Date | null;
   termsVersion: string | null;
 };
 
@@ -204,6 +209,10 @@ export async function getTutor(): Promise<TutorProfile | undefined> {
       billingInterval: tutors.billingInterval,
       currentPeriodEnd: tutors.currentPeriodEnd,
       cancelAtPeriodEnd: tutors.cancelAtPeriodEnd,
+      pausedAt: tutors.pausedAt,
+      pauseResumesAt: tutors.pauseResumesAt,
+      pendingPlan: tutors.pendingPlan,
+      pendingPlanAt: tutors.pendingPlanAt,
       termsVersion: tutors.termsVersion,
     })
     .from(tutors)
