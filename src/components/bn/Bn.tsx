@@ -35,8 +35,10 @@ export function Display({
 }
 
 /**
- * The script word. `block` drops it onto its own line and pulls the lines
- * around it in, so it sits across them as in "SOMETHING *etheral* IS COMING".
+ * The script word, swiped with the yellow marker (.bn-marker). `block` drops it
+ * onto its own line and pulls the lines around it in, so it sits across them
+ * as in "SOMETHING *etheral* IS COMING". The marker sits on an inner span so a
+ * block word gets a swipe the width of the word, not the line.
  */
 export function Script({
   children,
@@ -50,10 +52,10 @@ export function Script({
   return (
     <span
       className={`font-script normal-case tracking-normal ${
-        block ? "relative z-10 -my-[.18em] block text-[1.18em] leading-[1.1]" : "px-[.08em] text-[1.22em] leading-none"
+        block ? "relative z-10 -my-[.18em] block text-[1.18em] leading-[1.1]" : "text-[1.22em] leading-none"
       } ${className}`}
     >
-      {children}
+      <span className="bn-marker">{children}</span>
     </span>
   );
 }

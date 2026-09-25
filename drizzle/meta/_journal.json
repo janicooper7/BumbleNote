@@ -134,6 +134,13 @@
       "when": 1790328000230,
       "tag": "0018_rate_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790332983311,
+      "tag": "0019_hot_path_indexes",
+      "breakpoints": true
     }
   ]
 }

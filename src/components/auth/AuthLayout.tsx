@@ -45,7 +45,7 @@ export default function AuthLayout({
           <Eyebrow className="text-sky">For 1-to-1 English tutors</Eyebrow>
           <Display className="mt-5 text-[clamp(2.4rem,3.6vw,3.4rem)]">
             Teach the lesson
-            <Script block className="text-sky">
+            <Script block className="text-sky-deep">
               we&apos;ll write
             </Script>
             the notes

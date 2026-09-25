@@ -63,6 +63,20 @@ async function readTrack(
   return Buffer.concat(parts);
 }
 
+/**
+ * The upload's container, from its magic bytes — for the log only, so it's visible
+ * which lessons came in as Opus (lib/audio-trim UPLOAD_CODEC), WAV, or an
+ * untrimmed WebM recording. Deepgram sniffs the format itself.
+ */
+function containerOf(audio: Buffer): string {
+  if (audio.length < 4) return "unknown";
+  const magic = audio.subarray(0, 4).toString("latin1");
+  if (magic === "OggS") return "ogg";
+  if (magic === "RIFF") return "wav";
+  if (audio.readUInt32BE(0) === 0x1a45dfa3) return "webm";
+  return "unknown";
+}
+
 const handler = async (req: Request): Promise<Response> => {
   // Read the secret directly (not via env.required) so a missing env var is a
   // logged 500, not an uncaught throw before our try/catch.
@@ -126,7 +140,8 @@ const handler = async (req: Request): Promise<Response> => {
         readTrack(store, uploadId, "tutor", job.parts.tutor),
       ]);
       console.log(
-        `[process] audio assembled student=${studentAudio.length}B tutor=${tutorAudio.length}B — calling Deepgram`,
+        `[process] audio assembled student=${studentAudio.length}B/${containerOf(studentAudio)} ` +
+          `tutor=${tutorAudio.length}B/${containerOf(tutorAudio)} — calling Deepgram`,
       );
 
       // trimMaps put the word timestamps of each silence-trimmed track back onto

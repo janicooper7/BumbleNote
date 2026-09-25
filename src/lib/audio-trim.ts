@@ -13,7 +13,11 @@
 // worker, which un-maps every word before merging (see mapTrimmedTime in stt.ts).
 //
 // Browser-only (needs WebAudio decoding). The capture extension carries a plain-JS
-// mirror of this file — extension/audio-trim.js — keep the two in sync.
+// mirror of this file — extension/audio-trim.js — keep the two in sync. (The
+// mirror predates the Opus upload below and still sends WAV; the extension is
+// paused, and the server takes either.)
+
+import { muxOggOpus } from "./ogg-opus";
 
 /**
  * Kept speech spans, flattened to [srcStart, duration, ...] pairs in seconds and
@@ -28,7 +32,10 @@
 export type TrimMap = number[];
 
 export type TrimmedTrack = {
-  /** What to upload: the trimmed 16 kHz WAV, or the original blob if untrimmed. */
+  /**
+   * What to upload: the trimmed audio as Ogg Opus or 16 kHz WAV (see
+   * UPLOAD_CODEC), or the original recording if nothing could be done with it.
+   */
   blob: Blob;
   /** Offset map for the uploaded audio, or undefined when it wasn't trimmed. */
   map?: TrimMap;
@@ -59,9 +66,35 @@ const MIN_SPEECH_MS = 120;
 // a step discontinuity — an audible click an ASR model can read as a plosive.
 const FADE_MS = 5;
 
-// Above this speech ratio there is nothing worth reclaiming, and re-encoding to
-// 16-bit WAV would make the upload *larger* than the Opus original. Leave it be.
+// Above this speech ratio there is nothing worth cutting. With WAV the original
+// is uploaded as-is (16-bit WAV would be *larger* than the Opus recording); with
+// Opus the whole track is still re-encoded, at a quarter of the recorder's bitrate.
 const SKIP_IF_SPEECH_RATIO_ABOVE = 0.95;
+
+/**
+ * How trimmed audio is uploaded. "wav" is uncompressed 16 kHz PCM: ~115 MB for an
+ * hour of speech, as much as the untrimmed recording, so trimming saved Deepgram
+ * minutes but no bytes. "opus" is the same samples at OPUS_BITRATE, about 8x
+ * smaller. Build-time switch (NEXT_PUBLIC_*), defaulting to WAV until Opus
+ * transcripts have been compared on real lessons.
+ */
+const UPLOAD_CODEC: "opus" | "wav" = process.env.NEXT_PUBLIC_UPLOAD_CODEC === "opus" ? "opus" : "wav";
+
+// Speech at 16 kHz is intelligible well below this; 32 kbps leaves Deepgram
+// plenty of headroom while still being ~8x smaller than 16-bit PCM.
+const OPUS_BITRATE = 32_000;
+
+// Encoder lookahead the decoder must discard: libopus's 6.5 ms, which RFC 7845
+// counts in 48 kHz samples whatever the input rate. Deliberately a constant rather
+// than read from the encoder: Chrome reports its lookahead at the *input* rate
+// (104 at 16 kHz), and trusting that shifted every word 4.3 ms late.
+const PRE_SKIP = 312;
+
+// Samples per AudioData handed to the encoder, and how many may queue inside it.
+// Without the cap, a long lesson would be copied into the encoder's queue all at
+// once — another few hundred MB on top of the decoded track.
+const ENCODE_BLOCK_SEC = 1;
+const MAX_ENCODE_QUEUE = 8;
 
 // Ceiling on span count, to bound both the map's size in the JSON body and the
 // per-word lookup. Hit only by pathologically choppy audio; see coalesce().
@@ -230,6 +263,108 @@ function encodeWav(pcm: Float32Array, spans: Span[], rate: number): Blob {
   return new Blob([buf], { type: "audio/wav" });
 }
 
+/**
+ * Encode the kept spans as Ogg Opus via WebCodecs, with the same seams and fades
+ * as encodeWav, so the samples and the trim map are unchanged — only the bytes
+ * shrink. The muxer sets pre-skip and the end granule so the file decodes to
+ * exactly the samples fed in; Deepgram's timestamps stay on the trimmed timeline
+ * the map expects.
+ *
+ * Returns null — and the caller falls back to WAV — if the browser can't encode
+ * Opus at this rate or anything goes wrong. Never throws.
+ */
+export async function encodeOpus(pcm: Float32Array, spans: Span[], rate: number): Promise<Blob | null> {
+  if (typeof AudioEncoder === "undefined" || typeof AudioData === "undefined") return null;
+  const config: AudioEncoderConfig = {
+    codec: "opus",
+    sampleRate: rate,
+    numberOfChannels: 1,
+    bitrate: OPUS_BITRATE,
+  };
+
+  let encoder: AudioEncoder | undefined;
+  try {
+    if (!(await AudioEncoder.isConfigSupported(config)).supported) return null;
+
+    const packets: Uint8Array[] = [];
+    let failure: unknown = null;
+    encoder = new AudioEncoder({
+      output: (chunk) => {
+        const bytes = new Uint8Array(chunk.byteLength);
+        chunk.copyTo(bytes);
+        packets.push(bytes);
+      },
+      error: (e) => {
+        failure = e;
+      },
+    });
+    encoder.configure(config);
+    const enc = encoder;
+
+    const idx = (sec: number) => Math.min(pcm.length, Math.max(0, Math.round(sec * rate)));
+    const fade = Math.round((FADE_MS / 1000) * rate);
+    const block = new Float32Array(Math.round(ENCODE_BLOCK_SEC * rate));
+    let fill = 0;
+    let written = 0;
+
+    const send = async () => {
+      if (fill === 0) return;
+      // Backpressure: let the encoder drain before handing it more. Waits on its
+      // dequeue event, not a timer — the tab is often in the background by now,
+      // and Chrome throttles background timers to about one a second.
+      while (enc.encodeQueueSize > MAX_ENCODE_QUEUE) {
+        await new Promise((r) => enc.addEventListener("dequeue", r, { once: true }));
+      }
+      if (failure) throw failure;
+      // AudioData copies `data`, so the block can be reused straight away.
+      const data = new AudioData({
+        format: "f32",
+        sampleRate: rate,
+        numberOfFrames: fill,
+        numberOfChannels: 1,
+        timestamp: Math.round((written * 1e6) / rate),
+        data: block.subarray(0, fill),
+      });
+      enc.encode(data);
+      data.close();
+      written += fill;
+      fill = 0;
+    };
+
+    for (const s of spans) {
+      const from = idx(s.start);
+      const len = idx(s.end) - from;
+      for (let i = 0; i < len; i++) {
+        let v = pcm[from + i];
+        if (i < fade) v *= i / fade;
+        else if (i >= len - fade) v *= (len - 1 - i) / fade;
+        block[fill++] = v;
+        if (fill === block.length) await send();
+      }
+    }
+    await send();
+    // Flush drains the encoder's lookahead too (checked: the packets cover the
+    // full declared length), so no tail padding is needed.
+    await enc.flush();
+    if (failure) throw failure;
+
+    return muxOggOpus({ packets, preSkip: PRE_SKIP, inputRate: rate, inputSamples: written });
+  } catch {
+    return null;
+  } finally {
+    if (encoder && encoder.state !== "closed") encoder.close();
+  }
+}
+
+/** The kept spans in the configured upload codec — Opus when possible, else WAV. */
+async function encodeSpans(pcm: Float32Array, spans: Span[], rate: number): Promise<Blob> {
+  if (UPLOAD_CODEC === "opus") {
+    const opus = await encodeOpus(pcm, spans, rate);
+    if (opus) return opus;
+  }
+  return encodeWav(pcm, spans, rate);
+}
+
 function round(sec: number): number {
   return Math.round(sec * 1000) / 1000;
 }
@@ -268,12 +403,18 @@ export async function trimSilence(blob: Blob): Promise<TrimmedTrack> {
     // silent hour, and uploading an empty file would cost us the whole track's
     // transcript. Send the original and let Deepgram be the judge.
     if (spans.length === 0) return untrimmed(originalSec);
-    if (trimmedSec > originalSec * SKIP_IF_SPEECH_RATIO_ABOVE) return untrimmed(originalSec);
+    if (trimmedSec > originalSec * SKIP_IF_SPEECH_RATIO_ABOVE) {
+      // Nothing to cut, but Opus still shrinks the upload. The whole track is
+      // kept, so its timeline is already the real one: no map.
+      if (UPLOAD_CODEC !== "opus") return untrimmed(originalSec);
+      const whole = await encodeOpus(pcm, [{ start: 0, end: originalSec }], TARGET_RATE);
+      return whole ? { blob: whole, map: undefined, originalSec, trimmedSec: originalSec } : untrimmed(originalSec);
+    }
 
     const map: TrimMap = [];
     for (const s of spans) map.push(round(s.start), round(s.end - s.start));
 
-    return { blob: encodeWav(pcm, spans, TARGET_RATE), map, originalSec, trimmedSec };
+    return { blob: await encodeSpans(pcm, spans, TARGET_RATE), map, originalSec, trimmedSec };
   } catch {
     return untrimmed(originalSec);
   }

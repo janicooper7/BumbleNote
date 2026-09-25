@@ -14,7 +14,7 @@ export default function MidCta() {
       <div className="bg-cocoa text-butter">
         <div className="mx-auto flex w-full max-w-[1100px] flex-col items-center px-5 pb-24 pt-4 text-center sm:px-8">
           <Display as="h2" className="text-[clamp(2.2rem,5vw,3.6rem)]">
-            <Script block className="text-sky">
+            <Script block className="text-sky-deep">
               try it on your next lesson
             </Script>
             The first two are free

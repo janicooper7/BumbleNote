@@ -74,70 +74,86 @@ export const tutors = pgTable("tutors", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const students = pgTable("students", {
-  id: text("id").primaryKey(),
-  tutorId: uuid("tutor_id")
-    .notNull()
-    .references(() => tutors.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  initial: text("initial").notNull(),
-  level: text("level").notNull(),
-  goal: text("goal").notNull(),
-  native: text("native").notNull(),
-  email: text("email"), // student's email, for sending lesson-report PDFs
-  // What the tutor charges per hour for this student. Null when unset.
-  hourlyRate: numeric("hourly_rate", { precision: 8, scale: 2, mode: "number" }),
-  lessonCount: integer("lesson_count").notNull().default(0),
-  vocabCount: integer("vocab_count").notNull().default(0),
-  lastSeen: text("last_seen").notNull(),
-  focus: jsonb("focus").$type<string[]>().notNull().default([]),
-  trend: studentTrend("trend").notNull().default("steady"),
-  active: boolean("active").notNull().default(true),
-  notes: text("notes").notNull().default(""),
-  targetExam: text("target_exam"),
-  interests: jsonb("interests").$type<string[]>(),
-  startDate: text("start_date"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const students = pgTable(
+  "students",
+  {
+    id: text("id").primaryKey(),
+    tutorId: uuid("tutor_id")
+      .notNull()
+      .references(() => tutors.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    initial: text("initial").notNull(),
+    level: text("level").notNull(),
+    goal: text("goal").notNull(),
+    native: text("native").notNull(),
+    email: text("email"), // student's email, for sending lesson-report PDFs
+    // What the tutor charges per hour for this student. Null when unset.
+    hourlyRate: numeric("hourly_rate", { precision: 8, scale: 2, mode: "number" }),
+    lessonCount: integer("lesson_count").notNull().default(0),
+    vocabCount: integer("vocab_count").notNull().default(0),
+    lastSeen: text("last_seen").notNull(),
+    focus: jsonb("focus").$type<string[]>().notNull().default([]),
+    trend: studentTrend("trend").notNull().default("steady"),
+    active: boolean("active").notNull().default(true),
+    notes: text("notes").notNull().default(""),
+    targetExam: text("target_exam"),
+    interests: jsonb("interests").$type<string[]>(),
+    startDate: text("start_date"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // Every student query is scoped by tutor.
+  (t) => [index("students_tutor_idx").on(t.tutorId)],
+);
 
-export const sessions = pgTable("sessions", {
-  id: text("id").primaryKey(),
-  tutorId: uuid("tutor_id")
-    .notNull()
-    .references(() => tutors.id, { onDelete: "cascade" }),
-  studentId: text("student_id")
-    .notNull()
-    .references(() => students.id, { onDelete: "cascade" }),
-  studentName: text("student_name").notNull(),
-  studentInitial: text("student_initial").notNull(),
-  title: text("title").notNull(),
-  date: text("date").notNull(), // human readable, e.g. "2 Jul 2026"
-  isoDate: date("iso_date", { mode: "string" }).notNull(), // sortable YYYY-MM-DD
-  durationMin: integer("duration_min").notNull(),
-  status: sessionStatus("status").notNull().default("draft"),
-  levelFrom: text("level_from").notNull(),
-  levelTo: text("level_to").notNull(),
-  observedLevel: cefrLevel("observed_level").notNull(),
-  talkTime: jsonb("talk_time").$type<TalkTime>().notNull(),
-  vocab: jsonb("vocab").$type<VocabItem[]>().notNull().default([]),
-  wentWell: jsonb("went_well").$type<string[]>().notNull().default([]),
-  focus: jsonb("focus").$type<string[]>().notNull().default([]),
-  homework: text("homework").notNull().default(""),
-  additionalInfo: text("additional_info").notNull().default(""),
-  nextLesson: jsonb("next_lesson").$type<string[]>().notNull().default([]),
-  lessonEndedAt: text("lesson_ended_at").notNull().default(""),
-  tutorNotes: text("tutor_notes").notNull().default(""),
-  // Marked by the tutor when recording: tells the AI to also draft a starting
-  // student profile (interests, focus, notes) from the transcript, which
-  // createDraftLessonCore then uses to fill in any profile fields still empty.
-  isTrial: boolean("is_trial").notNull().default(false),
-  // The upload (or synchronous processing run) that produced this lesson. Unique,
-  // so a retried or duplicated worker run can never draft the same recording
-  // twice — createDraftLessonCore finds the existing row instead. Null for lessons
-  // that predate the column or were made some other way (seed, merge).
-  uploadId: text("upload_id").unique(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: text("id").primaryKey(),
+    tutorId: uuid("tutor_id")
+      .notNull()
+      .references(() => tutors.id, { onDelete: "cascade" }),
+    studentId: text("student_id")
+      .notNull()
+      .references(() => students.id, { onDelete: "cascade" }),
+    studentName: text("student_name").notNull(),
+    studentInitial: text("student_initial").notNull(),
+    title: text("title").notNull(),
+    date: text("date").notNull(), // human readable, e.g. "2 Jul 2026"
+    isoDate: date("iso_date", { mode: "string" }).notNull(), // sortable YYYY-MM-DD
+    durationMin: integer("duration_min").notNull(),
+    status: sessionStatus("status").notNull().default("draft"),
+    levelFrom: text("level_from").notNull(),
+    levelTo: text("level_to").notNull(),
+    observedLevel: cefrLevel("observed_level").notNull(),
+    talkTime: jsonb("talk_time").$type<TalkTime>().notNull(),
+    vocab: jsonb("vocab").$type<VocabItem[]>().notNull().default([]),
+    wentWell: jsonb("went_well").$type<string[]>().notNull().default([]),
+    focus: jsonb("focus").$type<string[]>().notNull().default([]),
+    homework: text("homework").notNull().default(""),
+    additionalInfo: text("additional_info").notNull().default(""),
+    nextLesson: jsonb("next_lesson").$type<string[]>().notNull().default([]),
+    lessonEndedAt: text("lesson_ended_at").notNull().default(""),
+    tutorNotes: text("tutor_notes").notNull().default(""),
+    // Marked by the tutor when recording: tells the AI to also draft a starting
+    // student profile (interests, focus, notes) from the transcript, which
+    // createDraftLessonCore then uses to fill in any profile fields still empty.
+    isTrial: boolean("is_trial").notNull().default(false),
+    // The upload (or synchronous processing run) that produced this lesson. Unique,
+    // so a retried or duplicated worker run can never draft the same recording
+    // twice — createDraftLessonCore finds the existing row instead. Null for lessons
+    // that predate the column or were made some other way (seed, merge).
+    uploadId: text("upload_id").unique(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Tutor-scoped lesson queries, and the monthly quota count by created_at
+    // (src/lib/quota.ts) — which runs on every dashboard render.
+    index("sessions_tutor_created_idx").on(t.tutorId, t.createdAt),
+    // One student's history (journey, profile). Student ids are globally unique,
+    // so this alone is selective; it also serves the cascade when a student is deleted.
+    index("sessions_student_idx").on(t.studentId),
+  ],
+);
 
 /**
  * Lesson credits held by work that has been paid for but hasn't produced a lesson
@@ -176,20 +192,26 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
  * work under a plain `next dev` where Blobs doesn't. Kept out of `sessions` so
  * listing lessons never drags file contents along.
  */
-export const sessionAttachments = pgTable("session_attachments", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  tutorId: uuid("tutor_id")
-    .notNull()
-    .references(() => tutors.id, { onDelete: "cascade" }),
-  sessionId: text("session_id")
-    .notNull()
-    .references(() => sessions.id, { onDelete: "cascade" }),
-  filename: text("filename").notNull(),
-  contentType: text("content_type").notNull(),
-  size: integer("size").notNull(),
-  data: bytea("data").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const sessionAttachments = pgTable(
+  "session_attachments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tutorId: uuid("tutor_id")
+      .notNull()
+      .references(() => tutors.id, { onDelete: "cascade" }),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    filename: text("filename").notNull(),
+    contentType: text("content_type").notNull(),
+    size: integer("size").notNull(),
+    data: bytea("data").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // Attachments are always looked up by lesson, and the cascade from a deleted
+  // lesson needs the same index.
+  (t) => [index("session_attachments_session_idx").on(t.sessionId)],
+);
 
 /**
  * Single-use tokens backing the "forgot password" flow (src/lib/reset-tokens.ts).

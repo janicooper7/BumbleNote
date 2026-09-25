@@ -249,3 +249,19 @@ body::after {
   *, *::before, *::after { animation: none !important; }
   .reveal { opacity: 1; transform: none; transition: none; }
 }
+
+/* The highlighter swipe behind a <Script> word — the pack's yellow marker
+   ("the *feedback* writes itself"). A ragged-ended stroke arched like a
+   rainbow, drawn as SVG and stretched to the word; the second, lighter pass
+   gives it the streaky, watercolour edge of a real marker. Fixed yellow rather than --color-butter:
+   the dashboard remaps butter to blue, and butter is too pale to show on the
+   butter cards. */
+.bn-marker {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Cpath d='M4 20 L8 15 Q100 1 193 15 L197 20 L194 25 L198 31 L192 38 Q100 23 8 38 L2 33 L6 27 L1 23 Z' fill='%23f8e67a'/%3E%3Cpath d='M12 16 Q100 4 188 16 L186 20 Q100 9 14 20 Z M10 33 Q100 21 190 33 L188 36 Q100 25 12 36 Z' fill='%23f2da4c' fill-opacity='.45'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 100% 70%;
+  background-position: 0 calc(78% - 5px);
+  padding-inline: .14em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}

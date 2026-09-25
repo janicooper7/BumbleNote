@@ -88,7 +88,7 @@ export default async function EnterPage({
             <Eyebrow className="text-sky">What&apos;s on the way</Eyebrow>
             <Display className="mt-5 text-[clamp(2.4rem,6vw,4.4rem)]">
               Teach the lesson
-              <Script block className="text-sky">
+              <Script block className="text-sky-deep">
                 we&apos;ll write
               </Script>
               the notes

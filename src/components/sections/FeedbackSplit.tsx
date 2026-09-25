@@ -95,7 +95,7 @@ export default function FeedbackSplit() {
         <Reveal className="mx-auto mb-16 max-w-3xl text-center">
           <Eyebrow className="text-sky">From lesson to recap</Eyebrow>
           <Display className="mt-5 text-[clamp(2.3rem,5vw,3.8rem)]">
-            It reads <Script className="text-sky">every</Script> line,
+            It reads <Script className="text-sky-deep">every</Script> line,
             <br /> so you don&apos;t have to
           </Display>
           <p className="mx-auto mt-6 max-w-[56ch] text-lg text-butter/85">
@@ -140,7 +140,7 @@ export default function FeedbackSplit() {
 
           <Reveal delay={140} className="hidden lg:block">
             <div className="flex flex-col items-center gap-1 text-sky">
-              <span className="font-script text-3xl">reads it</span>
+              <span className="bn-marker font-script text-3xl text-sky-deep">reads it</span>
               <LoopArrow className="h-12 w-20" />
             </div>
           </Reveal>
@@ -172,7 +172,7 @@ export default function FeedbackSplit() {
           <Eyebrow className="text-sky">One for the student · one just for you</Eyebrow>
           <Display as="h3" className="mt-5 text-[clamp(2.1rem,4.4vw,3.3rem)]">
             Two outputs
-            <Script block className="text-sky">
+            <Script block className="text-sky-deep">
               from one
             </Script>
             lesson
