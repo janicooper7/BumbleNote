@@ -33,14 +33,14 @@ export const LEGAL = {
   addressNote: "A postal address is available on request by email.",
 
   /** Shown at the top of both documents, and cited in the change clauses. */
-  lastUpdated: "23 September 2026",
+  lastUpdated: "25 September 2026",
 
   /**
    * The same date, machine-readable, for the sitemap's <lastmod>. Kept next to
    * the display string above because the two must always name the same day —
    * change one and change the other.
    */
-  lastUpdatedISO: "2026-09-23",
+  lastUpdatedISO: "2026-09-25",
 
   /**
    * Retention window for lesson audio that a failed or abandoned upload leaves
@@ -105,7 +105,7 @@ export const SUBPROCESSORS: {
   {
     name: "Resend",
     role: "Email delivery",
-    data: "The student's name and email address, and the lesson report attached to the message. Waitlist email addresses, when we send the launch announcement.",
+    data: "The student's name and email address, and the lesson report attached to the message. Waitlist email addresses, when we email you about the launch.",
     location: "United States",
   },
   {

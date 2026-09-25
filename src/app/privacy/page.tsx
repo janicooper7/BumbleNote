@@ -81,8 +81,9 @@ export default function PrivacyPage() {
         <p>
           <strong>When you join the launch waitlist.</strong> If you leave your email on
           our &ldquo;coming soon&rdquo; page, we store that address and the date you
-          added it, and use it for one thing only: telling you when BumbleNote opens.
-          We are the data controller for it.
+          added it, and use it only to email you about BumbleNote: when it opens, and
+          occasionally after that about what it can do for you. Every email has an
+          unsubscribe link. We are the data controller for it.
         </p>
         <p>
           <strong>When you create an account.</strong> If you sign in with Google, we
@@ -195,8 +196,8 @@ export default function PrivacyPage() {
               <strong>Consent</strong> — for the recording itself, which is obtained by
               the tutor from the student, as described above — and for the launch
               waitlist, which you join by choosing to submit your email. You can
-              withdraw that consent at any time by emailing us, and we will remove
-              your address.
+              withdraw that consent at any time with the unsubscribe link in any of
+              our emails, or by emailing us, and we will remove your address.
             </>,
           ]}
         />
@@ -249,8 +250,8 @@ export default function PrivacyPage() {
         <Points
           items={[
             <>
-              <strong>Launch waitlist emails</strong> — kept until we have sent the
-              launch announcement, then deleted. Sooner if you ask us to remove yours.
+              <strong>Launch waitlist emails</strong> — kept until you unsubscribe or
+              ask us to remove yours, then deleted.
             </>,
             <>
               <strong>Lesson audio and transcripts</strong> — deleted as soon as the

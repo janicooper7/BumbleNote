@@ -271,11 +271,16 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
  * Pre-launch waitlist — addresses left on the /enter "coming soon" page by people
  * who want to hear when BumbleNote opens. Not tied to a tutor account; emails are
  * stored lowercased so the unique constraint catches repeat signups.
+ *
+ * `welcomeSentAt` is set when the welcome email is claimed for sending (see
+ * src/lib/waitlist-welcome.ts), so a signup and the backfill script can't both
+ * send it. Unsubscribing deletes the row outright.
  */
 export const waitlist = pgTable("waitlist", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: text("email").notNull().unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  welcomeSentAt: timestamp("welcome_sent_at", { withTimezone: true }),
 });
 
 /**

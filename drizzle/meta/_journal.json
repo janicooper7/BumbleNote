@@ -148,6 +148,13 @@
       "when": 1790342399748,
       "tag": "0020_credit_rollover_and_pause",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790344039876,
+      "tag": "0021_waitlist_welcome",
+      "breakpoints": true
     }
   ]
 }

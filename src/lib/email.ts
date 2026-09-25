@@ -259,6 +259,103 @@ export async function sendOperatorAlertEmail(args: {
 }
 
 /**
+ * Where we post, for the "follow along" line in waitlist emails. Leave the list
+ * empty and the line disappears.
+ */
+const SOCIAL_LINKS: { name: string; url: string }[] = [
+  { name: "Instagram", url: "https://www.instagram.com/bumblenote_" },
+  { name: "TikTok", url: "https://www.tiktok.com/@bumblenote" },
+];
+
+/**
+ * The waitlist welcome email (launch sequence, email 1). Callers go through
+ * sendWaitlistWelcome in src/lib/waitlist-welcome.ts, which makes sure each
+ * address gets it once.
+ *
+ * Styled after the launch-email drafts rather than the product shell above:
+ * brown on white, the logo lockup, Fraunces where the client loads web fonts
+ * (Apple Mail does, Gmail falls back to Georgia). Table layout and inline
+ * styles because that's what email clients reliably render.
+ */
+export async function sendWaitlistWelcomeEmail(args: {
+  to: string;
+  unsubscribeUrl: string;
+}): Promise<void> {
+  const { to, unsubscribeUrl } = args;
+  const serif = `'Fraunces', Georgia, 'Times New Roman', serif`;
+  const sans = `'Hanken Grotesk', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif`;
+  const safeUnsub = escapeHtml(unsubscribeUrl);
+
+  const socials = SOCIAL_LINKS.length
+    ? `<p style="margin:24px 0 0;padding-top:18px;border-top:1px solid #eadfce;color:#6b5245;">
+         Follow along while we get ready:
+         ${SOCIAL_LINKS.map(
+           (s) =>
+             `<a href="${escapeHtml(s.url)}" style="color:#412e28;font-weight:700;">${escapeHtml(s.name)}</a>`,
+         ).join(" &middot; ")}
+       </p>`
+    : "";
+
+  const html = `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;1,9..144,400&family=Hanken+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+<title>You're on the BumbleNote list</title></head>
+<body style="margin:0;padding:0;background:#fbf8f1;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Thanks for joining. Here's what's coming, and when.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fbf8f1;">
+<tr><td align="center" style="padding:28px 12px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;">
+    <tr><td style="padding:32px 36px 8px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td valign="middle" style="padding-right:28px;"><img src="${PUBLIC_ORIGIN}/logo-lockup.png" width="112" height="64" alt="BumbleNote" style="display:block;border:0;width:112px;height:64px;"></td>
+        <td valign="middle" style="font-family:${serif};font-size:28px;line-height:1.15;color:#412e28;">Thanks for joining. <em>You're one of the first.</em></td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="padding:16px 36px 32px;font-family:${sans};font-size:16px;line-height:1.6;color:#412e28;">
+      <p style="margin:0 0 16px;">Hey busy-bee,</p>
+      <p style="margin:0 0 16px;">Thank you for putting your name down for BumbleNote. We're building it for tutors who love teaching, but not the admin that comes after it: the recap, the homework message, the note to yourself about what to cover next time.</p>
+      <p style="margin:0 0 24px;">We're opening the doors on <b>Sunday 4 October at 9am (UK time)</b>. You'll get an email from us the moment we're live, and you can try it on two real lessons for free.</p>
+      <p style="margin:0;font-family:${serif};font-style:italic;font-size:20px;line-height:1.3;">Millie &amp; Jani</p>
+      <p style="margin:0;color:#6b5245;">Co-founders, BumbleNote</p>
+      ${socials}
+    </td></tr>
+    <tr><td style="background:#fbf8f1;padding:18px 36px;font-family:${sans};font-size:12px;line-height:1.5;color:#8a7466;">
+      You're getting this because you joined the BumbleNote waitlist. <a href="${safeUnsub}" style="color:#6b5245;">Unsubscribe</a>
+    </td></tr>
+  </table>
+</td></tr></table>
+</body></html>`;
+
+  const text = [
+    "Hey busy-bee,",
+    "Thank you for putting your name down for BumbleNote. We're building it for tutors who love teaching, but not the admin that comes after it: the recap, the homework message, the note to yourself about what to cover next time.",
+    "We're opening the doors on Sunday 4 October at 9am (UK time). You'll get an email from us the moment we're live, and you can try it on two real lessons for free.",
+    "Millie & Jani\nCo-founders, BumbleNote",
+    ...(SOCIAL_LINKS.length
+      ? [`Follow along while we get ready:\n${SOCIAL_LINKS.map((s) => `${s.name}: ${s.url}`).join("\n")}`]
+      : []),
+    `You're getting this because you joined the BumbleNote waitlist. Unsubscribe: ${unsubscribeUrl}`,
+  ].join("\n\n");
+
+  const { error } = await getClient().emails.send({
+    from: env.MARKETING_EMAIL_FROM,
+    to,
+    subject: "You're on the BumbleNote list",
+    html,
+    text,
+    // One-click unsubscribe (RFC 8058). Gmail and Yahoo expect it on bulk mail
+    // and show their own "Unsubscribe" button next to the sender.
+    headers: {
+      "List-Unsubscribe": `<${unsubscribeUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
+  });
+
+  if (error) throw new Error(explainSendError(error.message));
+}
+
+/**
  * Turn Resend's API errors into something a tutor can act on.
  *
  * The big one: with the default sandbox sender (onboarding@resend.dev) Resend

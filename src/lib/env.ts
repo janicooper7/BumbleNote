@@ -65,4 +65,9 @@ export const env = {
   get EMAIL_FROM() {
     return process.env.EMAIL_FROM || "BumbleNote <onboarding@resend.dev>";
   },
+  // The From address for waitlist and launch emails. Separate from EMAIL_FROM
+  // because those come from a no-reply sender; falls back to it when unset.
+  get MARKETING_EMAIL_FROM() {
+    return process.env.MARKETING_EMAIL_FROM || this.EMAIL_FROM;
+  },
 };

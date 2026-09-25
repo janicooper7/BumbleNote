@@ -54,7 +54,7 @@ export default function PrivacyNotice() {
         <p className="text-sm leading-relaxed text-ink-soft">
           <span className="font-semibold text-ink">Your privacy.</span> We collect personal
           data such as your email address only to run BumbleNote and, if you join the
-          waitlist, to tell you when we launch. We use essential cookies only — no
+          waitlist, to email you about BumbleNote. We use essential cookies only — no
           analytics or tracking. Read our{" "}
           <Link
             href="/privacy"

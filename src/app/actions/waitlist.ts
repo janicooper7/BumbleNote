@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { db, schema } from "@/db";
 import { clientIp, rateLimit, waitText } from "@/lib/rate-limit";
+import { sendWaitlistWelcome } from "@/lib/waitlist-welcome";
 
 export type WaitlistState =
   | { status: "idle" }
@@ -50,11 +51,27 @@ export async function joinWaitlist(
     };
   }
 
+  let inserted: { id: string } | undefined;
   try {
-    await db.insert(schema.waitlist).values({ email }).onConflictDoNothing();
+    [inserted] = await db
+      .insert(schema.waitlist)
+      .values({ email })
+      .onConflictDoNothing()
+      .returning({ id: schema.waitlist.id });
   } catch (err) {
     console.error("[waitlist] insert failed", err);
     return { status: "error", message: "Something went wrong on our side. Please try again in a moment." };
+  }
+
+  // Only a new row gets the welcome email, so re-submitting the form can't be
+  // used to send it again. A failed send doesn't fail the signup: the address is
+  // saved, and scripts/send-waitlist-welcome.ts picks up anyone who missed it.
+  if (inserted) {
+    try {
+      await sendWaitlistWelcome(inserted.id);
+    } catch (err) {
+      console.error("[waitlist] welcome email failed", err);
+    }
   }
 
   return { status: "joined", email };
