@@ -67,6 +67,10 @@ export default async function DashboardLayout({
     planName: usage.plan.name,
     trial: usage.plan.lessonWindow === "lifetime",
     paused: usage.paused,
+    rollover: usage.rollover,
+    renewsOn: usage.renewsAt
+      ? usage.renewsAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" })
+      : null,
   };
 
   // Prefer the tutor row over the JWT: the token keeps whatever name Google

@@ -218,7 +218,7 @@ export default function TermsPage() {
         <p>
           BumbleNote has a free trial of two lessons with one student, and paid plans
           with monthly lesson allowances. Current prices and limits are shown on our
-          pricing page. A new allowance starts on the 1st of each month; the free trial
+          pricing page. A new allowance starts each month on your billing date; the free trial
           does not reset.
         </p>
         <p>
@@ -234,8 +234,10 @@ export default function TermsPage() {
           store your full card details. You can cancel at any time from Settings and keep
           access until the end of the period you have paid for; we do not refund
           part-used periods except where the law requires it. If you upgrade, the new
-          plan starts straight away and we charge the prorated difference for the rest
-          of your billing period at that time. If you downgrade, the change takes effect
+          plan starts straight away and a new billing period begins that day: we charge
+          the new plan&apos;s price, less a credit for the unused part of your old plan,
+          and you get the new plan&apos;s lessons on top of any you have left. If you
+          downgrade, the change takes effect
           at your next renewal and you keep your current plan until then. If we change
           prices, we will give you at least 30 days&apos; notice before it affects you.
         </p>

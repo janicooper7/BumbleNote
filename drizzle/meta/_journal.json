@@ -155,6 +155,20 @@
       "when": 1790344039876,
       "tag": "0021_waitlist_welcome",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790367186784,
+      "tag": "0022_billing_date_lesson_periods",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790367198468,
+      "tag": "0023_credit_grants_by_period",
+      "breakpoints": true
     }
   ]
 }

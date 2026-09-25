@@ -35,6 +35,7 @@ export default function PlanControls({
   canPause,
   pauseUntil,
   rolledOver,
+  lessonsLeft,
   locked,
 }: {
   planId: string;
@@ -52,6 +53,8 @@ export default function PlanControls({
   pauseUntil: string;
   /** Lessons carried into this month — what stays usable while paused. */
   rolledOver: number;
+  /** Lessons left this month, which an upgrade keeps. */
+  lessonsLeft: number;
   /** Why plan changes are unavailable right now (cancelling, card declined). */
   locked: string | null;
 }) {
@@ -141,7 +144,9 @@ export default function PlanControls({
                       <Confirm
                         text={
                           o.direction === "up"
-                            ? `You'll be charged the prorated difference for the rest of this billing period today, and get ${o.name}'s ${o.lessons} lessons a month straight away.`
+                            ? `Your billing restarts today: you'll pay ${o.price} for ${o.name} now, minus credit for the unused part of ${planName}, and renew on this date from then on. ` +
+                              `You keep the ${lessonsLeft} ${lessonsLeft === 1 ? "lesson" : "lessons"} you have left and get ${o.lessons} more straight away — ` +
+                              `${lessonsLeft + o.lessons} to use now.`
                             : `You'll move to ${o.name} on ${periodEnd ?? "your next renewal"} and pay ${o.price} from then. You keep ${planName} until that date.`
                         }
                         confirmLabel={o.direction === "up" ? `Upgrade to ${o.name}` : `Downgrade to ${o.name}`}

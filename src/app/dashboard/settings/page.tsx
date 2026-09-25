@@ -7,6 +7,9 @@ import { currentTutorId } from "@/auth";
 import { getLessonTotal, getTutor } from "@/db/queries";
 import { lessonUsage, studentUsage } from "@/lib/quota";
 
+const renewsOn = (d: Date | null) =>
+  d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" }) : "your billing date";
+
 export default async function SettingsPage({ searchParams }: PageProps<"/dashboard/settings">) {
   // ?billing=success|pending|cancelled|error, set by the billing routes on the way back.
   const { billing } = await searchParams;
@@ -81,7 +84,9 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
                       </span>{" "}
                       {lessons.plan.lessonWindow === "lifetime"
                         ? "free trial lessons used"
-                        : "lessons used this month"}
+                        : lessons.rollover
+                          ? "lessons used this billing month"
+                          : "lessons used this month"}
                     </div>
                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-brand-soft">
                       <div
@@ -95,10 +100,10 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
                         : lessons.rollover
                           ? <>
                               {lessons.rolledOver > 0 &&
-                                `Includes ${lessons.rolledOver} carried over from last month. `}
+                                `Includes ${lessons.rolledOver} carried over. `}
                               {lessons.paused
-                                ? "Paused — no new lessons are added this month."
-                                : `${lessons.plan.lessons} more arrive on the 1st; up to ${lessons.plan.rolloverCap} unused lessons carry over.`}
+                                ? "Paused — no new lessons are added this billing month."
+                                : `${lessons.plan.lessons} more arrive on ${renewsOn(lessons.renewsAt)}, your billing date; up to ${lessons.plan.rolloverCap} unused lessons carry over.`}
                             </>
                           : "Resets on the 1st of each month."}
                     </p>
@@ -116,6 +121,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
                 tutor={tutor}
                 plan={lessons.plan}
                 rolledOver={lessons.rolledOver}
+                lessonsLeft={lessons.remaining}
                 notice={isBillingNotice(billing) ? billing : undefined}
               />
             </div>

@@ -19,7 +19,8 @@ export type Plan = {
   /** Lessons that may be processed per `lessonWindow`. */
   lessons: number;
   /**
-   * `month` resets on the 1st (UTC). `lifetime` never resets — it's the free
+   * `month` renews monthly: on the billing date for a subscriber
+   * (src/lib/credits.ts), on the 1st (UTC) otherwise. `lifetime` never resets — it's the free
    * trial, counted from `tutors.lessons_created` so deleting a lesson doesn't
    * hand the trial back.
    */

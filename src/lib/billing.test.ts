@@ -9,12 +9,14 @@ const fake = vi.hoisted(() => ({
   subscription: undefined as unknown,
   tutorRows: [] as {
     id: string;
+    plan?: string;
     subscriptionId: string | null;
     creditsSince?: Date | null;
     pausedAt?: Date | null;
     pauseResumesAt?: Date | null;
   }[],
   grantCalls: [] as string[],
+  upgrades: [] as { start: Date; lessons: number; beforeUpdate: boolean }[],
   updates: [] as Record<string, unknown>[],
 }));
 
@@ -48,14 +50,15 @@ vi.mock("@/lib/credits", async (importActual) => ({
   ensureCreditGrants: async () => {
     fake.grantCalls.push(fake.updates.length ? "after" : "before");
   },
-  topUpCurrentMonth: async () => {
-    fake.grantCalls.push("topUp");
+  startUpgradePeriod: async (_tutorId: string, start: Date, lessons: number) => {
+    fake.upgrades.push({ start, lessons, beforeUpdate: fake.updates.length === 0 });
   },
 }));
 
 import { checkoutPath, isEntitled, pauseEndsAt, syncSubscription } from "./billing";
 
 const PERIOD_END = 1_790_000_000; // seconds
+const ANCHOR = PERIOD_END - 30 * 86400;
 
 function subscription(over: {
   id?: string;
@@ -76,6 +79,7 @@ function subscription(over: {
     metadata: over.metadata ?? { tutorId: "tutor_1" },
     cancel_at_period_end: over.cancelAtPeriodEnd ?? false,
     cancel_at: over.cancelAt ?? null,
+    billing_cycle_anchor: ANCHOR,
     pause_collection:
       over.pauseResumesAt === undefined ? null : { behavior: "void", resumes_at: over.pauseResumesAt },
     schedule: over.schedulePhases
@@ -108,6 +112,7 @@ beforeEach(() => {
   fake.tutorRows = [{ id: "tutor_1", subscriptionId: null, creditsSince: null, pausedAt: null, pauseResumesAt: null }];
   fake.updates = [];
   fake.grantCalls = [];
+  fake.upgrades = [];
   vi.spyOn(console, "warn").mockImplementation(() => {});
 });
 
@@ -153,6 +158,7 @@ describe("syncSubscription", () => {
         currentPeriodEnd: new Date(PERIOD_END * 1000),
         cancelAtPeriodEnd: false,
         creditsSince: expect.any(Date),
+        billingAnchor: new Date(ANCHOR * 1000),
         pausedAt: null,
         pauseResumesAt: null,
         pendingPlan: null,
@@ -230,9 +236,35 @@ describe("syncSubscription", () => {
     expect(fake.updates[0]).toMatchObject({ plan: "free", currentPeriodEnd: null, billingInterval: null });
   });
 
-  it("settles the rollover ledger before writing, then grants and tops up after", async () => {
+  it("settles the rollover ledger before writing, then grants after", async () => {
     await syncSubscription("sub_1");
-    expect(fake.grantCalls).toEqual(["before", "after", "topUp"]);
+    expect(fake.grantCalls).toEqual(["before", "after"]);
+  });
+
+  describe("an upgrade", () => {
+    const since = new Date("2026-06-03T10:00:00Z");
+    const subscriber = (plan: string, over: { subscriptionId?: string; creditsSince?: Date | null } = {}) => [
+      { id: "tutor_1", plan, subscriptionId: "sub_1", creditsSince: since, ...over },
+    ];
+
+    it("starts a lesson period at the new billing anchor, before writing the plan", async () => {
+      fake.tutorRows = subscriber("starter");
+      fake.subscription = subscription({ lookupKey: "bumblenote_advanced_month" });
+      await syncSubscription("sub_1");
+      expect(fake.upgrades).toEqual([{ start: new Date(ANCHOR * 1000), lessons: 75, beforeUpdate: true }]);
+    });
+
+    it.each([
+      ["a same-plan sync", "advanced", {}],
+      ["a downgrade", "pro", {}],
+      ["a first subscription from the trial", "free", { creditsSince: null }],
+      ["a different subscription", "starter", { subscriptionId: "sub_old" }],
+    ] as const)("grants nothing for %s", async (_label, plan, over) => {
+      fake.tutorRows = subscriber(plan, over);
+      fake.subscription = subscription({ lookupKey: "bumblenote_advanced_month" });
+      await syncSubscription("sub_1");
+      expect(fake.upgrades).toEqual([]);
+    });
   });
 
   it("keeps the rollover bank's start across syncs, and drops it when the subscription ends", async () => {
@@ -242,6 +274,7 @@ describe("syncSubscription", () => {
     fake.subscription = subscription({ status: "canceled" });
     await syncSubscription("sub_1");
     expect(fake.updates.map((u) => u.creditsSince)).toEqual([since, null]);
+    expect(fake.updates.map((u) => u.billingAnchor)).toEqual([new Date(ANCHOR * 1000), null]);
   });
 
   it("records a new pause starting now, ending when Stripe resumes collection", async () => {

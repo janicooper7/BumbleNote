@@ -36,12 +36,15 @@ export default function BillingCard({
   tutor,
   plan,
   rolledOver,
+  lessonsLeft,
   notice,
 }: {
   tutor: TutorProfile;
   plan: Plan;
   /** Lessons carried into this month, for the pause copy. */
   rolledOver: number;
+  /** Lessons left this month, which an upgrade keeps. */
+  lessonsLeft: number;
   notice?: Notice;
 }) {
   const subscribed = isEntitled(tutor.subscriptionStatus);
@@ -110,12 +113,15 @@ export default function BillingCard({
               }
               pauseUntil={fmtDate(pauseEndsAt())}
               rolledOver={rolledOver}
+              lessonsLeft={lessonsLeft}
               locked={
                 pastDue
                   ? "Update your card before changing plan."
                   : tutor.cancelAtPeriodEnd
                     ? "Your plan is set to cancel. Keep your subscription in Manage billing to change plan."
-                    : null
+                    : paused
+                      ? "Your plan is paused. Resume it to change plan."
+                      : null
               }
             />
           )}

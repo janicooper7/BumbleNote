@@ -10,8 +10,8 @@
 //    price is created, the lookup key moves onto it and the old one is archived.
 //    Existing subscribers keep their old amount until moved in Stripe.
 // 2. Customer portal configuration named "BumbleNote" (src/lib/billing.ts
-//    portalUrl finds it by that name): cancel at period end, switch between the
-//    plans, update card, invoice history.
+//    portalUrl finds it by that name): cancel at period end, update card, invoice
+//    history. Switching plan is in-app only, so it's turned off here.
 // 3. Webhook endpoint for WEBHOOK_URL. Stripe only reveals a signing secret when
 //    the endpoint is created, so it's saved into .env.local right then.
 // 4. With --test-coupon: a single-use 100%-off promotion code for trying the
@@ -49,8 +49,6 @@ const NAMES = { starter: "Starter", advanced: "Advanced", pro: "Pro" } as const;
 const LESSONS = { starter: 30, advanced: 75, pro: 130 } as const;
 
 async function setUpPrices(stripe: Stripe) {
-  const portalProducts: { product: string; prices: string[] }[] = [];
-
   for (const plan of PAID_PLAN_IDS) {
     const productId = `bumblenote_${plan}`;
     let product: Stripe.Product;
@@ -67,7 +65,6 @@ async function setUpPrices(stripe: Stripe) {
       console.log(`+ product ${productId}`);
     }
 
-    const prices: string[] = [];
     for (const interval of ["month", "year"] as BillingInterval[]) {
       const lookupKey = priceLookupKey(plan, interval);
       const cents = toCents(PLAN_PRICES_USD[plan][interval]);
@@ -81,11 +78,10 @@ async function setUpPrices(stripe: Stripe) {
         current.recurring?.interval === interval
       ) {
         console.log(`  ✓ ${lookupKey} = $${cents / 100}/${interval}`);
-        prices.push(current.id);
         continue;
       }
 
-      const created = await stripe.prices.create({
+      await stripe.prices.create({
         product: product.id,
         currency: "usd",
         unit_amount: cents,
@@ -95,14 +91,11 @@ async function setUpPrices(stripe: Stripe) {
       });
       if (current?.active) await stripe.prices.update(current.id, { active: false });
       console.log(`  + ${lookupKey} = $${cents / 100}/${interval}${current ? " (replaced old price)" : ""}`);
-      prices.push(created.id);
     }
-    portalProducts.push({ product: product.id, prices });
   }
-  return portalProducts;
 }
 
-async function setUpPortal(stripe: Stripe, products: { product: string; prices: string[] }[]) {
+async function setUpPortal(stripe: Stripe) {
   const params: Stripe.BillingPortal.ConfigurationCreateParams = {
     name: PORTAL_CONFIG_NAME,
     default_return_url: `${SITE}/dashboard/settings`,
@@ -116,12 +109,9 @@ async function setUpPortal(stripe: Stripe, products: { product: string; prices: 
       payment_method_update: { enabled: true },
       // At period end: they've paid for the month, so they keep it.
       subscription_cancel: { enabled: true, mode: "at_period_end" },
-      subscription_update: {
-        enabled: true,
-        default_allowed_updates: ["price"],
-        proration_behavior: "create_prorations",
-        products,
-      },
+      // Plan changes are in-app only (src/lib/billing.ts changePlan): an upgrade
+      // restarts the billing period, which the portal can't do.
+      subscription_update: { enabled: false },
     },
   };
 
@@ -200,8 +190,8 @@ async function main() {
   console.log(`Setting up Stripe in ${live ? "LIVE" : "test"} mode…\n`);
 
   const stripe = new Stripe(key);
-  const products = await setUpPrices(stripe);
-  await setUpPortal(stripe, products);
+  await setUpPrices(stripe);
+  await setUpPortal(stripe);
   await setUpWebhook(stripe);
   if (process.argv.includes("--test-coupon")) await mintTestCoupon(stripe);
 

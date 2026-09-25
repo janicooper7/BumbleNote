@@ -40,7 +40,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
 
 import { migrate, pg } from "@/test/pglite-neon";
 import { createDraftLessonCore } from "./lessons-core";
-import { ensureCreditGrants, topUpCurrentMonth } from "./credits";
+import { addMonths, ensureCreditGrants, nextBillingDate, startUpgradePeriod } from "./credits";
 import { isQuotaError, lessonUsage, releaseLesson, reserveLesson } from "./quota";
 import { rateLimit, rateLimitAll } from "./rate-limit";
 
@@ -174,32 +174,34 @@ describe("lesson credits on a monthly plan (Starter, 30)", () => {
   });
 });
 
+const grants = async (tutor: string) =>
+  (
+    await pg.query<{ lessons: number; carried_in: number }>(
+      `select lessons, carried_in from credit_grants where tutor_id = '${tutor}' order by period_start`,
+    )
+  ).rows.map((r) => [r.lessons, r.carried_in]);
+
+async function lessonsFor(tutor: string, student: string, n: number, createdAt: string, prefix: string) {
+  if (n === 0) return;
+  await pg.exec(`
+    insert into sessions (id, tutor_id, student_id, student_name, student_initial, title, date, iso_date,
+      duration_min, level_from, level_to, observed_level, talk_time, created_at)
+    select '${prefix}-' || g, '${tutor}', '${student}', 'A', 'A', 't', 'd', '2026-09-01',
+      45, 'B1', 'B2', 'B1', '{"tutor":50,"student":50}', ${createdAt}
+    from generate_series(1, ${n}) g`);
+}
+
 describe("rolling credits for a subscriber (Starter: 30 a month, up to 5 carried over)", () => {
   const S = "22222222-2222-2222-2222-222222222222";
   // First of the month, `n` months ago (UTC), plus a few days.
   const monthsAgo = (n: number, days = 2) =>
     `(date_trunc('month', now() at time zone 'UTC') at time zone 'UTC') - interval '${n} months' + interval '${days} days'`;
-  const grants = async (tutor = S) =>
-    (
-      await pg.query<{ lessons: number; carried_in: number }>(
-        `select lessons, carried_in from credit_grants where tutor_id = '${tutor}' order by month`,
-      )
-    ).rows.map((r) => [r.lessons, r.carried_in]);
-
-  async function lessonsFor(tutor: string, student: string, n: number, createdAt: string, prefix: string) {
-    if (n === 0) return;
-    await pg.exec(`
-      insert into sessions (id, tutor_id, student_id, student_name, student_initial, title, date, iso_date,
-        duration_min, level_from, level_to, observed_level, talk_time, created_at)
-      select '${prefix}-' || g, '${tutor}', '${student}', 'A', 'A', 't', 'd', '2026-09-01',
-        45, 'B1', 'B2', 'B1', '{"tutor":50,"student":50}', ${createdAt}
-      from generate_series(1, ${n}) g`);
-  }
 
   beforeAll(async () => {
+    // Billed on the 1st; subscribed on the 3rd, three months ago.
     await pg.exec(`
-      insert into tutors (id, email, name, plan, subscription_status, credits_since)
-      values ('${S}', 's@x.io', 'S', 'starter', 'active', ${monthsAgo(3)});
+      insert into tutors (id, email, name, plan, subscription_status, credits_since, billing_anchor)
+      values ('${S}', 's@x.io', 'S', 'starter', 'active', ${monthsAgo(3)}, ${monthsAgo(3, 0)});
       insert into students (id, tutor_id, name, initial, level, goal, native, last_seen)
       values ('ana', '${S}', 'Ana', 'A', 'B1', 'g', 'es', 'today');`);
     await lessonsFor(S, "ana", 20, monthsAgo(3, 5), "m3"); // 10 left, capped to 5
@@ -207,9 +209,9 @@ describe("rolling credits for a subscriber (Starter: 30 a month, up to 5 carried
     await lessonsFor(S, "ana", 34, monthsAgo(1, 5), "m1"); // 1 left
   });
 
-  it("backfills every month, carrying over the leftover up to the plan's cap", async () => {
+  it("backfills every period, carrying over the leftover up to the plan's cap", async () => {
     await ensureCreditGrants(S);
-    expect(await grants()).toEqual([
+    expect(await grants(S)).toEqual([
       [30, 0],
       [30, 5],
       [30, 5],
@@ -217,9 +219,11 @@ describe("rolling credits for a subscriber (Starter: 30 a month, up to 5 carried
     ]);
   });
 
-  it("reports this month's allowance plus what carried in", async () => {
+  it("reports this period's allowance plus what carried in, and when the next arrives", async () => {
     const usage = await lessonUsage(S);
     expect(usage).toMatchObject({ used: 0, limit: 31, rolledOver: 1, rollover: true, paused: false });
+    const now = new Date();
+    expect(usage.renewsAt).toEqual(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)));
   });
 
   it("enforces the allowance plus carry-over, with the rollover message", async () => {
@@ -227,28 +231,21 @@ describe("rolling credits for a subscriber (Starter: 30 a month, up to 5 carried
     await reserveLesson(S, "r31");
     await releaseLesson("r31");
     await lessonsFor(S, "ana", 1, "now()", "m0-last");
-    expect(await quotaMessage(reserveLesson(S, "r32"))).toMatch(/all 31 lessons on the Starter plan this month, including any carried over/);
+    expect(await quotaMessage(reserveLesson(S, "r32"))).toMatch(
+      /all 31 lessons on the Starter plan this period, including any carried over\. Your next 30 arrive on 1 /,
+    );
   });
 
-  it("raises this month's allowance on an upgrade, never lowers it", async () => {
-    await pg.exec(`update tutors set plan = 'advanced' where id = '${S}'`);
-    await topUpCurrentMonth(S);
-    expect((await grants()).at(-1)).toEqual([75, 1]);
-    await pg.exec(`update tutors set plan = 'starter' where id = '${S}'`);
-    await topUpCurrentMonth(S);
-    expect((await grants()).at(-1)).toEqual([75, 1]);
-  });
-
-  it("grants nothing for a month paused over, but still carries the bank through it", async () => {
+  it("grants nothing for a period paused over, but still carries the bank through it", async () => {
     const P = "33333333-3333-3333-3333-333333333333";
     await pg.exec(`
-      insert into tutors (id, email, name, plan, subscription_status, credits_since, paused_at, pause_resumes_at)
-      values ('${P}', 'p@x.io', 'P', 'pro', 'active', ${monthsAgo(2)},
+      insert into tutors (id, email, name, plan, subscription_status, credits_since, billing_anchor, paused_at, pause_resumes_at)
+      values ('${P}', 'p@x.io', 'P', 'pro', 'active', ${monthsAgo(2)}, ${monthsAgo(2, 0)},
         ${monthsAgo(2, 20)}, ${monthsAgo(2, 20)} + interval '1 month');
       insert into students (id, tutor_id, name, initial, level, goal, native, last_seen)
       values ('bo', '${P}', 'Bo', 'B', 'B1', 'g', 'es', 'today');`);
     await lessonsFor(P, "bo", 100, monthsAgo(2, 5), "p2"); // 30 left, capped to 15
-    await lessonsFor(P, "bo", 4, monthsAgo(1, 5), "p1"); // paused month: 15 − 4 = 11
+    await lessonsFor(P, "bo", 4, monthsAgo(1, 5), "p1"); // paused period: 15 − 4 = 11
     await ensureCreditGrants(P);
     expect(await grants(P)).toEqual([
       [130, 0],
@@ -259,6 +256,78 @@ describe("rolling credits for a subscriber (Starter: 30 a month, up to 5 carried
 
   it("leaves a tutor without a live subscription on the plain monthly reset", async () => {
     expect((await lessonUsage(T)).rollover).toBe(false);
+  });
+});
+
+describe("lesson periods follow the billing date", () => {
+  const U = "44444444-4444-4444-4444-444444444444";
+  const at = (iso: string) => new Date(iso);
+
+  beforeAll(async () => {
+    // Subscribed to Starter on 20 January at 10:00, so billed on the 20th.
+    await pg.exec(`
+      insert into tutors (id, email, name, plan, subscription_status, credits_since, billing_anchor)
+      values ('${U}', 'u@x.io', 'U', 'starter', 'active', '2026-01-20T10:00:00Z', '2026-01-20T10:00:00Z');
+      insert into students (id, tutor_id, name, initial, level, goal, native, last_seen)
+      values ('cy', '${U}', 'Cy', 'C', 'B1', 'g', 'es', 'today');`);
+    await lessonsFor(U, "cy", 20, "'2026-01-25T12:00:00Z'", "u1");
+    await lessonsFor(U, "cy", 8, "'2026-02-20T09:00:00Z'", "u2"); // an hour before renewal
+    await lessonsFor(U, "cy", 3, "'2026-02-20T11:00:00Z'", "u3"); // an hour after
+  });
+
+  it("renews at the billing date's time, not on the 1st", async () => {
+    const period = await ensureCreditGrants(U, at("2026-03-01T00:00:00Z"));
+    expect(await grants(U)).toEqual([
+      [30, 0],
+      [30, 2], // 28 used before the renewal
+    ]);
+    expect(period).toEqual({
+      start: at("2026-02-20T10:00:00Z"),
+      end: at("2026-03-20T10:00:00Z"),
+      lessons: 30,
+      carriedIn: 2,
+    });
+  });
+
+  it("starts a new period on upgrade, keeping everything left, uncapped, once", async () => {
+    const upgradedAt = at("2026-03-01T12:00:00Z");
+    await startUpgradePeriod(U, upgradedAt, 75);
+    await startUpgradePeriod(U, upgradedAt, 75); // the same sync, repeated
+    expect((await grants(U)).slice(2)).toEqual([[75, 29]]); // 30 + 2 − 3
+    await pg.exec(`update tutors set plan = 'advanced', billing_anchor = '${upgradedAt.toISOString()}' where id = '${U}'`);
+    expect(await ensureCreditGrants(U, at("2026-03-15T00:00:00Z"))).toMatchObject({
+      start: upgradedAt,
+      end: at("2026-04-01T12:00:00Z"),
+      lessons: 75,
+      carriedIn: 29,
+    });
+  });
+
+  it("then renews monthly from the upgrade, with the normal cap", async () => {
+    await lessonsFor(U, "cy", 5, "'2026-03-10T12:00:00Z'", "u4");
+    await ensureCreditGrants(U, at("2026-04-02T00:00:00Z"));
+    expect((await grants(U)).at(-1)).toEqual([75, 10]); // 99 unused, capped to Advanced's 10
+  });
+
+  it("gives a period that starts at a queued downgrade the new plan", async () => {
+    await pg.exec(`update tutors set pending_plan = 'starter', pending_plan_at = '2026-05-01T12:00:00Z' where id = '${U}'`);
+    await ensureCreditGrants(U, at("2026-05-02T00:00:00Z"));
+    expect((await grants(U)).at(-1)).toEqual([30, 5]);
+  });
+});
+
+describe("billing dates", () => {
+  it("clamp to the end of a shorter month, then return to the anchor's day", () => {
+    const jan31 = new Date("2026-01-31T08:00:00Z");
+    expect(addMonths(jan31, 1)).toEqual(new Date("2026-02-28T08:00:00Z"));
+    expect(addMonths(jan31, 2)).toEqual(new Date("2026-03-31T08:00:00Z"));
+    expect(nextBillingDate(jan31, new Date("2026-02-28T08:00:00Z"))).toEqual(new Date("2026-03-31T08:00:00Z"));
+  });
+
+  it("find the next one strictly after, even before the anchor", () => {
+    const anchor = new Date("2026-03-01T12:00:00Z");
+    expect(nextBillingDate(anchor, anchor)).toEqual(new Date("2026-04-01T12:00:00Z"));
+    expect(nextBillingDate(anchor, new Date("2026-02-10T00:00:00Z"))).toEqual(anchor);
   });
 });
 

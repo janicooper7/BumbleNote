@@ -65,8 +65,11 @@ export const tutors = pgTable("tutors", {
   // becomes entitled, cleared when the subscription ends, so the bank doesn't
   // survive a lapse. Null = not subscribed; quota then uses the plain calendar month.
   creditsSince: timestamp("credits_since", { withTimezone: true }),
-  // The latest pause (Stripe pause_collection), kept after it ends: the month
-  // whose 1st falls inside [pausedAt, pauseResumesAt) gets no allowance.
+  // Stripe's billing_cycle_anchor: lesson periods start on this date each month
+  // (src/lib/credits.ts). An upgrade moves it to the moment of the upgrade.
+  billingAnchor: timestamp("billing_anchor", { withTimezone: true }),
+  // The latest pause (Stripe pause_collection), kept after it ends: the lesson
+  // period that starts inside [pausedAt, pauseResumesAt) gets no allowance.
   pausedAt: timestamp("paused_at", { withTimezone: true }),
   pauseResumesAt: timestamp("pause_resumes_at", { withTimezone: true }),
   // A downgrade scheduled for renewal (a Stripe subscription schedule), for display.
@@ -190,10 +193,11 @@ export const lessonReservations = pgTable(
 );
 
 /**
- * Monthly lesson allowances granted to a subscriber (src/lib/credits.ts). One row
- * per calendar month of an unbroken subscription, decided once and never
- * re-decided: `lessons` is the plan's allowance (0 for a month the subscription
- * was paused over) and `carried_in` what rolled over from the month before.
+ * Lesson allowances granted to a subscriber (src/lib/credits.ts). One row per
+ * lesson period of an unbroken subscription — a month from the billing date, or
+ * from an upgrade — decided once and never re-decided: `lessons` is the plan's
+ * allowance (0 for a period the subscription was paused over) and `carried_in`
+ * what rolled over from the period before.
  */
 export const creditGrants = pgTable(
   "credit_grants",
@@ -201,15 +205,15 @@ export const creditGrants = pgTable(
     tutorId: uuid("tutor_id")
       .notNull()
       .references(() => tutors.id, { onDelete: "cascade" }),
-    // First day of the month (UTC).
-    month: date("month", { mode: "string" }).notNull(),
+    // When the period began; it runs until the next row's start.
+    periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
     lessons: integer("lessons").notNull(),
-    // Unused lessons carried in from the month before, capped at the plan's
-    // rolloverCap. Available this month = lessons + carried_in.
+    // Unused lessons carried in from the period before, capped at the plan's
+    // rolloverCap (uncapped into an upgrade). Available = lessons + carried_in.
     carriedIn: integer("carried_in").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.tutorId, t.month] })],
+  (t) => [primaryKey({ columns: [t.tutorId, t.periodStart] })],
 );
 
 // The Neon driver sends and returns Buffers for bytea as-is (verified against the

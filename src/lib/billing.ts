@@ -5,10 +5,15 @@
 //   Checkout    — /dashboard/billing/checkout sends a tutor to Stripe's hosted
 //                 page for one plan + interval.
 //   Portal      — /dashboard/billing/portal sends a paying tutor to Stripe's
-//                 hosted portal to switch plan, update the card, or cancel.
+//                 hosted portal to update the card, see invoices, or cancel.
+//                 Plan changes are in-app only: the portal can't restart the
+//                 billing period, which an upgrade needs.
 //   In-app      — changePlan(), pauseSubscription() and resumeSubscription(),
 //                 behind the Settings → Billing controls (src/app/actions/billing.ts).
-//                 Upgrades apply now with a prorated charge; downgrades are a
+//                 Upgrades apply now and start a new billing period, with the new
+//                 plan's full price (less credit for the unused old one) charged
+//                 today and a fresh lesson period that keeps what was left;
+//                 downgrades are a
 //                 subscription schedule that switches price at renewal; a pause
 //                 voids invoices for one month and resumes by itself.
 //   Sync        — syncSubscription() is the ONLY code that writes `tutors.plan`
@@ -29,9 +34,9 @@ import Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { tutors } from "@/db/schema";
-import { ensureCreditGrants, isPausedAt, topUpCurrentMonth } from "@/lib/credits";
+import { ensureCreditGrants, isPausedAt, startUpgradePeriod } from "@/lib/credits";
 import { env } from "@/lib/env";
-import type { PlanId } from "@/lib/plans";
+import { PLANS, type PlanId } from "@/lib/plans";
 import {
   isPaidPlanId,
   parseLookupKey,
@@ -197,6 +202,7 @@ export async function syncSubscription(subscriptionId: string): Promise<void> {
   const [tutor] = await db
     .select({
       id: tutors.id,
+      plan: tutors.plan,
       subscriptionId: tutors.stripeSubscriptionId,
       creditsSince: tutors.creditsSince,
       pausedAt: tutors.pausedAt,
@@ -233,6 +239,22 @@ export async function syncSubscription(subscriptionId: string): Promise<void> {
   // before this change can rewrite them (see src/lib/credits.ts).
   await ensureCreditGrants(tutor.id);
 
+  // An upgrade on this same subscription restarted billing: start a new lesson
+  // period there, keeping what was left. Before the tutor row is written, so a
+  // sync that fails after this retries it (the period is keyed on its start, so
+  // it's added once).
+  const anchor = new Date(sub.billing_cycle_anchor * 1000);
+  if (
+    entitled &&
+    parsed &&
+    tutor.creditsSince &&
+    tutor.subscriptionId === sub.id &&
+    isPaidPlanId(tutor.plan) &&
+    PLAN_RANK[parsed.plan] > PLAN_RANK[tutor.plan]
+  ) {
+    await startUpgradePeriod(tutor.id, anchor, PLANS[parsed.plan].lessons);
+  }
+
   const now = new Date();
   const pause = entitled ? sub.pause_collection : null;
   const wasPaused = isPausedAt(tutor.pausedAt, tutor.pauseResumesAt, now);
@@ -263,6 +285,8 @@ export async function syncSubscription(subscriptionId: string): Promise<void> {
       cancelAtPeriodEnd: sub.cancel_at_period_end || sub.cancel_at !== null,
       // The rollover bank lives exactly as long as the unbroken subscription.
       creditsSince: entitled ? (tutor.creditsSince ?? now) : null,
+      // Lesson periods renew on the billing date (src/lib/credits.ts).
+      billingAnchor: entitled ? anchor : null,
       pausedAt,
       pauseResumesAt,
       pendingPlan: pending?.plan ?? null,
@@ -270,11 +294,8 @@ export async function syncSubscription(subscriptionId: string): Promise<void> {
     })
     .where(eq(tutors.id, tutor.id));
 
-  if (entitled) {
-    // A new subscriber's first grant, and an upgrade's bigger allowance now.
-    await ensureCreditGrants(tutor.id);
-    await topUpCurrentMonth(tutor.id);
-  }
+  // A new subscriber's first grant.
+  if (entitled) await ensureCreditGrants(tutor.id);
 }
 
 /** A plan change a subscription schedule has queued for a later phase. */
@@ -325,9 +346,11 @@ function scheduleId(sub: Stripe.Subscription): string | null {
 /**
  * Move the tutor to another paid plan, keeping their billing interval.
  *
- * Up: immediately, charging the prorated difference now. `pending_if_incomplete`
- * means a declined card leaves them on their current plan instead of handing
- * over the bigger one unpaid.
+ * Up: immediately, as a new billing period from today: the full price of the new
+ * plan, less credit for the unused part of the old one, is charged now, and
+ * syncSubscription() starts a new lesson period with the new plan's lessons plus
+ * everything left from the old one (see src/lib/credits.ts). `pending_if_incomplete` means a declined card leaves them
+ * on their current plan instead of handing over the bigger one unpaid.
  * Down: at the end of the period they've paid for, via a subscription schedule,
  * so they keep what they paid for until then.
  * Same plan: cancels a downgrade that was queued.
@@ -346,10 +369,15 @@ export async function changePlan(tutorId: string, target: PaidPlanId): Promise<v
   if (target === current.plan) {
     if (existingSchedule) await stripe().subscriptionSchedules.release(existingSchedule);
   } else if (PLAN_RANK[target] > PLAN_RANK[current.plan]) {
+    if (sub.pause_collection) {
+      // A pause voids invoices, so an upgrade now would never be paid for.
+      throw new BillingError("Your plan is paused. Resume it before upgrading.");
+    }
     // An upgrade replaces any queued downgrade.
     if (existingSchedule) await stripe().subscriptionSchedules.release(existingSchedule);
     const updated = await stripe().subscriptions.update(sub.id, {
       items: [{ id: item.id, price: await priceFor(target, current.interval) }],
+      billing_cycle_anchor: "now",
       proration_behavior: "always_invoice",
       payment_behavior: "pending_if_incomplete",
     });
