@@ -10,6 +10,7 @@ import { env } from "@/lib/env";
 import { isQuotaError, releaseLesson, reserveLesson } from "@/lib/quota";
 import {
   AUDIO_RETENTION_MS,
+  allChunkKeys,
   chunkKey,
   clearLessonFailed,
   failedStore,
@@ -129,6 +130,43 @@ export async function restartProcessing(
   }
 
   return { ok: true };
+}
+
+/**
+ * Drop a failed lesson the tutor doesn't want back — a false start, a test call —
+ * and delete its audio now rather than at the end of the retention window.
+ * Refused while a retry is running, so it can't pull the audio out from under
+ * the worker.
+ */
+export async function dismissFailedLesson(
+  uploadId: string,
+  tutorId: string,
+): Promise<RestartResult> {
+  const store = uploadStore();
+  const [job, status] = await Promise.all([readJob(store, uploadId), readStatus(store, uploadId)]);
+
+  if (!job || job.tutorId !== tutorId) {
+    return { ok: false, status: 404, error: "We couldn't find that lesson." };
+  }
+  if (status?.state === "processing") {
+    return { ok: false, status: 409, error: "This lesson is being processed right now." };
+  }
+  if (status?.state !== "done") {
+    await Promise.all(
+      [...allChunkKeys(uploadId, job.parts), transcriptKey(uploadId)].map((key) => store.delete(key)),
+    );
+  }
+  await clearLessonFailed(tutorId, uploadId);
+  return { ok: true };
+}
+
+/**
+ * Failures that come from the recording itself, not from us — a few seconds of
+ * audio, or none with speech in it. Re-running gives the same answer, so the
+ * dashboard offers only Dismiss for these.
+ */
+export function isPermanentFailure(error: string): boolean {
+  return /no speech was detected|fuller lesson transcript/i.test(error);
 }
 
 export type FailedLessonView = FailedLesson & { error: string };

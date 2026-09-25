@@ -8,7 +8,7 @@ import { ArrowUpIcon } from "@/components/dashboard/icons";
 import FailedLessons, { type FailedLessonItem } from "@/components/dashboard/FailedLessons";
 import { currentTutorId } from "@/auth";
 import { getPendingSessions, getSessions, getStudents, getTutor } from "@/db/queries";
-import { listFailedLessons } from "@/lib/failed-lessons";
+import { isPermanentFailure, listFailedLessons } from "@/lib/failed-lessons";
 import { AUDIO_RETENTION_MS } from "@/lib/upload-store";
 
 // Monday 00:00 of the week containing `d`.
@@ -38,6 +38,8 @@ async function failedLessonsFor(
       studentName: studentNames.get(f.studentId) ?? "a student",
       durationMin: f.durationMin,
       failedAt: f.failedAt,
+      error: f.error,
+      canRetry: !isPermanentFailure(f.error),
       daysLeft: Math.max(1, Math.ceil((f.failedAt + AUDIO_RETENTION_MS - Date.now()) / 86_400_000)),
     }));
   } catch (err) {

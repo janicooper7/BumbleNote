@@ -159,6 +159,17 @@ export async function retryLessonProcessing(uploadId: string): Promise<{ lessonI
   return pollUntilDone(uploadId, {});
 }
 
+/** Drop a failed lesson from the dashboard and delete its stored audio. */
+export async function dismissFailedLesson(uploadId: string): Promise<void> {
+  const res = await fetchRetry(`/api/upload/dismiss?uploadId=${encodeURIComponent(uploadId)}`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Couldn't dismiss (${res.status}).`);
+  }
+}
+
 /** Queue a finished recording in the outbox before any network is touched. */
 export async function queueLessonRecording(opts: {
   studentId: string;
