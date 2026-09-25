@@ -154,7 +154,7 @@ export async function getSessions(): Promise<Session[]> {
     .select()
     .from(sessions)
     .where(eq(sessions.tutorId, tutorId))
-    .orderBy(desc(sessions.isoDate));
+    .orderBy(desc(sessions.isoDate), desc(sessions.createdAt));
   return rows.map(toSession);
 }
 
@@ -169,7 +169,7 @@ export async function getSessionsForStudent(studentId: string): Promise<Session[
     .select()
     .from(sessions)
     .where(and(eq(sessions.tutorId, tutorId), eq(sessions.studentId, studentId)))
-    .orderBy(desc(sessions.isoDate));
+    .orderBy(desc(sessions.isoDate), desc(sessions.createdAt));
   return rows.map(toSession);
 }
 
