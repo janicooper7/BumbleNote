@@ -11,7 +11,6 @@ import Link from "next/link";
 import Avatar from "./Avatar";
 import { SearchIcon } from "./icons";
 import { useSessionRecorder, formatElapsed } from "./useSessionRecorder";
-import ConsentCheck from "./ConsentCheck";
 
 type PickStudent = { id: string; name: string; initial: string };
 
@@ -38,10 +37,6 @@ export default function RecordLessonButton({
   const [chosen, setChosen] = useState<PickStudent | null>(null);
   const [query, setQuery] = useState("");
   const [trial, setTrial] = useState(false);
-  // Asked every lesson, not once at signup: the tutor is the one who must get
-  // consent (see /terms#consent), and a tick at the moment of recording is both
-  // the reminder and the tutor's own record that they did.
-  const [consent, setConsent] = useState(false);
 
   const open = pickerOpen || status !== "idle";
   const firstName = chosen?.name.split(" ")[0] ?? "the student";
@@ -54,7 +49,6 @@ export default function RecordLessonButton({
   }, [students, query]);
 
   function pick(s: PickStudent) {
-    if (!consent) return;
     setChosen(s);
     setPickerOpen(false); // hand off to the recording overlay (driven by status)
     setQuery("");
@@ -66,7 +60,6 @@ export default function RecordLessonButton({
     setChosen(null);
     setQuery("");
     setTrial(false);
-    setConsent(false);
     reset();
   }
 
@@ -142,7 +135,6 @@ export default function RecordLessonButton({
                   </div>
                 ) : (
                   <>
-                    <ConsentCheck checked={consent} onChange={setConsent} />
                     {showSearch && (
                       <div className="relative mb-2">
                         <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -165,9 +157,7 @@ export default function RecordLessonButton({
                           <button
                             key={s.id}
                             onClick={() => pick(s)}
-                            disabled={!consent}
-                            title={consent ? undefined : "Confirm your student has agreed to be recorded first"}
-                            className="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left transition-colors hover:border-brand-line hover:bg-brand-soft/50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-transparent disabled:hover:bg-transparent"
+                            className="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left transition-colors hover:border-brand-line hover:bg-brand-soft/50"
                           >
                             <Avatar initial={s.initial} size={36} />
                             <span className="font-semibold text-ink">{s.name}</span>

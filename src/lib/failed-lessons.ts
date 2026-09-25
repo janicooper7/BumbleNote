@@ -7,6 +7,7 @@
 // (/api/admin/recover), so both follow exactly the same safety rules.
 
 import { env } from "@/lib/env";
+import { isQuotaError, releaseLesson, reserveLesson } from "@/lib/quota";
 import {
   AUDIO_RETENTION_MS,
   chunkKey,
@@ -87,6 +88,17 @@ export async function restartProcessing(
     };
   }
 
+  // The failed attempt gave its credit back, so a retry needs one again — it pays
+  // Deepgram (unless the transcript was cached) and Claude a second time. The
+  // operator's recovery still holds one, but isn't refused at the limit: that's
+  // for rescuing a lesson we failed, not the tutor spending more.
+  try {
+    await reserveLesson(job.tutorId, uploadId, { enforce: tutorId !== null });
+  } catch (err) {
+    if (isQuotaError(err)) return { ok: false, status: 402, error: err.message };
+    throw err;
+  }
+
   // Flip to processing first so a second click (or tab) is refused above. Restamp
   // startedAt too, or /api/upload/status would judge the retry against the
   // original attempt's clock and call it stalled on arrival.
@@ -112,6 +124,7 @@ export async function restartProcessing(
       error,
       failedAt: Date.now(),
     } satisfies UploadStatus);
+    await releaseLesson(uploadId);
     return { ok: false, status: 502, error: "We couldn't restart processing. Please try again shortly." };
   }
 

@@ -79,7 +79,11 @@ const OVER_NOISE = 2.5; // about +8 dB
 // wall-to-wall speech), never demand more than -16 dB relative to the loud parts.
 const MAX_REL_TO_PEAK = 0.15;
 
-type Span = { start: number; end: number }; // seconds, in the original timeline
+export type Span = { start: number; end: number }; // seconds, in the original timeline
+
+// envelope/chooseThreshold/detectSpans/coalesce are exported only so the span
+// arithmetic can be unit-tested without WebAudio (audio-trim.test.ts). The only
+// real entry point is trimSilence.
 
 /** Decode any recorded blob to mono Float32 at TARGET_RATE. */
 async function decodeMono(blob: Blob): Promise<Float32Array> {
@@ -101,7 +105,7 @@ async function decodeMono(blob: Blob): Promise<Float32Array> {
 }
 
 /** Per-frame RMS envelope. */
-function envelope(pcm: Float32Array, frame: number): Float32Array {
+export function envelope(pcm: Float32Array, frame: number): Float32Array {
   const count = Math.max(1, Math.ceil(pcm.length / frame));
   const rms = new Float32Array(count);
   for (let f = 0; f < count; f++) {
@@ -125,7 +129,7 @@ function percentile(sorted: Float32Array, p: number): number {
  * dBFS number — mic gain, headset type and room tone vary hugely between tutors,
  * and one hard-coded gate would be wrong for most of them.
  */
-function chooseThreshold(rms: Float32Array): number {
+export function chooseThreshold(rms: Float32Array): number {
   const sorted = Float32Array.from(rms).sort();
   const noise = percentile(sorted, 0.2);
   const loud = percentile(sorted, 0.95);
@@ -134,7 +138,7 @@ function chooseThreshold(rms: Float32Array): number {
 }
 
 /** Frames over threshold -> padded, de-blipped, merged spans. */
-function detectSpans(rms: Float32Array, threshold: number, totalSec: number): Span[] {
+export function detectSpans(rms: Float32Array, threshold: number, totalSec: number): Span[] {
   const frameSec = FRAME_MS / 1000;
   const raw: Span[] = [];
   let open = -1;
@@ -161,7 +165,7 @@ function detectSpans(rms: Float32Array, threshold: number, totalSec: number): Sp
 }
 
 /** Fuse spans separated by less than `gap`, widening the gap until under MAX_SPANS. */
-function coalesce(spans: Span[], gap: number): Span[] {
+export function coalesce(spans: Span[], gap: number): Span[] {
   let out = spans;
   let g = gap;
   do {

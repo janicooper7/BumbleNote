@@ -14,11 +14,13 @@ import {
   boolean,
   customType,
   date,
+  index,
   integer,
   jsonb,
   numeric,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uuid,
@@ -129,8 +131,35 @@ export const sessions = pgTable("sessions", {
   // student profile (interests, focus, notes) from the transcript, which
   // createDraftLessonCore then uses to fill in any profile fields still empty.
   isTrial: boolean("is_trial").notNull().default(false),
+  // The upload (or synchronous processing run) that produced this lesson. Unique,
+  // so a retried or duplicated worker run can never draft the same recording
+  // twice — createDraftLessonCore finds the existing row instead. Null for lessons
+  // that predate the column or were made some other way (seed, merge).
+  uploadId: text("upload_id").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Lesson credits held by work that has been paid for but hasn't produced a lesson
+ * yet (src/lib/quota.ts). Without them the quota check only sees finished
+ * lessons, so a tutor with one credit left could start several uploads at once
+ * and every one would pass.
+ *
+ * A row is created when processing starts and deleted when the lesson is written
+ * or the attempt fails. Rows older than RESERVATION_TTL_MS stop counting, so a
+ * worker killed outright (which runs no cleanup) can't hold a credit forever.
+ */
+export const lessonReservations = pgTable(
+  "lesson_reservations",
+  {
+    uploadId: text("upload_id").primaryKey(),
+    tutorId: uuid("tutor_id")
+      .notNull()
+      .references(() => tutors.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("lesson_reservations_tutor_idx").on(t.tutorId)],
+);
 
 // The Neon driver sends and returns Buffers for bytea as-is (verified against the
 // live database). Don't switch this to "\x…" hex text: the driver mangles the
@@ -191,6 +220,29 @@ export const waitlist = pgTable("waitlist", {
   email: text("email").notNull().unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Fixed-window request counters behind src/lib/rate-limit.ts — one row per
+ * (key, window). `key` names the rule and its subject, e.g. "login:ip:1.2.3.4",
+ * so rows do carry IPs and emails; that's why they only live about a day (the
+ * longest window is an hour). rate-limit.ts deletes stale windows
+ * opportunistically, and the window_start index keeps that sweep off a full
+ * table scan.
+ */
+export const rateLimits = pgTable(
+  "rate_limits",
+  {
+    key: text("key").notNull(),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+    count: integer("count").notNull().default(1),
+  },
+  (t) => [
+    // Also the ON CONFLICT target of the increment — it has to be a real unique
+    // constraint for the upsert to be a single atomic statement.
+    primaryKey({ columns: [t.key, t.windowStart] }),
+    index("rate_limits_window_start_idx").on(t.windowStart),
+  ],
+);
 
 export const tutorsRelations = relations(tutors, ({ many }) => ({
   students: many(students),

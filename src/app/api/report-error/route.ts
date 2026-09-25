@@ -17,13 +17,14 @@
 //
 // The rest is ordinary hygiene for untrusted input: the fingerprint is built from
 // the path only (validated against a route-shaped pattern) so a caller can't
-// rotate a field to slip the per-fingerprint throttle, digest and message are
+// rotate a field to slip the per-fingerprint throttle, the message is
 // truncated hard, and everything is HTML-escaped at render (see
 // sendOperatorAlertEmail).
 
 import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { alertOperator } from "@/lib/alerts";
+import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 /** Reject anything that isn't shaped like one of our paths. */
 const PATH = /^\/[A-Za-z0-9\-._~/]{0,120}$/;
@@ -31,8 +32,22 @@ const PATH = /^\/[A-Za-z0-9\-._~/]{0,120}$/;
 const clamp = (value: unknown, max: number): string =>
   typeof value === "string" ? value.slice(0, max) : "";
 
+/**
+ * Per IP, before anything else. A crash loop in one tab reports a handful of
+ * times, not dozens; past that it's a script, and each report costs a session
+ * decode and an alert-budget check. The alert budgets already stop the inbox
+ * flooding — this stops the function invocations piling up behind them.
+ */
+const REPORT_LIMIT = { limit: 20, windowSec: 10 * 60 };
+
 export async function POST(req: NextRequest): Promise<Response> {
-  // Always 204, whatever happens. The caller is an error boundary that has
+  // The one non-204: reportClientError fires and forgets and never reads the
+  // status, so a 429 can't re-enter the boundary — and Retry-After is there for
+  // anything that does read it.
+  const limited = await rateLimit({ key: `report-error:ip:${clientIp(req.headers)}`, ...REPORT_LIMIT });
+  if (!limited.ok) return tooManyRequests(limited.retryAfterSec);
+
+  // Otherwise 204, whatever happens. The caller is an error boundary that has
   // already failed once; a non-2xx here would just make it fail again, and
   // telling an unauthenticated caller why we rejected them helps nobody.
   try {
@@ -40,6 +55,11 @@ export async function POST(req: NextRequest): Promise<Response> {
     if (typeof body !== "object" || body === null) return noContent();
 
     const { digest, message, path, scope } = body as Record<string, unknown>;
+
+    // A digest means the throw happened on the server, where onRequestError
+    // (src/instrumentation.ts) has already reported it with the real message —
+    // the browser only ever sees the digest. A second email would add nothing.
+    if (typeof digest === "string" && digest) return noContent();
 
     const safePath = clamp(path, 120);
     const route = PATH.test(safePath) ? safePath : "(unrecognised)";
@@ -61,10 +81,9 @@ export async function POST(req: NextRequest): Promise<Response> {
       channel: signedIn ? "system" : "untrusted",
       subject: `Page crashed: ${route}`,
       summary:
-        "An error boundary caught an uncaught exception in the browser. If a " +
-        "digest is shown below, the throw happened during a server render and " +
-        "the full stack is in the Netlify function logs under that digest.",
-      // Path only — see the note above on why this ignores digest and message.
+        "An error boundary caught an uncaught exception in the browser — a " +
+        "client-side crash. (Server-side ones are reported by the server itself.)",
+      // Path only — see the note above on why this ignores the message.
       fingerprint: `client:${where}:${route}`,
       fields: {
         Route: route,
@@ -72,7 +91,6 @@ export async function POST(req: NextRequest): Promise<Response> {
         // Whether the report came from a session, not who — the operator needs
         // to know how much to trust the report, not which tutor crashed.
         Reporter: signedIn ? "signed-in tutor" : "anonymous visitor",
-        Digest: clamp(digest, 64),
         Message: clamp(message, 300),
       },
     });

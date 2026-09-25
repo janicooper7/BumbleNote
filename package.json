@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -32,6 +33,7 @@
     "stripe": "^22.6.2"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@netlify/plugin-nextjs": "^5.15.12",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
@@ -43,6 +45,7 @@
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
     "tsx": "^4.22.5",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

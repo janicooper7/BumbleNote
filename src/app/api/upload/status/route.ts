@@ -4,6 +4,7 @@
 // only read their own upload's status.
 
 import type { NextRequest } from "next/server";
+import { releaseLesson } from "@/lib/quota";
 import { resolveTutorId } from "@/lib/upload-auth";
 import {
   uploadStore,
@@ -67,6 +68,9 @@ export async function GET(req: NextRequest): Promise<Response> {
     await Promise.all([
       store.setJSON(statusKey(uploadId), stalled),
       markLessonFailed(uploadId, job),
+      // A killed worker never gave its credit back. The reservation TTL would free
+      // it eventually; this frees it now, so a retry doesn't look over the limit.
+      releaseLesson(uploadId),
     ]);
     return json(stalled);
   }

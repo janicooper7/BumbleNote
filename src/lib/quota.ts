@@ -10,12 +10,15 @@
 //   /api/upload/complete  — web + extension chunked uploads, checked before the
 //                           background worker is triggered
 //   /api/capture          — the extension's direct upload, checked before STT
+//   restartProcessing()   — a retried failed upload (lib/failed-lessons)
+//   createLessonFromAudio — the in-app server action, checked before STT
 //
 // It is deliberately NOT enforced inside createDraftLessonCore(). By the time
 // that runs the money is already spent: rejecting there would bin a lesson the
 // tutor just taught AND leave us holding the bill. Capping the row count after
 // the fact protects nobody. The two entry points above are the complete set of
 // callers that reach paid work, so guarding them bounds the spend exactly.
+// (createDraftLessonCore does consume the hold, though — see RESERVATIONS.)
 //
 // Monthly plans count per calendar month (UTC) from `sessions.created_at` — when
 // we did the work, not the lesson's nominal date, which the tutor can edit. The
@@ -25,10 +28,18 @@
 // Either way only lessons of MIN_COUNTED_LESSON_MIN or longer count, so a call
 // that drops a few minutes in doesn't cost a credit. Starting a recording still
 // needs a credit left — the length isn't known until it's over.
+//
+// RESERVATIONS: counting finished lessons alone is check-then-act. The lesson row
+// only appears minutes later, when the worker finishes, so a tutor with one
+// credit left who starts three uploads at once passes the check three times.
+// The paid entry points therefore call reserveLesson(), which holds a credit
+// (a lesson_reservations row) from the moment work starts until the lesson is
+// written or the attempt fails, and counts held credits against the limit.
+// assertLessonQuota() remains for read-only "can they?" checks.
 
-import { and, count, eq, gte } from "drizzle-orm";
+import { and, count, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { sessions, students, tutors } from "@/db/schema";
+import { lessonReservations, sessions, students, tutors } from "@/db/schema";
 import { MIN_COUNTED_LESSON_MIN, planFor, type Plan } from "@/lib/plans";
 
 /**
@@ -123,6 +134,80 @@ export async function assertLessonQuota(tutorId: string): Promise<LessonUsage> {
     );
   }
   return usage;
+}
+
+/**
+ * How long a held credit counts. Above the worker's 15-minute platform limit, so
+ * a live job never loses its hold; past it, the job is dead whether or not it
+ * cleaned up after itself, and its credit is free again.
+ */
+export const RESERVATION_TTL_MS = 20 * 60 * 1000;
+
+/**
+ * Hold one lesson credit for `reservationId` (an upload id, or a one-off id for
+ * the synchronous paths), or throw QuotaError if the tutor has none left once
+ * finished lessons AND other held credits are counted.
+ *
+ * Reserving the same id again refreshes its hold instead of taking a second
+ * credit, so a resumed or retried upload is never charged twice.
+ * `enforce: false` records the hold without checking the limit — for operator
+ * recovery, which must work even for a tutor who is at their limit.
+ */
+export async function reserveLesson(
+  tutorId: string,
+  reservationId: string,
+  { enforce = true }: { enforce?: boolean } = {},
+): Promise<void> {
+  const { plan } = await tutorPlanRow(tutorId);
+
+  const used =
+    plan.lessonWindow === "lifetime"
+      ? sql`(select ${tutors.lessonsCreated} from ${tutors} where ${tutors.id} = ${tutorId})`
+      : sql`(select count(*) from ${sessions}
+             where ${sessions.tutorId} = ${tutorId}
+               and ${sessions.createdAt} >= ${monthStart().toISOString()}
+               and ${sessions.durationMin} >= ${MIN_COUNTED_LESSON_MIN})`;
+  const held = sql`(select count(*) from ${lessonReservations}
+                    where ${lessonReservations.tutorId} = ${tutorId}
+                      and ${lessonReservations.uploadId} <> ${reservationId}
+                      and ${lessonReservations.createdAt} > now() - make_interval(secs => ${RESERVATION_TTL_MS / 1000}))`;
+  const allowed = enforce ? sql`${used} + ${held} < ${plan.lessons}` : sql`true`;
+
+  // One transaction (neon-http runs a batch as one). The advisory lock serialises
+  // reservations per tutor: in READ COMMITTED each statement takes a fresh
+  // snapshot, so the insert below sees every reservation committed before the
+  // lock was granted — two concurrent calls can't both take the last credit.
+  const [, inserted] = await db.batch([
+    db.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`lesson-quota:${tutorId}`}, 0))`),
+    db.execute(sql`
+      insert into ${lessonReservations} (upload_id, tutor_id)
+      select ${reservationId}, ${tutorId} where ${allowed}
+      on conflict (upload_id) do update set created_at = now()
+      returning upload_id`),
+  ]);
+  if (inserted.rows.length > 0) return;
+
+  // Denied. Say why in the tutor's terms: out of credits, or credits all held by
+  // lessons that are still being processed.
+  const usage = await lessonUsage(tutorId);
+  if (!usage.allowed) await assertLessonQuota(tutorId);
+  throw new QuotaError(
+    "Your remaining lessons are all being processed right now. " +
+      "Try again once they've finished, or upgrade for more lessons.",
+    usage.plan,
+    usage.used,
+    usage.limit,
+  );
+}
+
+/** Give back a held credit — the attempt failed. Idempotent; never throws. */
+export async function releaseLesson(reservationId: string): Promise<void> {
+  try {
+    await db.delete(lessonReservations).where(eq(lessonReservations.uploadId, reservationId));
+  } catch (err) {
+    // The TTL frees it anyway; a failed release only delays that.
+    console.error(`could not release lesson reservation ${reservationId}:`, err);
+  }
 }
 
 export type StudentUsage = {

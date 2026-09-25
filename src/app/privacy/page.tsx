@@ -14,8 +14,7 @@
 //   - "not used to train their models" (Deepgram) — true because of
 //     mip_opt_out in src/lib/stt.ts. Remove that flag and this page lies.
 //   - the #students section is linked from every lesson-report email
-//     (src/lib/email.ts) and from the consent tick before each recording
-//     (src/components/dashboard/ConsentCheck.tsx). Keep the anchor stable.
+//     (src/lib/email.ts). Keep the anchor stable.
 //
 // If you change what the product does with lesson data, change this page in the
 // same commit.

@@ -1,0 +1,47 @@
+# Typecheck, lint and unit-test every push and PR to main.
+#
+# No secrets: nothing here touches the database, Stripe, Deepgram or Anthropic —
+# the unit tests fake every network client and vitest.config.ts supplies dummy
+# env values. `next build` is left out for the same reason; Netlify builds on
+# deploy with the real environment.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches NODE_VERSION in netlify.toml.
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # PageProps/LayoutProps and next-env.d.ts are generated, not committed.
+      # `next dev`/`next build` would write them; typegen does it without a build.
+      - name: Generate Next route types
+        run: npx next typegen
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test

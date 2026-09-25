@@ -169,7 +169,10 @@ export default async function EnterPage({
                 </div>
                 {error ? (
                   <span id="gate-error" className="mt-2 block text-sm text-[#ffb4a8]">
-                    That password isn&apos;t right — check it and try again.
+                    {/* "busy" is the gate action's rate limit (actions/gate.ts). */}
+                    {error === "busy"
+                      ? "Too many tries — wait a few minutes and try again."
+                      : "That password isn't right — check it and try again."}
                   </span>
                 ) : null}
               </label>

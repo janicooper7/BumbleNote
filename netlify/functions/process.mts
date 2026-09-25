@@ -22,6 +22,7 @@ import { transcribeLesson } from "@/lib/stt";
 // Import the Next-free core directly (NOT @/lib/lessons) so this bundle never
 // pulls in `next/cache`, which isn't resolvable in a standalone function.
 import { createDraftLessonCore } from "@/lib/lessons-core";
+import { releaseLesson } from "@/lib/quota";
 import {
   uploadStore,
   chunkKey,
@@ -142,7 +143,10 @@ const handler = async (req: Request): Promise<Response> => {
     }
     console.log("[process] calling Claude");
 
+    // Keyed on the upload, so a rerun of a lesson that was already written returns
+    // that lesson instead of drafting it again. Also consumes the credit held for it.
     const { id } = await createDraftLessonCore(job.tutorId, {
+      uploadId,
       studentId: job.studentId,
       transcript,
       durationMin: job.durationMin,
@@ -180,8 +184,12 @@ const handler = async (req: Request): Promise<Response> => {
         .catch((e) => console.error("[process] could not write error status:", e));
     }
     if (uploadId && tutorId) {
-      // Surfaces the lesson on the tutor's dashboard with a Retry button.
-      await markLessonFailed(uploadId, { tutorId, studentId, durationMin });
+      // Surfaces the lesson on the tutor's dashboard with a Retry button, and gives
+      // back the credit held for it — a retry reserves one again.
+      await Promise.all([
+        markLessonFailed(uploadId, { tutorId, studentId, durationMin }),
+        releaseLesson(uploadId),
+      ]);
     }
 
     // The alert that matters most: the tutor is staring at a failed lesson they

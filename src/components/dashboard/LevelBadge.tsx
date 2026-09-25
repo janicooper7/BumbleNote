@@ -30,7 +30,7 @@ export default function LevelBadge({
   return (
     <span
       title={`BumbleNote needs at least ${LEVEL_DETERMINATION_LESSONS} lessons to confirm a level — ${remaining} more to go.`}
-      className={`inline-flex items-center rounded-full bg-amber/12 px-2.5 py-1 text-xs font-semibold text-brand-deep ${className}`}
+      className={`inline-flex items-center rounded-full bg-sky-soft px-2.5 py-1 text-xs font-semibold text-brand-deep ${className}`}
     >
       Determining level · {lessonCount}/{LEVEL_DETERMINATION_LESSONS}
     </span>

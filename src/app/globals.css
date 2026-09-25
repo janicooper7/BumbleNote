@@ -115,6 +115,19 @@
 }
 .theme-bn ::selection { background: var(--color-sky); color: var(--color-cocoa); }
 
+/* The dashboard drops the butter accents for blue: yellow read as a warning
+   and was tiring over a long review session. Remapping the tokens here keeps
+   the marketing pages on the full template-pack palette. */
+.theme-bn.theme-dash {
+  --color-butter:      #c1d9e6;
+  --color-butter-soft: #e4eff5;
+  --color-bg-tint:     #eef5f9;
+  --color-line:        #d3e2eb;
+  --color-mint:        #3f7fa6;
+  --panel-text:        #dcebf3;
+  --panel-dim:         #a9c4d4;
+}
+
 * { box-sizing: border-box; }
 /* scroll-padding clears the 78px sticky header, so every #anchor lands with its
    heading visible instead of tucked underneath it. */

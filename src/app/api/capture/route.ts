@@ -5,6 +5,7 @@
 // AI feedback, and creates a draft lesson for the given student. Returns the new
 // lesson id + a URL to open it.
 
+import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -12,7 +13,7 @@ import { students } from "@/db/schema";
 import { tutorIdByCaptureToken } from "@/lib/capture-auth";
 import { transcribeLesson } from "@/lib/stt";
 import { createDraftLesson } from "@/lib/lessons";
-import { assertLessonQuota, isQuotaError } from "@/lib/quota";
+import { isQuotaError, releaseLesson, reserveLesson } from "@/lib/quota";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -67,9 +68,11 @@ export async function POST(req: NextRequest): Promise<Response> {
   if (!studentRow) return json({ error: "Student not found." }, 404);
 
   // Checked before the audio is read and transcribed — this route pays for STT
-  // and the Claude completion inline.
+  // and the Claude completion inline. The request has no upload id of its own, so
+  // it mints one: it keys the held credit, which writing the lesson consumes.
+  const uploadId = `capture-${randomUUID()}`;
   try {
-    await assertLessonQuota(tutorId);
+    await reserveLesson(tutorId, uploadId);
   } catch (err) {
     if (isQuotaError(err)) return json({ error: err.message, quota: true }, 402);
     throw err;
@@ -81,9 +84,10 @@ export async function POST(req: NextRequest): Promise<Response> {
       tutor.arrayBuffer().then((b) => Buffer.from(b)),
     ]);
     const transcript = await transcribeLesson({ studentAudio, tutorAudio });
-    const { id } = await createDraftLesson(tutorId, { studentId, transcript, durationMin });
+    const { id } = await createDraftLesson(tutorId, { uploadId, studentId, transcript, durationMin });
     return json({ id, url: `${req.nextUrl.origin}/dashboard/sessions/${id}` });
   } catch (err) {
+    await releaseLesson(uploadId);
     return json({ error: err instanceof Error ? err.message : "Processing failed." }, 500);
   }
 }

@@ -78,7 +78,7 @@ export default async function DashboardLayout({
   return (
     // .theme-bn puts the dashboard in the homepage's template-pack look: the
     // shared tokens re-read as cocoa / butter / sky and the Gilda + Jost fonts.
-    <div className={`theme-bn ${bnFontVars} flex min-h-screen`}>
+    <div className={`theme-bn theme-dash ${bnFontVars} flex min-h-screen`}>
       <Sidebar
         user={user}
         students={students}

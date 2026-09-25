@@ -1,6 +1,8 @@
 "use server";
 
+import { headers } from "next/headers";
 import { db, schema } from "@/db";
+import { clientIp, rateLimit, waitText } from "@/lib/rate-limit";
 
 export type WaitlistState =
   | { status: "idle" }
@@ -31,6 +33,21 @@ export async function joinWaitlist(
 
   if (email.length > 254 || !EMAIL_RE.test(email)) {
     return { status: "error", message: "That doesn't look like an email address — check it and try again." };
+  }
+
+  // A person joins once; a few retries cover a typo'd address. Anything past
+  // that is a script filling the list with junk (the honeypot only catches the
+  // lazy ones). Checked after validation so a typo doesn't count.
+  const limited = await rateLimit({
+    key: `waitlist:ip:${clientIp(await headers())}`,
+    limit: 10,
+    windowSec: 60 * 60,
+  });
+  if (!limited.ok) {
+    return {
+      status: "error",
+      message: `That's a lot of signups from here — try again in ${waitText(limited.retryAfterSec)}.`,
+    };
   }
 
   try {

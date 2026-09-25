@@ -6,8 +6,10 @@
 // session fields the DB + review screen expect and inserts it as a "draft" (i.e.
 // "needs review") so the tutor lands in the existing review flow.
 
+import { randomUUID } from "node:crypto";
 import { currentTutorId } from "@/auth";
 import { createDraftLesson } from "@/lib/lessons";
+import { releaseLesson, reserveLesson } from "@/lib/quota";
 import { transcribeLesson } from "@/lib/stt";
 
 /**
@@ -33,11 +35,21 @@ export async function createLessonFromAudio(
     throw new Error("One of the audio tracks was empty — check the tab audio was shared.");
   }
 
-  const [studentAudio, tutorAudio] = await Promise.all([
-    student.arrayBuffer().then((b) => Buffer.from(b)),
-    tutor.arrayBuffer().then((b) => Buffer.from(b)),
-  ]);
+  // Pays for STT and Claude inline, so it holds a lesson credit like every other
+  // paid path (src/lib/quota.ts); QuotaError's message is written for the tutor.
+  const uploadId = `action-${randomUUID()}`;
+  await reserveLesson(tutorId, uploadId);
 
-  const transcript = await transcribeLesson({ studentAudio, tutorAudio });
-  return createDraftLesson(tutorId, { studentId, transcript, durationMin });
+  try {
+    const [studentAudio, tutorAudio] = await Promise.all([
+      student.arrayBuffer().then((b) => Buffer.from(b)),
+      tutor.arrayBuffer().then((b) => Buffer.from(b)),
+    ]);
+
+    const transcript = await transcribeLesson({ studentAudio, tutorAudio });
+    return await createDraftLesson(tutorId, { uploadId, studentId, transcript, durationMin });
+  } catch (err) {
+    await releaseLesson(uploadId);
+    throw err;
+  }
 }

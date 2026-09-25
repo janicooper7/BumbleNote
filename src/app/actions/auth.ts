@@ -2,9 +2,9 @@
 
 import { AuthError } from "next-auth";
 import { eq, sql } from "drizzle-orm";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { currentTutorId, signIn, signOut } from "@/auth";
+import { currentTutorId, LoginRateLimited, signIn, signOut } from "@/auth";
 import { db } from "@/db";
 import { tutors } from "@/db/schema";
 import { appOrigin } from "@/lib/app-url";
@@ -18,6 +18,7 @@ import {
 import { sendPasswordResetEmail, sendPasswordResetGoogleEmail } from "@/lib/email";
 import { hashPassword } from "@/lib/password";
 import { passwordProblem } from "@/lib/password-policy";
+import { clientIp, rateLimit, waitText } from "@/lib/rate-limit";
 import {
   consumeResetToken,
   issueResetToken,
@@ -88,6 +89,18 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 const field = (data: FormData, name: string) => String(data.get(name) ?? "").trim();
 
+const requestIp = async () => clientIp(await headers());
+
+const HOUR = 60 * 60;
+
+/**
+ * The one message every limited auth form shows. Saying "too many attempts"
+ * leaks nothing: the per-email rules count the typed address whether or not
+ * it has an account.
+ */
+const slowDown = (retryAfterSec: number) =>
+  `Too many attempts. Wait ${waitText(retryAfterSec)} and try again.`;
+
 /**
  * Create a tutor from name/surname/email/password, then sign them straight in.
  *
@@ -115,6 +128,13 @@ export async function signUpWithPassword(
     errors.acceptTerms = "Please accept the Terms of Service to create your account.";
   }
   if (Object.keys(errors).length) return { errors, values };
+
+  // After validation, so typos don't burn the budget; before the lookup, since
+  // "already an account" is exactly the answer a bulk enumerator is after — and
+  // each pass costs us a password hash. Real households and classrooms sign up
+  // a handful of people, not ten an hour.
+  const limited = await rateLimit({ key: `signup:ip:${await requestIp()}`, limit: 10, windowSec: HOUR });
+  if (!limited.ok) return { values, formError: slowDown(limited.retryAfterSec) };
 
   // Emails are stored lowercase by this flow, but Google rows predate that and
   // may carry mixed case — compare case-insensitively so the two flows can't
@@ -184,9 +204,14 @@ export async function logInWithPassword(
     };
   }
 
+  // No limit here: authorize() in src/auth.ts owns it, because posting to the
+  // NextAuth callback directly would walk straight past anything in this action.
   try {
     await signIn("credentials", { email, password, redirectTo: afterAuth(formData) });
   } catch (error) {
+    if (error instanceof LoginRateLimited) {
+      return { values: { email }, formError: slowDown(error.retryAfterSec) };
+    }
     if (error instanceof AuthError) {
       // Same message for every failure — see InvalidLogin in src/auth.ts.
       return {
@@ -217,6 +242,18 @@ export async function requestPasswordReset(
   if (!EMAIL.test(email)) {
     return { values: { email }, errors: { email: "Enter the email you signed up with." } };
   }
+
+  // Two rules for two abuses. Per email: someone's inbox being flooded — the
+  // 60 s cooldown in reset-tokens only spaces the mails out, this caps them.
+  // Per IP: one machine walking a list of addresses. The per-email refusal is
+  // silent, like the cooldown: they already have mail on its way, and an
+  // on-screen "too many" for one address would differ from the normal reply.
+  const [perEmail, perIp] = await Promise.all([
+    rateLimit({ key: `reset-request:email:${email}`, limit: 3, windowSec: HOUR }),
+    rateLimit({ key: `reset-request:ip:${await requestIp()}`, limit: 10, windowSec: HOUR }),
+  ]);
+  if (!perIp.ok) return { values: { email }, formError: slowDown(perIp.retryAfterSec) };
+  if (!perEmail.ok) return { sent: true, values: { email } };
 
   const [tutor] = await db
     .select({ id: tutors.id, email: tutors.email, name: tutors.name, hash: tutors.passwordHash })
@@ -277,6 +314,16 @@ export async function resetPassword(
   const problem = passwordProblem(password);
   if (problem) return { errors: { password: problem } };
   if (password !== confirm) return { errors: { confirm: "Those don't match." } };
+
+  // The token is 32 random bytes, so guessing one is hopeless; this is about
+  // cost — a valid token means a password hash, and the auto-login below
+  // another. Anyone genuinely resetting needs one or two tries.
+  const limited = await rateLimit({
+    key: `reset:ip:${await requestIp()}`,
+    limit: 10,
+    windowSec: 15 * 60,
+  });
+  if (!limited.ok) return { formError: slowDown(limited.retryAfterSec) };
 
   const tutorId = await consumeResetToken(token);
   if (!tutorId) {

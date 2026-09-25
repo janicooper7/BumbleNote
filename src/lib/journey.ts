@@ -309,8 +309,17 @@ const STOP_WORDS = new Set(RAW_STOP_WORDS.map(stem));
  */
 type Signature = { tokens: Set<string>; quoted: Set<string> };
 
-/** Words inside single or double quotes — 'very', "the advice". */
-const QUOTED = /['"“”‘’]([a-z][a-z\s'-]{0,30}?)['"“”‘’]/g;
+/**
+ * Words inside single or double quotes — 'very', "the advice".
+ *
+ * A quote only opens where no letter or digit precedes it, and only closes where
+ * no letter follows it. Otherwise a contraction's apostrophe passes for one: in
+ * "Doesn't use 'since'" the match would be "t use", every note starting
+ * "Doesn't use '…'" would share it, and a shared quoted term is decisive in
+ * similarity() — so unrelated weaknesses would merge into one theme. The closing
+ * rule likewise keeps 'don't know' whole instead of stopping at "don".
+ */
+const QUOTED = /(?<![a-z0-9])['"“”‘’]([a-z][a-z\s'-]{0,30}?)['"“”‘’](?![a-z])/g;
 
 /**
  * Reduce a focus phrase to the content words that identify the theme.

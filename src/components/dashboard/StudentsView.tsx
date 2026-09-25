@@ -131,7 +131,7 @@ function StudentRow({
         <div className="flex items-center gap-2">
           <span className="truncate font-semibold text-ink">{st.name}</span>
           {st.lessonCount === 0 ? (
-            <span className="flex-none rounded-full bg-amber/12 px-2 py-0.5 text-[11px] font-semibold text-brand-deep">
+            <span className="flex-none rounded-full bg-sky-soft px-2 py-0.5 text-[11px] font-semibold text-brand-deep">
               New
             </span>
           ) : st.trend === "up" ? (

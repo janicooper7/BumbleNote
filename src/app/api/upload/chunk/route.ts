@@ -4,6 +4,7 @@
 // capture token (extension), via resolveTutorId.
 
 import type { NextRequest } from "next/server";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { resolveTutorId } from "@/lib/upload-auth";
 import { uploadStore, chunkKey, type ChunkMetadata, type Track } from "@/lib/upload-store";
 
@@ -19,6 +20,19 @@ function json(body: unknown, status = 200): Response {
 
 // uploadId is used as a blob key segment — keep it to an unguessable, safe charset.
 const ID_RE = /^[A-Za-z0-9_-]{8,100}$/;
+
+/**
+ * Per tutor, and deliberately generous — this is a ceiling for a runaway or
+ * stolen-token client, not a meter. A real lesson must never touch it: a 429
+ * here is retried a few times by upload-client and then parks the lesson in
+ * the outbox. Budget: chunks are 4 MB (CHUNK_SIZE in lib/upload-client) of
+ * browser Opus webm at ~128 kbps (Chrome's default; the trimmed 16 kHz WAV is
+ * only sent when it's smaller), so ~15 chunks per track-hour, ~30 per
+ * lesson-hour for both tracks. Even three two-hour lessons flushed from the
+ * outbox at once, every chunk retried twice, is ~540 — and a resume only
+ * re-sends the parts GET reports missing. GET itself isn't limited here.
+ */
+const CHUNK_LIMIT = { limit: 600, windowSec: 10 * 60 };
 
 export function OPTIONS(): Response {
   return new Response(null, { status: 204, headers: CORS });
@@ -49,6 +63,9 @@ export async function GET(req: NextRequest): Promise<Response> {
 export async function POST(req: NextRequest): Promise<Response> {
   const tutorId = await resolveTutorId(req);
   if (!tutorId) return json({ error: "Unauthorized." }, 401);
+
+  const limited = await rateLimit({ key: `chunk:tutor:${tutorId}`, ...CHUNK_LIMIT });
+  if (!limited.ok) return tooManyRequests(limited.retryAfterSec, CORS);
 
   const { searchParams } = req.nextUrl;
   const uploadId = searchParams.get("uploadId") ?? "";

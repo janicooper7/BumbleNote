@@ -5,7 +5,6 @@
 
 import { useState } from "react";
 import { useSessionRecorder, formatElapsed } from "./useSessionRecorder";
-import ConsentCheck from "./ConsentCheck";
 
 export default function SessionRecorder({
   studentId,
@@ -16,8 +15,6 @@ export default function SessionRecorder({
 }) {
   const { status, elapsed, error, canRetry, start, stop, retry, reset } = useSessionRecorder();
   const [trial, setTrial] = useState(false);
-  // Per lesson, deliberately — see the same state in RecordLessonButton.
-  const [consent, setConsent] = useState(false);
   const firstName = studentName.split(" ")[0];
 
   return (
@@ -41,12 +38,10 @@ export default function SessionRecorder({
               />
               This is a trial lesson — use it to help fill in {firstName}&apos;s profile
             </label>
-            <ConsentCheck checked={consent} onChange={setConsent} name={firstName} />
           </div>
           <button
-            onClick={() => consent && start(studentId, trial)}
-            disabled={!consent}
-            className="inline-flex flex-none items-center justify-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => start(studentId, trial)}
+            className="inline-flex flex-none items-center justify-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
             style={{ boxShadow: "0 10px 24px -10px rgba(65,46,40,.45)" }}
           >
             <MicIcon /> Record a session

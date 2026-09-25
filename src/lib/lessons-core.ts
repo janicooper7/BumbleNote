@@ -8,13 +8,20 @@
 
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { sessions, students, tutors } from "@/db/schema";
+import { lessonReservations, sessions, students, tutors } from "@/db/schema";
 import { generateLessonFeedback } from "@/lib/ai";
 import { buildJourney, journeyPromptBlock } from "@/lib/journey";
 import { countsAsLesson } from "@/lib/plans";
 import { insertWithUniqueId } from "@/lib/unique-id";
 
 export type CreateDraftLessonInput = {
+  /**
+   * Identifies the recording being drafted: the chunked upload's id, or a one-off
+   * id minted by a synchronous caller. It is both the idempotency key (at most one
+   * lesson per id — sessions.upload_id is unique) and the id of the lesson credit
+   * held for it (lib/quota reserveLesson), which writing the lesson consumes.
+   */
+  uploadId: string;
   studentId: string;
   transcript: string;
   durationMin: number;
@@ -51,6 +58,15 @@ export async function createDraftLessonCore(
     .where(and(eq(students.tutorId, tutorId), eq(students.id, input.studentId)))
     .limit(1);
   if (!student) throw new Error("Student not found.");
+
+  // Already drafted — a worker retried after the lesson was written but before its
+  // status was, or two runs raced. Hand back that lesson rather than paying
+  // Claude to write a duplicate.
+  const existing = await lessonForUpload(tutorId, input.uploadId);
+  if (existing) {
+    await db.delete(lessonReservations).where(eq(lessonReservations.uploadId, input.uploadId));
+    return existing;
+  }
 
   // Every prior lesson for this student, read once and used twice: it builds the
   // journey handed to Claude, and it numbers this lesson. Only the columns the
@@ -99,34 +115,74 @@ export async function createDraftLessonCore(
       ? Math.round(input.durationMin)
       : 45;
 
-  // Global primary key, so uniqueness spans every tutor — see src/lib/unique-id.ts.
-  const id = await insertWithUniqueId(`s-${student.id}-${lessonNo}`, (candidateId) =>
-    db.insert(sessions).values({
-      id: candidateId,
-      tutorId,
-      studentId: student.id,
-      studentName: student.name,
-      studentInitial: student.initial,
-      title: `Lesson ${lessonNo} · ${feedback.topic}`,
-      date,
-      isoDate,
-      durationMin,
-      status: "draft",
-      levelFrom: from,
-      levelTo: to,
-      observedLevel: feedback.observedLevel,
-      talkTime: feedback.talkTime,
-      vocab: feedback.vocab,
-      wentWell: feedback.wentWell,
-      focus: feedback.focus,
-      homework: feedback.homework,
-      additionalInfo: feedback.additionalInfo,
-      nextLesson: feedback.nextLesson,
-      lessonEndedAt: feedback.lessonEndedAt,
-      tutorNotes: feedback.tutorNotes,
-      isTrial: input.isTrial ?? false,
-    }),
-  );
+  // Written as one transaction: the lesson, the trial counter and the release of
+  // the held credit land together or not at all. Otherwise a failure between the
+  // insert and the counter would fail the job with its lesson already written.
+  //
+  // `onConflictDoNothing` on upload_id makes a concurrent duplicate run insert
+  // nothing. The counter is bumped in the same statement, off `ins` — i.e. only if
+  // THIS insert produced a row. (Checking for "a row with this id and upload" is
+  // not enough: the losing run tries the same slug as the winner, and would find
+  // the winner's row.) A clash on the slug id alone still throws, and is retried
+  // under the next candidate by insertWithUniqueId.
+  let inserted = false;
+  const id = await insertWithUniqueId(`s-${student.id}-${lessonNo}`, async (candidateId) => {
+    const insert = db
+      .insert(sessions)
+      .values({
+        id: candidateId,
+        tutorId,
+        studentId: student.id,
+        studentName: student.name,
+        studentInitial: student.initial,
+        title: `Lesson ${lessonNo} · ${feedback.topic}`,
+        date,
+        isoDate,
+        durationMin,
+        status: "draft",
+        levelFrom: from,
+        levelTo: to,
+        observedLevel: feedback.observedLevel,
+        talkTime: feedback.talkTime,
+        vocab: feedback.vocab,
+        wentWell: feedback.wentWell,
+        focus: feedback.focus,
+        homework: feedback.homework,
+        additionalInfo: feedback.additionalInfo,
+        nextLesson: feedback.nextLesson,
+        lessonEndedAt: feedback.lessonEndedAt,
+        tutorNotes: feedback.tutorNotes,
+        isTrial: input.isTrial ?? false,
+        uploadId: input.uploadId,
+      })
+      .onConflictDoNothing({ target: sessions.uploadId })
+      .returning({ id: sessions.id });
+
+    // Feeds the free trial's lifetime limit (src/lib/quota.ts). Counted only once
+    // the lesson exists, so an upload that fails before this point doesn't use up
+    // the tutor's trial allowance — and only for a recording long enough to be a lesson.
+    const counts = sql.raw(countsAsLesson(durationMin) ? "true" : "false");
+
+    const [result] = await db.batch([
+      db.execute(sql`
+        with ins as ${insert},
+        bump as (
+          update ${tutors} set lessons_created = lessons_created + 1
+          where id = ${tutorId} and ${counts} and exists (select 1 from ins)
+          returning 1
+        )
+        select id from ins`),
+      db.delete(lessonReservations).where(eq(lessonReservations.uploadId, input.uploadId)),
+    ]);
+    inserted = result.rows.length > 0;
+  });
+
+  if (!inserted) {
+    // Another run for this upload won the race; its lesson is the one.
+    const winner = await lessonForUpload(tutorId, input.uploadId);
+    if (!winner) throw new Error("Lesson insert was skipped but no lesson exists for this upload.");
+    return winner;
+  }
 
   // A trial lesson's transcript often has the student introducing themselves —
   // interests, why they're learning, background. Fold that into the profile, but
@@ -151,15 +207,15 @@ export async function createDraftLessonCore(
     }
   }
 
-  // Feeds the free trial's lifetime limit (src/lib/quota.ts). Counted only once
-  // the lesson exists, so an upload that fails before this point doesn't use up
-  // the tutor's trial allowance — and only for a recording long enough to be a lesson.
-  if (countsAsLesson(durationMin)) {
-    await db
-      .update(tutors)
-      .set({ lessonsCreated: sql`${tutors.lessonsCreated} + 1` })
-      .where(eq(tutors.id, tutorId));
-  }
-
   return { id };
+}
+
+/** The lesson already drafted from this upload, if any. */
+async function lessonForUpload(tutorId: string, uploadId: string): Promise<{ id: string } | null> {
+  const [row] = await db
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(and(eq(sessions.tutorId, tutorId), eq(sessions.uploadId, uploadId)))
+    .limit(1);
+  return row ?? null;
 }

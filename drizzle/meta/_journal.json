@@ -120,6 +120,20 @@
       "when": 1790158787683,
       "tag": "0016_clear_plaintext_capture_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790327743858,
+      "tag": "0017_lesson_idempotency_and_reservations",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790328000230,
+      "tag": "0018_rate_limits",
+      "breakpoints": true
     }
   ]
 }
