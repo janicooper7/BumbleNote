@@ -4,7 +4,7 @@
 // so it drives the shared recorder hook directly.
 
 import { useState } from "react";
-import { useSessionRecorder, formatElapsed } from "./useSessionRecorder";
+import { useSessionRecorder, formatElapsed, silenceWarning } from "./useSessionRecorder";
 
 export default function SessionRecorder({
   studentId,
@@ -13,7 +13,8 @@ export default function SessionRecorder({
   studentId: string;
   studentName: string;
 }) {
-  const { status, elapsed, error, canRetry, start, stop, retry, reset } = useSessionRecorder();
+  const { status, elapsed, error, canRetry, silent, start, stop, retry, reset } = useSessionRecorder();
+  const warning = silenceWarning(silent);
   const [trial, setTrial] = useState(false);
   const firstName = studentName.split(" ")[0];
 
@@ -62,6 +63,14 @@ export default function SessionRecorder({
                 Closing it now will lose the recording. Click Stop &amp; file lesson when
                 you&apos;re done.
               </p>
+              {warning && (
+                <p
+                  role="alert"
+                  className="mt-2 rounded-xl border border-[#e0605f]/40 bg-[#e0605f]/10 px-3 py-2 text-sm font-semibold text-[#a8423e]"
+                >
+                  {warning}
+                </p>
+              )}
             </div>
           </div>
           <button

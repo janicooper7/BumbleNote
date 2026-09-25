@@ -29,6 +29,22 @@ export type RecorderStatus = "idle" | "recording" | "processing" | "error";
 // back into one blob on stop.
 const TIMESLICE_MS = 5000;
 
+// A stop this soon after starting is a false start — a mis-click, or a restart to
+// fix the share. Uploading it only produced a "No speech was detected" failure
+// card for the tutor (and an alert for us), so it is dropped on the spot instead.
+const MIN_RECORDING_SEC = 30;
+
+// Live level check. A track that stays below AUDIBLE_RMS for SILENCE_WARN_SEC is
+// flagged while recording, so a muted mic or an unshared tab surfaces during the
+// lesson rather than as an empty transcript after it. AUDIBLE_RMS (~-46 dBFS) sits
+// between a silent mic's noise floor (~-55 dBFS, measured on a real failed
+// lesson) and speech, which with the browser's auto-gain is far louder.
+const AUDIBLE_RMS = 0.005;
+const SILENCE_WARN_SEC = 90;
+const LEVEL_POLL_MS = 250;
+
+type Track = "student" | "tutor";
+
 export function useSessionRecorder() {
   const router = useRouter();
 
@@ -49,6 +65,9 @@ export function useSessionRecorder() {
   const queuedId = useRef<string | null>(null);
   const failure = useRef<UploadError | null>(null);
   const [canRetry, setCanRetry] = useState(false);
+  const [silent, setSilent] = useState<Track[]>([]);
+  const stopLevels = useRef<(() => void) | null>(null);
+  const tooShort = useRef(false);
 
   useEffect(() => {
     // Stop any live capture if the tutor navigates away mid-recording.
@@ -73,6 +92,9 @@ export function useSessionRecorder() {
 
   function stopTracks() {
     if (timer.current) clearInterval(timer.current);
+    stopLevels.current?.();
+    stopLevels.current = null;
+    setSilent([]);
     displayStream.current?.getTracks().forEach((t) => t.stop());
     micStream.current?.getTracks().forEach((t) => t.stop());
     displayStream.current = null;
@@ -88,7 +110,18 @@ export function useSessionRecorder() {
     rec.onstop = () => {
       blobs.current[key] = new Blob(chunks, { type: "audio/webm" });
       remaining.current -= 1;
-      if (remaining.current <= 0) void upload();
+      if (remaining.current > 0) return;
+      if (tooShort.current) {
+        stopTracks();
+        blobs.current = {};
+        setError(
+          `That recording was under ${MIN_RECORDING_SEC} seconds, so it wasn’t kept. Start recording again once the lesson is under way.`,
+        );
+        setCanRetry(false);
+        setStatus("error");
+        return;
+      }
+      void upload();
     };
     return rec;
   }
@@ -131,6 +164,8 @@ export function useSessionRecorder() {
         makeRecorder(mic, "tutor"),
       ];
       recorders.current.forEach((r) => r.start(TIMESLICE_MS));
+      tooShort.current = false;
+      stopLevels.current = watchLevels({ student: tabAudio, tutor: mic.getAudioTracks()[0] }, setSilent);
 
       startedAt.current = Date.now();
       setElapsed(0);
@@ -153,6 +188,10 @@ export function useSessionRecorder() {
 
   function stop() {
     if (timer.current) clearInterval(timer.current);
+    tooShort.current = Date.now() - startedAt.current < MIN_RECORDING_SEC * 1000;
+    stopLevels.current?.();
+    stopLevels.current = null;
+    setSilent([]);
     setStatus("processing");
     recorders.current.forEach((r) => {
       if (r.state !== "inactive") r.stop();
@@ -246,7 +285,78 @@ export function useSessionRecorder() {
     setError(undefined);
   }
 
-  return { status, elapsed, error, canRetry, start, stop, retry, reset };
+  return { status, elapsed, error, canRetry, silent, start, stop, retry, reset };
+}
+
+/**
+ * Poll each track's level and report which have been silent for SILENCE_WARN_SEC.
+ * Returns a cleanup. Best-effort: if WebAudio isn't available the recording goes
+ * ahead without the check.
+ */
+function watchLevels(
+  tracks: Record<Track, MediaStreamTrack | undefined>,
+  onChange: (silent: Track[]) => void,
+): () => void {
+  let ctx: AudioContext;
+  try {
+    ctx = new AudioContext();
+  } catch {
+    return () => {};
+  }
+  // The start click gives the page user activation, so this resolves; it's only
+  // here in case the context was created suspended.
+  void ctx.resume().catch(() => {});
+
+  const probes: { key: Track; analyser: AnalyserNode; buf: Float32Array<ArrayBuffer>; heardAt: number }[] = [];
+  for (const key of ["student", "tutor"] as const) {
+    const track = tracks[key];
+    if (!track) continue;
+    const analyser = ctx.createAnalyser();
+    // The largest window (~0.7 s at 48 kHz): background tabs throttle the poll to
+    // about once a second, and a wide window keeps that from missing speech.
+    analyser.fftSize = 32768;
+    ctx.createMediaStreamSource(new MediaStream([track])).connect(analyser);
+    probes.push({ key, analyser, buf: new Float32Array(analyser.fftSize), heardAt: Date.now() });
+  }
+
+  let reported = "";
+  const poll = setInterval(() => {
+    const now = Date.now();
+    const quiet: Track[] = [];
+    for (const p of probes) {
+      p.analyser.getFloatTimeDomainData(p.buf);
+      let sum = 0;
+      for (const v of p.buf) sum += v * v;
+      if (Math.sqrt(sum / p.buf.length) >= AUDIBLE_RMS) p.heardAt = now;
+      if (now - p.heardAt >= SILENCE_WARN_SEC * 1000) quiet.push(p.key);
+    }
+    const key = quiet.join();
+    if (key !== reported) {
+      reported = key;
+      onChange(quiet);
+    }
+  }, LEVEL_POLL_MS);
+
+  return () => {
+    clearInterval(poll);
+    void ctx.close().catch(() => {});
+  };
+}
+
+/** What to tell the tutor about silent tracks mid-recording, or null if all is well. */
+export function silenceWarning(silent: Track[]): string | null {
+  const tab = silent.includes("student");
+  const mic = silent.includes("tutor");
+  if (tab && mic) {
+    return "We haven’t heard anything from the lesson tab or your microphone for a while. Check the call is playing in the tab you shared and your mic isn’t muted.";
+  }
+  if (tab) {
+    return "No sound from the lesson tab for a while. If your student is talking, the tab’s audio isn’t being captured — stop, then record again and tick “Share tab audio”.";
+  }
+  if (mic) {
+    return "Your microphone has been silent for a while. Check it isn’t muted, or set to the wrong device in your browser.";
+  }
+  return null;
 }
 
 export function formatElapsed(totalSec: number): string {

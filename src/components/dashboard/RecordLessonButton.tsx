@@ -10,7 +10,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Avatar from "./Avatar";
 import { SearchIcon } from "./icons";
-import { useSessionRecorder, formatElapsed } from "./useSessionRecorder";
+import { useSessionRecorder, formatElapsed, silenceWarning } from "./useSessionRecorder";
 
 type PickStudent = { id: string; name: string; initial: string };
 
@@ -32,7 +32,8 @@ export default function RecordLessonButton({
   students: PickStudent[];
   quota: LessonQuotaView;
 }) {
-  const { status, elapsed, error, canRetry, start, stop, retry, reset } = useSessionRecorder();
+  const { status, elapsed, error, canRetry, silent, start, stop, retry, reset } = useSessionRecorder();
+  const warning = silenceWarning(silent);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [chosen, setChosen] = useState<PickStudent | null>(null);
   const [query, setQuery] = useState("");
@@ -215,6 +216,14 @@ export default function RecordLessonButton({
                 <div className="mb-1 font-mono text-3xl font-semibold tabular-nums text-ink">
                   {formatElapsed(elapsed)}
                 </div>
+                {warning && (
+                  <p
+                    role="alert"
+                    className="mb-3 rounded-xl border border-[#e0605f]/40 bg-[#e0605f]/10 px-3 py-2 text-left text-sm font-semibold text-[#a8423e]"
+                  >
+                    {warning}
+                  </p>
+                )}
                 <p className="mb-5 text-xs font-medium text-[#c0524e]">
                   Don&apos;t close this tab — BumbleNote hasn&apos;t saved the lesson yet.
                   Closing it now will lose the recording. Click Stop &amp; file lesson when
