@@ -80,7 +80,7 @@ function GuidesMenu({ pathname }: { pathname: string }) {
 }
 
 type SidebarUser ={ name?: string | null; email?: string | null } | null;
-type PickStudent = { id: string; name: string; initial: string };
+type PickStudent = { id: string; name: string; initial: string; hasLessons: boolean };
 
 export default function Sidebar({
   user,

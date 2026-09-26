@@ -7,7 +7,7 @@
 // corner and sits above it (z-40) while shown.
 
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import DashPortal from "./DashPortal";
 import { usePathname } from "next/navigation";
 import { sendFeedback } from "@/app/actions/feedback";
 import type { ContactTopic } from "@/lib/email";
@@ -149,7 +149,8 @@ export default function FeedbackButton({ inSidebar = false }: { inSidebar?: bool
       {/* Portaled to <body>: inside the sticky sidebar the overlay would be
           trapped in its stacking context, under the page's own layers. `open`
           is false on the server, so this never runs during hydration. */}
-      {open && typeof document !== "undefined" && createPortal(
+      {open && typeof document !== "undefined" && (
+        <DashPortal>
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-4 backdrop-blur-sm"
           onClick={(e) => e.target === e.currentTarget && close()}
@@ -237,8 +238,8 @@ export default function FeedbackButton({ inSidebar = false }: { inSidebar?: bool
               </form>
             )}
           </div>
-        </div>,
-        document.body,
+        </div>
+        </DashPortal>
       )}
     </>
   );

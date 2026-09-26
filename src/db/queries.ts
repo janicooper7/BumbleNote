@@ -67,6 +67,7 @@ function withDerivedStats(base: Student, studentSessions: DbSession[]): Student 
   return {
     ...base,
     lessonCount: taught.length,
+    hasLessons: studentSessions.length > 0,
     vocabCount: vocab.size,
     // Fall back to the stored values before any lesson has been taught, so a
     // brand-new student keeps their "New" marker and profile focus areas.

@@ -13,7 +13,10 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
-    "stripe:setup": "tsx scripts/stripe-setup.ts"
+    "stripe:setup": "tsx scripts/stripe-setup.ts",
+    "demo:seed": "tsx demo/seed.ts",
+    "demo": "playwright test -c demo/playwright.config.ts",
+    "demo:list": "playwright test -c demo/playwright.config.ts --list"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -35,6 +38,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "@netlify/plugin-nextjs": "^5.15.12",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

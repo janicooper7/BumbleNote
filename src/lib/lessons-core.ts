@@ -85,6 +85,11 @@ export async function createDraftLessonCore(
     .from(sessions)
     .where(and(eq(sessions.tutorId, tutorId), eq(sessions.studentId, student.id)));
 
+  // A trial lesson is a student's first. The UI only offers the option then, but a
+  // stale tab or a queued upload recorded before another lesson landed could still
+  // ask for it — so drop the flag here rather than re-mark a later lesson.
+  const isTrial = !!input.isTrial && priorSessions.length === 0;
+
   const feedback = await generateLessonFeedback(transcript, {
     studentName: student.name,
     native: student.native,
@@ -94,7 +99,7 @@ export async function createDraftLessonCore(
     interests: student.interests ?? undefined,
     // Undefined for a first lesson, which keeps that prompt free of empty headings.
     journey: journeyPromptBlock(buildJourney(priorSessions)),
-    isTrial: input.isTrial,
+    isTrial,
   });
 
   // Lesson number counts drafts too — the tutor taught the lesson whether or not
@@ -152,7 +157,7 @@ export async function createDraftLessonCore(
         nextLesson: feedback.nextLesson,
         lessonEndedAt: feedback.lessonEndedAt,
         tutorNotes: feedback.tutorNotes,
-        isTrial: input.isTrial ?? false,
+        isTrial,
         uploadId: input.uploadId,
       })
       .onConflictDoNothing({ target: sessions.uploadId })
@@ -188,7 +193,7 @@ export async function createDraftLessonCore(
   // interests, why they're learning, background. Fold that into the profile, but
   // only into fields still empty as of this read: never overwrite something the
   // tutor already typed in.
-  if (input.isTrial && feedback.studentProfile) {
+  if (isTrial && feedback.studentProfile) {
     const patch: Partial<typeof students.$inferInsert> = {};
     if ((student.interests?.length ?? 0) === 0 && feedback.studentProfile.interests.length > 0) {
       patch.interests = feedback.studentProfile.interests;

@@ -8,7 +8,7 @@
 // can't be mixed — and mergeSessions re-checks it anyway.
 
 import { useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import DashPortal from "./DashPortal";
 import { useRouter } from "next/navigation";
 import Avatar from "./Avatar";
 import { SearchIcon } from "./icons";
@@ -129,7 +129,8 @@ export default function CombineLessonsButton({ students }: { students: PickStude
 
       {/* Portaled for the same reason as RecordLessonButton's overlay: the
           sidebar's backdrop-blur would trap a fixed child inside it. */}
-      {open && typeof document !== "undefined" && createPortal(
+      {open && typeof document !== "undefined" && (
+        <DashPortal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-7 shadow-soft-md">
             {!chosen ? (
@@ -295,8 +296,8 @@ export default function CombineLessonsButton({ students }: { students: PickStude
               </>
             )}
           </div>
-        </div>,
-        document.body,
+        </div>
+        </DashPortal>
       )}
     </>
   );

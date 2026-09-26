@@ -57,7 +57,7 @@ export default async function DashboardLayout({
 
   const students = allStudents
     .filter((s) => s.active !== false)
-    .map((s) => ({ id: s.id, name: s.name, initial: s.initial }));
+    .map((s) => ({ id: s.id, name: s.name, initial: s.initial, hasLessons: !!s.hasLessons }));
 
   // Only the display-facing slice crosses into the client component.
   const quota = {

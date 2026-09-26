@@ -51,6 +51,9 @@ export type Student = {
   email?: string; // student's email, for sending lesson-report PDFs
   hourlyRate?: number; // what the tutor charges per hour for this student
   lessonCount: number;
+  // Any lesson on file, drafts included — unlike lessonCount, which counts only
+  // taught ones. Gates the "trial lesson" option to a student's first recording.
+  hasLessons?: boolean;
   vocabCount: number;
   lastSeen: string;
   focus: string[];

@@ -9,9 +9,12 @@ import { useSessionRecorder, formatElapsed, silenceWarning } from "./useSessionR
 export default function SessionRecorder({
   studentId,
   studentName,
+  canMarkTrial,
 }: {
   studentId: string;
   studentName: string;
+  /** Only a student's first lesson can be their trial lesson. */
+  canMarkTrial: boolean;
 }) {
   const { status, elapsed, error, canRetry, silent, start, stop, retry, reset } = useSessionRecorder();
   const warning = silenceWarning(silent);
@@ -30,18 +33,20 @@ export default function SessionRecorder({
               Captures your lesson tab’s audio and your mic, then transcribes and drafts the
               lesson for you — no files, no setup.
             </p>
-            <label className="mt-3 flex items-center gap-2 text-base font-semibold text-ink">
-              <input
-                type="checkbox"
-                checked={trial}
-                onChange={(e) => setTrial(e.target.checked)}
-                className="h-4 w-4 accent-[#412e28]"
-              />
-              This is a trial lesson — use it to help fill in {firstName}&apos;s profile
-            </label>
+            {canMarkTrial && (
+              <label className="mt-3 flex items-center gap-2 text-base font-semibold text-ink">
+                <input
+                  type="checkbox"
+                  checked={trial}
+                  onChange={(e) => setTrial(e.target.checked)}
+                  className="h-4 w-4 accent-[#412e28]"
+                />
+                This is a trial lesson — use it to help fill in {firstName}&apos;s profile
+              </label>
+            )}
           </div>
           <button
-            onClick={() => start(studentId, trial)}
+            onClick={() => start(studentId, canMarkTrial && trial)}
             className="inline-flex flex-none items-center justify-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
             style={{ boxShadow: "0 10px 24px -10px rgba(65,46,40,.45)" }}
           >

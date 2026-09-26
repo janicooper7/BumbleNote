@@ -58,6 +58,12 @@ const nextConfig: NextConfig = {
   // Don't advertise the framework and version to anyone scanning for a known
   // Next.js CVE.
   poweredByHeader: false,
+  images: {
+    // Thumbnails for the YouTube how-to videos (see YouTubeEmbed).
+    remotePatterns: [
+      { protocol: "https", hostname: "i.ytimg.com", pathname: "/vi/**", search: "" },
+    ],
+  },
   experimental: {
     // Lesson audio (two tracks, up to ~an hour each) is uploaded to the
     // transcribe Server Action; the default 1MB cap is far too small.

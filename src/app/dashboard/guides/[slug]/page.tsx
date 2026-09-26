@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Topbar from "@/components/dashboard/Topbar";
-import { GUIDES, getGuide, isVideoFile } from "@/lib/guides";
+import YouTubeEmbed from "@/components/dashboard/YouTubeEmbed";
+import { GUIDES, getGuide, isVideoFile, youTubeId } from "@/lib/guides";
 
 export function generateStaticParams() {
   return GUIDES.map((g) => ({ slug: g.slug }));
@@ -13,18 +14,24 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
   if (!guide) notFound();
 
   const others = GUIDES.filter((g) => g.slug !== guide.slug);
+  const ytId = guide.video ? youTubeId(guide.video) : null;
 
   return (
     <>
-      <Topbar title={guide.title} subtitle="How-to guide" />
+      <Topbar title="How-to Guides" />
       <div className="mx-auto max-w-4xl px-6 py-8 lg:px-10">
-        <p className="text-ink-soft">{guide.summary}</p>
+        <h2 className="font-display text-3xl uppercase tracking-[.03em] text-ink">{guide.title}</h2>
+        <p className="mt-1 text-ink-soft">{guide.summary}</p>
 
-        <div className="mt-6 overflow-hidden rounded-[22px] border border-cocoa/15 bg-butter-soft">
-          {guide.video ? (
+        <div className="mt-5 overflow-hidden rounded-[22px] border border-cocoa/15 bg-butter-soft">
+          {ytId ? (
+            <YouTubeEmbed id={ytId} title={guide.title} />
+          ) : guide.video ? (
             isVideoFile(guide.video) ? (
               <video
                 src={guide.video}
+                // BumbleNote logo until play, rather than the video's first frame.
+                poster="/guides/poster.png"
                 controls
                 playsInline
                 preload="metadata"

@@ -46,3 +46,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# demo recordings (demo/)
+/demo/.auth/
+/demo/.output/
+/demo/videos/
