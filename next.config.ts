@@ -65,6 +65,15 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
+    // Keep visited dashboard pages in the browser's router cache for 30s, so
+    // flipping between Students, Lessons and home doesn't refetch each time
+    // (Next's default for dynamic pages is 0). Every mutation's Server Action
+    // calls revalidatePath, which clears this cache, so edits always show. The
+    // one gap: a draft finished by the background worker can take up to 30s to
+    // appear on a page revisited from cache.
+    staleTimes: {
+      dynamic: 30,
+    },
     // Lesson audio (two tracks, up to ~an hour each) is uploaded to the
     // transcribe Server Action; the default 1MB cap is far too small.
     serverActions: {
