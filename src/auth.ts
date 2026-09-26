@@ -8,6 +8,7 @@
 // for the proxy. The proxy only decodes the session JWT, so it never needs to
 // know this provider exists.
 
+import { cache } from "react";
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { eq } from "drizzle-orm";
@@ -135,11 +136,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 });
 
-/** The tutor the current request acts as. Throws if unauthenticated. */
-export async function currentTutorId(): Promise<string> {
+/**
+ * The tutor the current request acts as. Throws if unauthenticated. Cached per
+ * request: every dashboard query calls it, and each call would otherwise
+ * decode the session cookie again.
+ */
+export const currentTutorId = cache(async (): Promise<string> => {
   const session = await auth();
   if (!session?.user?.tutorId) {
     throw new Error("Unauthorized: no tutor in session");
   }
   return session.user.tutorId;
-}
+});

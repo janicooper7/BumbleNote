@@ -4,7 +4,13 @@
 // Every query is scoped to the current tutor. Rows are mapped back to the app's
 // types from src/lib/mock.ts (null → undefined for optional fields) so callers
 // keep using the same Student/Session shapes the UI already expects.
+//
+// The reads the layout and pages share are wrapped in React cache(): the
+// dashboard layout and the page under it each ask for the tutor, students and
+// sessions, and neon-http makes every query its own round trip, so one render
+// fetches each once. The cache is per request, never shared across tutors.
 
+import { cache } from "react";
 import { and, asc, count, desc, eq, gte, lte, ne } from "drizzle-orm";
 import { db } from "./index";
 import {
@@ -103,7 +109,7 @@ function toSession(r: DbSession): Session {
   };
 }
 
-export async function getStudents(): Promise<Student[]> {
+export const getStudents = cache(async (): Promise<Student[]> => {
   const tutorId = await currentTutorId();
   const [studentRows, sessionRows] = await Promise.all([
     db.select().from(students).where(eq(students.tutorId, tutorId)).orderBy(asc(students.name)),
@@ -118,7 +124,7 @@ export async function getStudents(): Promise<Student[]> {
   }
 
   return studentRows.map((r) => withDerivedStats(toStudent(r), byStudent.get(r.id) ?? []));
-}
+});
 
 export async function getStudentById(id: string): Promise<Student | undefined> {
   return getStudentByIdForTutor(await currentTutorId(), id);
@@ -149,7 +155,7 @@ export async function getStudentByIdForTutor(
   return withDerivedStats(toStudent(row), studentSessions);
 }
 
-export async function getSessions(): Promise<Session[]> {
+export const getSessions = cache(async (): Promise<Session[]> => {
   const tutorId = await currentTutorId();
   const rows = await db
     .select()
@@ -157,7 +163,7 @@ export async function getSessions(): Promise<Session[]> {
     .where(eq(sessions.tutorId, tutorId))
     .orderBy(desc(sessions.isoDate), desc(sessions.createdAt));
   return rows.map(toSession);
-}
+});
 
 export async function getPendingSessions(): Promise<Session[]> {
   const all = await getSessions();
@@ -198,7 +204,7 @@ export type TutorProfile = {
  * sign-in, so anything reading `session.user.name` would keep showing the old
  * name after an edit here until the token is reissued.
  */
-export async function getTutor(): Promise<TutorProfile | undefined> {
+export const getTutor = cache(async (): Promise<TutorProfile | undefined> => {
   const tutorId = await currentTutorId();
   const [row] = await db
     .select({
@@ -222,7 +228,7 @@ export async function getTutor(): Promise<TutorProfile | undefined> {
     .where(eq(tutors.id, tutorId))
     .limit(1);
   return row;
-}
+});
 
 /**
  * Lifetime lesson count for the current tutor — all statuses, not the monthly
@@ -295,7 +301,7 @@ export async function getMergeCandidates(sessionId: string): Promise<MergeCandid
  * is short; two full-length lessons that happen to be close together don't.
  * Drives whether that button shows at all.
  */
-export async function hasCombinableLessons(): Promise<boolean> {
+export const hasCombinableLessons = cache(async (): Promise<boolean> => {
   const tutorId = await currentTutorId();
   const rows = await db
     .select({
@@ -323,7 +329,7 @@ export async function hasCombinableLessons(): Promise<boolean> {
     }
   }
   return false;
-}
+});
 
 /** Names and sizes of the files attached to a lesson — no file contents. */
 export async function getSessionAttachments(sessionId: string): Promise<AttachmentMeta[]> {
