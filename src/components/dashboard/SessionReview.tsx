@@ -26,7 +26,6 @@ import {
 import { MIN_COUNTED_LESSON_MIN, countsAsLesson } from '@/lib/plans'
 import {
   ALLOWED_ATTACHMENT_EXTENSIONS,
-  ATTACHMENT_RETENTION_DAYS,
   MAX_ATTACHMENT_TOTAL_BYTES,
   formatBytes,
   isAllowedAttachment,

@@ -18,9 +18,9 @@ import { CURSOR_SCRIPT, Director, fakeLesson } from "./director";
 import { DEMO_EMAIL, DEMO_PASSWORD } from "./seed";
 
 const test = base.extend<{ d: Director }>({
-  d: async ({ page }, use) => {
+  d: async ({ page }, provide) => {
     await page.addInitScript(CURSOR_SCRIPT);
-    await use(new Director(page));
+    await provide(new Director(page));
   },
 });
 
