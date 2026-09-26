@@ -67,16 +67,16 @@ export default function FailedLessons({ items }: { items: FailedLessonItem[] }) 
   if (visible.length === 0) return null;
 
   return (
-    <section className="mb-8 rounded-2xl border border-[#f1c4c2] bg-[#fdf6f5] p-6 shadow-soft-sm">
-      <h2 className="font-display text-xl text-ink uppercase tracking-[.03em]">
+    <section className="mb-8 rounded-2xl border border-[#f1c4c2] bg-[#fdf6f5] p-6">
+      <h2 className="text-lg font-semibold text-ink">
         {visible.length === 1 ? "A lesson didn’t finish" : `${visible.length} lessons didn’t finish`}
       </h2>
-      <p className="mt-1 text-sm text-ink-soft">
+      <p className="mt-1 text-base text-ink-soft">
         The recording was saved, but we couldn’t turn it into a draft. Retry to process it
         again — you won’t need to re-record — or dismiss it if you don’t need it.
       </p>
 
-      <ul className="mt-4 flex flex-col gap-2.5">
+      <ul className="mt-4 divide-y divide-[#f1c4c2] border-t border-[#f1c4c2]">
         {visible.map((item) => {
           const row = rows[item.uploadId] ?? { phase: "idle" };
           const busy = row.phase === "running" || row.phase === "dismissing";
@@ -89,24 +89,24 @@ export default function FailedLessons({ items }: { items: FailedLessonItem[] }) 
           return (
             <li
               key={item.uploadId}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-3"
+              className="flex flex-wrap items-center justify-between gap-3 py-3.5 last:pb-0"
             >
               <div className="min-w-0">
                 <div className="font-semibold text-ink">
                   Lesson with {item.studentName}
                   <span className="font-normal text-muted"> · {item.durationMin} min</span>
                 </div>
-                <div className="text-xs text-muted">
+                <div className="text-sm text-muted">
                   Failed {when} · recording kept for {item.daysLeft} more{" "}
                   {item.daysLeft === 1 ? "day" : "days"}
                 </div>
-                <div className="mt-1 text-xs text-ink-soft">
+                <div className="mt-1 text-sm text-ink-soft">
                   {item.canRetry
                     ? item.error
                     : "There wasn’t enough speech in this recording to make notes from, so retrying won’t help."}
                 </div>
                 {row.phase === "error" && (
-                  <div role="alert" className="mt-1 text-xs text-[#c0524e]">
+                  <div role="alert" className="mt-1 text-sm text-[#c0524e]">
                     {row.message}
                   </div>
                 )}

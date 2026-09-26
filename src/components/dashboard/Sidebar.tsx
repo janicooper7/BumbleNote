@@ -3,9 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "../Logo";
-import { GridIcon, UsersIcon, MicIcon, GearIcon } from "./icons";
+import { useState } from "react";
+import {
+  GridIcon,
+  UsersIcon,
+  MicIcon,
+  GearIcon,
+  PlayCircleIcon,
+  ChevronDownIcon,
+} from "./icons";
+import { GUIDES } from "@/lib/guides";
 import RecordLessonButton, { type LessonQuotaView } from "./RecordLessonButton";
 import CombineLessonsButton from "./CombineLessonsButton";
+import FeedbackButton from "./FeedbackButton";
 import { signOutAction } from "@/app/actions/auth";
 
 const nav = [
@@ -15,7 +25,61 @@ const nav = [
   { href: "/dashboard/settings", label: "Settings", Icon: GearIcon, exact: false },
 ];
 
-type SidebarUser = { name?: string | null; email?: string | null } | null;
+// "How-to guides" toggles a list of walkthrough videos (lib/guides). Starts
+// open while a guide is being viewed, so the current one stays visible.
+function GuidesMenu({ pathname }: { pathname: string }) {
+  const inGuides = pathname.startsWith("/dashboard/guides");
+  const [open, setOpen] = useState(inGuides);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls="guides-menu"
+        className={`group flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-left text-[.875rem] font-medium uppercase tracking-[.16em] transition-all duration-200 ${
+          inGuides ? "bg-butter text-cocoa" : "text-ink-soft hover:bg-butter-soft hover:text-cocoa"
+        }`}
+      >
+        <PlayCircleIcon
+          className={`transition-colors ${
+            inGuides ? "text-cocoa" : "text-muted group-hover:text-cocoa"
+          }`}
+        />
+        <span className="flex-1">How-to guides</span>
+        <ChevronDownIcon
+          className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <ul id="guides-menu" className="mt-1 ml-[1.6rem] flex flex-col gap-0.5 border-l border-cocoa/15 pl-3">
+          {GUIDES.map((g) => {
+            const href = `/dashboard/guides/${g.slug}`;
+            const active = pathname === href;
+            return (
+              <li key={g.slug}>
+                <Link
+                  href={href}
+                  aria-current={active ? "page" : undefined}
+                  className={`block rounded-full px-3 py-1.5 text-[.82rem] transition-colors ${
+                    active
+                      ? "bg-butter-soft font-semibold text-cocoa"
+                      : "text-ink-soft hover:bg-butter-soft hover:text-cocoa"
+                  }`}
+                >
+                  {g.title}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+type SidebarUser ={ name?: string | null; email?: string | null } | null;
 type PickStudent = { id: string; name: string; initial: string };
 
 export default function Sidebar({
@@ -34,7 +98,7 @@ export default function Sidebar({
   const initial = (user?.name?.[0] || user?.email?.[0] || "?").toUpperCase();
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-[260px] flex-none flex-col border-r border-cocoa/15 bg-white px-5 py-6 md:flex">
+    <aside className="sticky top-0 hidden h-screen w-[300px] flex-none flex-col border-r border-cocoa/15 bg-white px-5 py-6 overflow-y-auto md:flex">
       <Link href="/" className="mb-9 flex items-center gap-2.5 px-2">
         <Logo />
       </Link>
@@ -46,7 +110,7 @@ export default function Sidebar({
             <Link
               key={href}
               href={href}
-              className={`group flex items-center gap-3 rounded-full px-4 py-2.5 text-[.8rem] font-medium uppercase tracking-[.16em] transition-all duration-200 ${
+              className={`group flex items-center gap-3 rounded-full px-4 py-2.5 text-[.875rem] font-medium uppercase tracking-[.16em] transition-all duration-200 ${
                 active
                   ? "bg-butter text-cocoa"
                   : "text-ink-soft hover:bg-butter-soft hover:text-cocoa"
@@ -61,6 +125,8 @@ export default function Sidebar({
             </Link>
           );
         })}
+        <GuidesMenu pathname={pathname} />
+        <FeedbackButton inSidebar />
       </nav>
 
       <div className="mt-auto">
@@ -84,7 +150,7 @@ export default function Sidebar({
           <form action={signOutAction} className="mt-2.5">
             <button
               type="submit"
-              className="w-full rounded-full border-[1.5px] border-cocoa/25 px-3 py-2 text-[.72rem] font-semibold uppercase tracking-[.14em] text-cocoa transition-colors hover:border-cocoa hover:bg-white"
+              className="w-full rounded-full border-[1.5px] border-cocoa/25 px-3 py-2 text-[.78rem] font-semibold uppercase tracking-[.14em] text-cocoa transition-colors hover:border-cocoa hover:bg-white"
             >
               Sign out
             </button>

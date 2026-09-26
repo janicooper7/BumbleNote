@@ -10,6 +10,7 @@ import { SITE_URL } from "./app-url";
 import { PLANS } from "./plans";
 import { PAID_PLAN_IDS, PLAN_PRICES_USD } from "./pricing";
 import { SITE_DESCRIPTION } from "./site-meta";
+import { SOCIAL_LINKS } from "./socials";
 
 const ORG_ID = `${SITE_URL}/#organization`;
 
@@ -23,6 +24,9 @@ export const homepageStructuredData = {
       name: "BumbleNote",
       url: SITE_URL,
       logo: `${SITE_URL}/icon.png`,
+      // Ties the brand's social profiles to the site, so search engines and AI
+      // search treat them as one entity.
+      sameAs: SOCIAL_LINKS.map((s) => s.url),
     },
     {
       "@type": "WebSite",

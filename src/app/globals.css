@@ -126,6 +126,16 @@
   --color-mint:        #3f7fa6;
   --panel-text:        #dcebf3;
   --panel-dim:         #a9c4d4;
+
+  /* One step up the type scale: Jost sets small, and tutors read long drafts
+     here. Tailwind's text-* utilities read these tokens, so every size moves
+     together; the line-heights are unitless ratios and follow along. */
+  --text-xs:   0.8125rem;
+  --text-sm:   0.9375rem;
+  --text-base: 1.0625rem;
+  --text-lg:   1.1875rem;
+  --text-xl:   1.3125rem;
+  font-size: var(--text-base);
 }
 
 * { box-sizing: border-box; }
@@ -264,4 +274,10 @@ body::after {
   padding-inline: .14em;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
+}
+
+/* The feedback button's speech bubble: rises and fades in once the page settles. */
+@keyframes bn-nudge-in {
+  from { opacity: 0; transform: translateY(8px) scale(.97); }
+  to   { opacity: 1; transform: none; }
 }

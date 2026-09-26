@@ -4,7 +4,7 @@ import { useState } from "react";
 import { deleteAccount } from "@/app/actions/tutor";
 
 /**
- * The account-deletion card. Rendered last on the settings page — it's the most
+ * The account-deletion row. Rendered last on the settings page — it's the most
  * destructive control there, so nothing sits below it to be mis-clicked past.
  */
 export default function DeleteAccountCard({
@@ -46,37 +46,27 @@ export default function DeleteAccountCard({
   ].join(" and ");
 
   return (
-    <div className="mt-6 rounded-2xl border border-[#f0c4c2] bg-[#fdf1f1]/60 p-6 shadow-soft-sm">
-      <div className="font-semibold text-[#a23b38]">Delete account</div>
-      <p className="mt-1.5 text-sm text-ink-soft">
-        Permanently removes your account along with {losing}. This can&rsquo;t be undone.
-      </p>
-
-      {!open ? (
-        <button
-          onClick={() => setOpen(true)}
-          className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#f0c4c2] bg-white/70 px-4 py-2.5 text-sm font-semibold text-[#c0524e] transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:text-[#a23b38]"
-        >
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
+    // Collapsed, it's a quiet row rather than an alarm; the red only appears
+    // once the tutor has actually opened the confirmation.
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <p className="min-w-0 text-base text-ink-soft">
+          Permanently removes your account along with {losing}.
+        </p>
+        {!open && (
+          <button
+            onClick={() => setOpen(true)}
+            className="shrink-0 text-base font-medium text-ink-soft underline decoration-line underline-offset-4 transition-colors hover:text-[#a23b38] hover:decoration-[#f0c4c2]"
           >
-            <path d="M3 6h18" />
-            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-          </svg>
-          Delete my account
-        </button>
-      ) : (
-        <div className="mt-4 rounded-xl border border-[#f0c4c2] bg-white/80 p-4">
-          <label htmlFor="delete-confirm" className="text-sm font-medium text-[#a23b38]">
+            Delete account…
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div className="mt-4 rounded-xl border border-[#f0c4c2] bg-[#fdf1f1]/60 p-4">
+          <p className="mb-3 text-base text-ink-soft">This can&rsquo;t be undone.</p>
+          <label htmlFor="delete-confirm" className="text-base font-medium text-[#a23b38]">
             Type <span className="font-semibold">{email}</span> to confirm.
           </label>
           <input
@@ -86,9 +76,9 @@ export default function DeleteAccountCard({
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             placeholder={email}
-            className="mt-2.5 w-full rounded-xl border border-[#f0c4c2] bg-white px-3.5 py-2.5 text-sm text-ink outline-none transition-all focus:border-[#d9534f] focus:ring-4 focus:ring-[#d9534f]/20"
+            className="mt-2.5 w-full rounded-xl border border-[#f0c4c2] bg-white px-3.5 py-2.5 text-base text-ink outline-none transition-all focus:border-[#d9534f] focus:ring-4 focus:ring-[#d9534f]/20"
           />
-          {error && <p className="mt-2 text-xs font-medium text-[#a23b38]">{error}</p>}
+          {error && <p className="mt-2 text-sm font-medium text-[#a23b38]">{error}</p>}
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               onClick={handleDelete}

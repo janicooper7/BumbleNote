@@ -59,6 +59,14 @@ export const env = {
     if (explicit) return explicit;
     return (process.env.ADMIN_EMAILS ?? "").split(",")[0]?.trim() ?? "";
   },
+  /**
+   * Where tutors' "Leave feedback" messages go (src/app/actions/feedback.ts).
+   * Falls back to ALERT_EMAIL (and through it ADMIN_EMAILS); empty means the
+   * feedback button reports that it couldn't send.
+   */
+  get FEEDBACK_EMAIL() {
+    return process.env.FEEDBACK_EMAIL?.trim() || this.ALERT_EMAIL;
+  },
   // The From address for lesson-report emails. Resend's shared sandbox address
   // works for testing (only delivers to your own account email); set a verified
   // domain sender for real students.

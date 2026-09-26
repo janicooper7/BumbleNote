@@ -78,6 +78,8 @@ export default function SessionReview({
   const [deleting, setDeleting] = useState(false)
   const [confirmResend, setConfirmResend] = useState(false)
   const [resending, setResending] = useState(false)
+  // BCC the tutor on send/resend. Off by default: each copy is a billed email.
+  const [copyMe, setCopyMe] = useState(false)
   // A sent report is read-only until the tutor presses Edit.
   const [editing, setEditing] = useState(false)
   // Bumped after each delivery: the server deletes sent attachments, so the
@@ -162,7 +164,9 @@ export default function SessionReview({
         return
       }
       if (target === 'sent') {
-        const result = await sendLessonReport(session.id, payload)
+        const result = await sendLessonReport(session.id, payload, {
+          copyTutor: copyMe,
+        })
         // A failed send still persisted the edits as "confirmed" server-side,
         // so record that here instead of leaving the tutor thinking their
         // edits were lost along with the delivery.
@@ -206,7 +210,9 @@ export default function SessionReview({
   async function resend() {
     setResending(true)
     try {
-      const result = await resendLessonReport(session.id)
+      const result = await resendLessonReport(session.id, {
+        copyTutor: copyMe,
+      })
       if (!result.ok) {
         flash(result.error, 'err')
         return
@@ -259,38 +265,26 @@ export default function SessionReview({
         ← Back to overview
       </Link>
 
-      {/* success banner */}
-      {sent && (
-        <div className='mt-4 flex items-center gap-3 rounded-2xl border border-success/30 bg-success/10 p-4'>
-          <span className='grid h-9 w-9 flex-none place-items-center rounded-full bg-success text-white'>
-            ✓
-          </span>
-          <div>
-            <div className='font-semibold text-success-deep'>
-              Sent to {session.studentName}
-            </div>
-            <div className='text-sm text-success-deep/80'>
-              The student feedback PDF was emailed. Tutor notes saved to their
-              journey.
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* header */}
-      <div className='mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-6 shadow-soft-sm'>
-        <div className='flex items-center gap-4'>
+      <div className='mt-6 flex flex-wrap items-center justify-between gap-4 border-b border-line pb-6'>
+        <div className='flex min-w-0 items-center gap-4'>
           <Avatar initial={session.studentInitial} size={56} />
-          <div>
+          <div className='min-w-0'>
             <div className='font-display text-xl text-ink uppercase tracking-[.03em]'>
               {title}
             </div>
-            <div className='text-sm text-muted'>
-              {session.studentName} · {session.date} · {session.durationMin} min
+            <div className='text-base text-muted'>
+              <Link
+                href={`/dashboard/students/${session.studentId}`}
+                className='font-medium text-ink-soft hover:text-ink hover:underline'
+              >
+                {session.studentName}
+              </Link>{' '}
+              · {session.date} · {session.durationMin} min
             </div>
           </div>
         </div>
-        <div className='flex items-center gap-3'>
+        <div className='flex flex-wrap items-center gap-3'>
           {session.isTrial && (
             <span
               className='rounded-full bg-mint/15 px-2.5 py-1 text-xs font-semibold text-cocoa'
@@ -306,6 +300,13 @@ export default function SessionReview({
           <StatusBadge status={status} />
         </div>
       </div>
+
+      {sent && (
+        <Notice tone='success' title={`Sent to ${session.studentName}`}>
+          The student feedback PDF was emailed. Tutor notes saved to their
+          journey.
+        </Notice>
+      )}
 
       {!sent && mergeCandidates.length > 1 && (
         <MergePanel
@@ -323,18 +324,21 @@ export default function SessionReview({
       )}
 
       {/* two feedbacks */}
-      <div className='mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2'>
+      <div className='mt-8 grid grid-cols-1 gap-x-12 gap-y-10 lg:grid-cols-2'>
         {/* student feedback */}
-        <div className='overflow-hidden rounded-2xl border border-line bg-surface shadow-soft-sm'>
-          <div className='border-b border-line bg-brand-soft/40 px-6 py-4'>
-            <div className='text-xs font-bold uppercase tracking-wide text-brand-deep'>
-              For the student · emailed PDF
-            </div>
-            <div className='font-display text-xl text-ink uppercase tracking-[.03em]'>
-              Student feedback
-            </div>
-          </div>
-          <div className='flex flex-col gap-6 p-6'>
+        <section className='min-w-0'>
+          <ColumnHeader
+            tone='brand'
+            title='Student feedback'
+            hint='For the student · emailed as a PDF'
+            icon={
+              <>
+                <rect x='3' y='5' width='18' height='14' rx='2' />
+                <path d='m3 7 9 6 9-6' />
+              </>
+            }
+          />
+          <div className='divide-y divide-line border-t border-line [&>*]:py-6'>
             <VocabEditor vocab={vocab} setVocab={setVocab} disabled={locked} />
             <ListEditor
               title='Went well'
@@ -384,32 +388,35 @@ export default function SessionReview({
               />
             </div>
           </div>
-        </div>
+        </section>
 
         {/* tutor notes */}
-        <div className='overflow-hidden rounded-2xl border border-line bg-surface shadow-soft-sm'>
-          <div className='border-b border-line bg-mint/10 px-6 py-4'>
-            <div className='text-xs font-bold uppercase tracking-wide text-cocoa'>
-              For you · private notes
-            </div>
-            <div className='font-display text-xl text-ink uppercase tracking-[.03em]'>
-              Tutor notes
-            </div>
-          </div>
-          <div className='flex flex-col gap-6 p-6'>
-            <div className='rounded-xl border border-mint/30 bg-mint/5 p-4'>
-              <div className='mb-3 flex items-center justify-between'>
+        <section className='min-w-0'>
+          <ColumnHeader
+            tone='mint'
+            title='Tutor notes'
+            hint='For you · private, never sent'
+            icon={
+              <>
+                <rect x='5' y='11' width='14' height='10' rx='2' />
+                <path d='M8 11V7a4 4 0 0 1 8 0v4' />
+              </>
+            }
+          />
+          <div className='divide-y divide-line border-t border-line [&>*]:py-6'>
+            <div>
+              <div className='mb-3 flex items-baseline justify-between gap-3'>
                 <SectionLabel>Lesson metrics</SectionLabel>
-                <span className='text-[0.65rem] font-medium uppercase tracking-wide text-muted'>
+                <span className='text-xs font-medium uppercase tracking-wide text-muted'>
                   Measured from the lesson
                 </span>
               </div>
               <TalkTimeMeter studentPct={session.talkTime.student} />
-              <div className='mt-4 flex items-center justify-between gap-3 border-t border-mint/30 pt-3'>
+              <div className='mt-4 flex items-center justify-between gap-3'>
                 <span className='text-sm font-medium text-ink-soft'>
                   Observed level this lesson
                 </span>
-                <span className='rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-cocoa'>
+                <span className='rounded-full bg-mint/15 px-3 py-1 text-sm font-semibold text-cocoa'>
                   {session.observedLevel}
                 </span>
               </div>
@@ -425,12 +432,9 @@ export default function SessionReview({
             {student && student.focus.length > 0 && (
               <div>
                 <SectionLabel>Focus areas</SectionLabel>
-                <ul className='flex flex-col gap-2'>
+                <ul className='flex flex-col gap-2 border-l-[3px] border-l-mint/60 pl-4'>
                   {student.focus.map((f, i) => (
-                    <li
-                      key={i}
-                      className='rounded-xl border border-mint/30 bg-mint/5 px-3.5 py-2.5 text-sm text-ink-soft'
-                    >
+                    <li key={i} className='text-base text-ink-soft'>
                       {f}
                     </li>
                   ))}
@@ -467,23 +471,25 @@ export default function SessionReview({
               />
             </div>
           </div>
-        </div>
+        </section>
       </div>
 
       {/* actions */}
       {!sent && missingEmail && (
-        <div className='mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber/30 bg-amber/10 p-4'>
-          <div className='text-sm font-medium text-brand-deep'>
-            No email on file for {session.studentName} — add one to send the
-            report.
-          </div>
-          <Link
-            href={`/dashboard/students/${session.studentId}`}
-            className='rounded-lg border border-amber/40 bg-white/70 px-3.5 py-2 text-sm font-semibold text-brand-deep transition-colors hover:bg-white'
-          >
-            Add email →
-          </Link>
-        </div>
+        <Notice
+          tone='amber'
+          title={`No email on file for ${session.studentName}`}
+          action={
+            <Link
+              href={`/dashboard/students/${session.studentId}`}
+              className='text-sm font-semibold text-brand-deep hover:underline'
+            >
+              Add email →
+            </Link>
+          }
+        >
+          Add one to send the report.
+        </Notice>
       )}
 
       <div className='sticky bottom-4 mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-surface/90 p-4 shadow-soft-md backdrop-blur'>
@@ -593,6 +599,11 @@ export default function SessionReview({
                 <span className='text-sm font-medium text-ink-soft'>
                   Email the report to {session.studentName.split(' ')[0]} again?
                 </span>
+                <CopyMeCheckbox
+                  checked={copyMe}
+                  onChange={setCopyMe}
+                  disabled={resending}
+                />
                 <button
                   onClick={resend}
                   disabled={resending}
@@ -626,21 +637,52 @@ export default function SessionReview({
               </button>
             )
           ) : (
-            <button
-              onClick={() => save('sent')}
-              disabled={saving || missingEmail || !confirmed}
-              title={
-                !confirmed ? 'Confirm the lesson before sending.' : undefined
-              }
-              className='inline-flex items-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]'
-              style={{ boxShadow: '0 10px 24px -10px rgba(65,46,40,.45)' }}
-            >
-              {pending === 'sent' ? 'Sending…' : 'Send to student →'}
-            </button>
+            <>
+              <CopyMeCheckbox
+                checked={copyMe}
+                onChange={setCopyMe}
+                disabled={saving || missingEmail || !confirmed}
+              />
+              <button
+                onClick={() => save('sent')}
+                disabled={saving || missingEmail || !confirmed}
+                title={
+                  !confirmed ? 'Confirm the lesson before sending.' : undefined
+                }
+                className='inline-flex items-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]'
+                style={{ boxShadow: '0 10px 24px -10px rgba(65,46,40,.45)' }}
+              >
+                {pending === 'sent' ? 'Sending…' : 'Send to student →'}
+              </button>
+            </>
           )}
         </div>
       </div>
     </div>
+  )
+}
+
+/** Opt-in BCC of the report to the tutor, shown beside Send / Resend. */
+function CopyMeCheckbox({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean
+  onChange: (checked: boolean) => void
+  disabled?: boolean
+}) {
+  return (
+    <label className='inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-ink-soft has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60'>
+      <input
+        type='checkbox'
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className='h-4 w-4 accent-[#412e28]'
+      />
+      Send me a copy
+    </label>
   )
 }
 
@@ -715,7 +757,7 @@ function MergePanel({
   }
 
   return (
-    <div className='mt-6 rounded-2xl border border-amber/30 bg-amber/10 p-5'>
+    <div className='mt-6 rounded-r-lg border-l-[3px] border-l-amber bg-amber/10 py-4 pl-4 pr-4'>
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
           <div className='font-semibold text-brand-deep'>
@@ -733,23 +775,23 @@ function MergePanel({
         {!open && (
           <button
             onClick={() => setOpen(true)}
-            className='rounded-lg border border-amber/40 bg-white/70 px-3.5 py-2 text-sm font-semibold text-brand-deep transition-colors hover:bg-white'
+            className='text-sm font-semibold text-brand-deep hover:underline'
           >
-            Combine recordings
+            Combine recordings →
           </button>
         )}
       </div>
 
       {open && (
         <div className='mt-4'>
-          <ul className='flex flex-col gap-2'>
+          <ul className='divide-y divide-amber/25 border-y border-amber/25'>
             {candidates.map((c) => {
               const isSelf = c.id === sessionId
               return (
                 <li key={c.id}>
                   <label
-                    className={`flex items-center gap-3 rounded-xl border border-amber/30 bg-white/70 px-3.5 py-2.5 text-sm ${
-                      isSelf ? '' : 'cursor-pointer hover:bg-white'
+                    className={`-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 text-sm ${
+                      isSelf ? '' : 'cursor-pointer hover:bg-white/60'
                     }`}
                   >
                     <input
@@ -810,7 +852,7 @@ function MergePanel({
               <button
                 onClick={() => setOpen(false)}
                 disabled={merging}
-                className='rounded-lg border border-line bg-white/60 px-3.5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-white disabled:opacity-60'
+                className='px-2 py-2 text-sm font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-60'
               >
                 Cancel
               </button>
@@ -831,6 +873,79 @@ function MergePanel({
           </p>
         </div>
       )}
+    </div>
+  )
+}
+
+/** The heading over each of the two feedback columns, in the overview's style. */
+function ColumnHeader({
+  tone,
+  title,
+  hint,
+  icon,
+}: {
+  tone: 'brand' | 'mint'
+  title: string
+  hint: string
+  icon: React.ReactNode
+}) {
+  return (
+    <header className='mb-4 flex items-center gap-3'>
+      <span
+        className={`grid h-10 w-10 flex-none place-items-center rounded-xl ${
+          tone === 'brand'
+            ? 'bg-brand-soft text-brand-deep'
+            : 'bg-mint/15 text-mint'
+        }`}
+      >
+        <svg
+          width='18'
+          height='18'
+          viewBox='0 0 24 24'
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='2'
+          strokeLinecap='round'
+          strokeLinejoin='round'
+          aria-hidden
+        >
+          {icon}
+        </svg>
+      </span>
+      <div className='min-w-0'>
+        <h2 className='text-lg font-semibold text-ink'>{title}</h2>
+        <p className='text-sm text-muted'>{hint}</p>
+      </div>
+    </header>
+  )
+}
+
+const noticeTones = {
+  success: { bar: 'border-l-success bg-success/10', title: 'text-success-deep' },
+  amber: { bar: 'border-l-amber bg-amber/10', title: 'text-brand-deep' },
+}
+
+/** A one-line status note: a coloured bar down the side rather than a boxed card. */
+function Notice({
+  tone,
+  title,
+  action,
+  children,
+}: {
+  tone: keyof typeof noticeTones
+  title: string
+  action?: React.ReactNode
+  children?: React.ReactNode
+}) {
+  return (
+    <div
+      className={`mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-r-lg border-l-[3px] py-3 pl-4 pr-4 ${noticeTones[tone].bar}`}
+    >
+      <div className='min-w-0'>
+        <div className={`font-semibold ${noticeTones[tone].title}`}>{title}</div>
+        {children && <div className='text-sm text-ink-soft'>{children}</div>}
+      </div>
+      {action}
     </div>
   )
 }
@@ -1091,12 +1206,9 @@ function VocabEditor({
   return (
     <div>
       <SectionLabel>New vocabulary</SectionLabel>
-      <div className='flex flex-col gap-3'>
+      <div className='divide-y divide-line border-l-[3px] border-l-brand-line'>
         {vocab.map((v, i) => (
-          <div
-            key={i}
-            className='rounded-xl border border-brand-line bg-white/60 p-3'
-          >
+          <div key={i} className='py-3 pl-4 first:pt-1 last:pb-1'>
             <div className='flex items-start gap-2'>
               <input
                 value={v.term}

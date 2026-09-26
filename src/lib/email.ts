@@ -3,6 +3,7 @@
 import { Resend } from "resend";
 import { env } from "./env";
 import type { Session } from "./mock";
+import { SOCIAL_LINKS } from "./socials";
 
 let client: Resend | undefined;
 function getClient(): Resend {
@@ -17,6 +18,56 @@ function getClient(): Resend {
  */
 const PUBLIC_ORIGIN =
   process.env.APP_URL?.trim().replace(/\/+$/, "") || "https://bumblenote.com";
+
+/**
+ * The social-kit palette (globals.css → cocoa / butter / sky), spelled out
+ * because email clients can't read CSS variables. Same values as the waitlist
+ * email below.
+ */
+const C = {
+  page: "#fbf8f1",
+  card: "#ffffff",
+  cocoa: "#412e28",
+  soft: "#6b5245",
+  muted: "#8a7466",
+  line: "#eadfce",
+  butter: "#fff0b5",
+  sky: "#c1d9e6",
+};
+const SERIF = `'Fraunces', Georgia, 'Times New Roman', serif`;
+const SANS = `'Hanken Grotesk', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif`;
+const FONTS_LINK = `<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400&family=Hanken+Grotesk:wght@400;700&display=swap" rel="stylesheet">`;
+
+/** Brown pill with butter text, like the dashboard's primary buttons. */
+function button(href: string, label: string): string {
+  return `<a href="${href}" style="display:inline-block;background:${C.cocoa};color:${C.butter};text-decoration:none;font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase;padding:13px 26px;border-radius:999px;">${label}</a>`;
+}
+
+/**
+ * Shared chrome for every product email: logo and serif heading on white,
+ * a sky rule under the header, cocoa body text and a soft footer band.
+ */
+function frame(opts: { heading: string; subheading?: string; body: string; footer: string; fontSize?: number }): string {
+  const { heading, subheading, body, footer, fontSize = 16 } = opts;
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
+${FONTS_LINK}</head>
+<body style="margin:0;padding:0;background:${C.page};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.page};">
+<tr><td align="center" style="padding:28px 12px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:${C.card};border-radius:12px;overflow:hidden;">
+    <tr><td style="padding:28px 32px 20px;border-bottom:3px solid ${C.sky};">
+      <img src="${PUBLIC_ORIGIN}/logo-lockup.png" width="84" height="48" alt="BumbleNote" style="display:block;border:0;width:84px;height:48px;margin-bottom:16px;">
+      <div style="font-family:${SERIF};font-size:26px;line-height:1.2;color:${C.cocoa};">${escapeHtml(heading)}</div>
+      ${subheading ? `<div style="font-family:${SANS};font-size:14px;color:${C.muted};margin-top:6px;">${escapeHtml(subheading)}</div>` : ""}
+    </td></tr>
+    <tr><td style="padding:26px 32px 30px;font-family:${SANS};font-size:${fontSize}px;line-height:1.6;color:${C.cocoa};">${body}</td></tr>
+    <tr><td style="background:${C.page};padding:16px 32px;font-family:${SANS};font-size:12px;line-height:1.5;color:${C.muted};">${footer}</td></tr>
+  </table>
+</td></tr></table>
+</body></html>`;
+}
 
 function lessonTopic(title: string): string {
   return title.includes("·") ? title.split("·").slice(1).join("·").trim() : title;
@@ -51,40 +102,33 @@ export async function sendLessonReportEmail(args: {
   // Still mention extra files, so the student knows they're from their tutor
   // and not something to be wary of.
   const attachmentsLine = attachments.length
-    ? `<p style="margin:0 0 16px;color:#3f4750;">
+    ? `<p style="margin:0 0 16px;color:${C.soft};">
          I've also attached ${attachments.length === 1 ? "an extra file" : "a few extra files"} for you to look through.
        </p>`
     : "";
 
-  const html = `
-  <div style="background:#fffaf0;padding:28px 0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:17px;line-height:1.6;">
-    <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #f0e6d6;">
-      <div style="background:#16233d;padding:26px 30px;">
-        <div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#fdb300;">BUMBLENOTE</div>
-        <div style="font-size:25px;font-weight:700;color:#ffffff;margin-top:6px;line-height:1.3;">${escapeHtml(topic)}</div>
-        <div style="font-size:15px;color:#c7d8f0;margin-top:4px;">${escapeHtml(session.date)}</div>
-      </div>
-      <div style="padding:28px 30px;color:#1f2430;font-size:17px;">
+  const html = frame({
+    heading: topic,
+    subheading: session.date,
+    fontSize: 17,
+    body: `
         <p style="margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>
-        <p style="margin:0 0 16px;color:#3f4750;">
+        <p style="margin:0 0 16px;color:${C.soft};">
           Great work in the lesson! Your personal session report is attached as a PDF,
           with everything you covered together in one place.
         </p>
-        <p style="margin:0 0 16px;color:#3f4750;">
+        <p style="margin:0 0 16px;color:${C.soft};">
           Take a few minutes to open it while the lesson is still fresh — it's the
           easiest way to lock in what you learned and keep your progress going.
         </p>
         ${attachmentsLine}
-        <p style="margin:24px 0 0;color:#3f4750;">See you next time,<br/>${escapeHtml(tutorName)}</p>
-      </div>
-      <div style="padding:16px 30px;border-top:1px solid #f2ead9;font-size:13px;color:#8b909a;">
+        <p style="margin:24px 0 0;color:${C.soft};">See you next time,<br/><span style="font-family:${SERIF};font-size:20px;color:${C.cocoa};">${escapeHtml(tutorName)}</span></p>`,
+    footer: `
         Sent with BumbleNote. ${escapeHtml(tutorName)} recorded your lesson with your
         agreement to write this report, and the recording has since been deleted.
-        <a href="${PUBLIC_ORIGIN}/privacy#students" style="color:#8b909a;">How your data is handled</a>
-        &middot; questions go to ${escapeHtml(tutorName)} &mdash; just reply to this email.
-      </div>
-    </div>
-  </div>`;
+        <a href="${PUBLIC_ORIGIN}/privacy#students" style="color:${C.soft};">How your data is handled</a>
+        &middot; questions go to ${escapeHtml(tutorName)} &mdash; just reply to this email.`,
+  });
 
   const { error } = await getClient().emails.send({
     from: env.EMAIL_FROM,
@@ -109,21 +153,9 @@ export async function sendLessonReportEmail(args: {
   }
 }
 
-/** Shared chrome so the reset emails look like the lesson report above. */
+/** The smaller emails (password reset, alerts, feedback) in the same frame. */
 function shell(heading: string, body: string): string {
-  return `
-  <div style="background:#fffaf0;padding:28px 0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
-    <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #f0e6d6;">
-      <div style="background:#16233d;padding:24px 28px;">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:#fdb300;">BUMBLENOTE</div>
-        <div style="font-size:20px;font-weight:700;color:#ffffff;margin-top:6px;">${escapeHtml(heading)}</div>
-      </div>
-      <div style="padding:26px 28px;color:#1f2430;">${body}</div>
-      <div style="padding:14px 28px;border-top:1px solid #f2ead9;font-size:12px;color:#8b909a;">
-        Sent with BumbleNote
-      </div>
-    </div>
-  </div>`;
+  return frame({ heading, body, footer: "Sent with BumbleNote" });
 }
 
 /**
@@ -146,17 +178,17 @@ export async function sendPasswordResetEmail(args: {
   const html = shell(
     "Reset your password",
     `<p style="margin:0 0 12px;">Hi ${escapeHtml(firstName)},</p>
-     <p style="margin:0 0 20px;color:#3f4750;">
+     <p style="margin:0 0 20px;color:${C.soft};">
        Someone asked to reset the password on your BumbleNote account. Click below
        to choose a new one — the link works once and expires in ${ttlMinutes} minutes.
      </p>
      <p style="margin:0 0 20px;">
-       <a href="${safeUrl}" style="display:inline-block;background:#fdb300;color:#1f2430;text-decoration:none;font-weight:700;padding:13px 26px;border-radius:12px;">Choose a new password</a>
+       ${button(safeUrl, "Choose a new password")}
      </p>
-     <p style="margin:0 0 20px;font-size:13px;color:#8b909a;word-break:break-all;">
+     <p style="margin:0 0 20px;font-size:13px;color:${C.muted};word-break:break-all;">
        Or paste this into your browser:<br/>${safeUrl}
      </p>
-     <p style="margin:0;color:#3f4750;">
+     <p style="margin:0;color:${C.soft};">
        If this wasn't you, ignore this email — your password stays as it is.
      </p>`,
   );
@@ -190,14 +222,14 @@ export async function sendPasswordResetGoogleEmail(args: {
   const html = shell(
     "You sign in with Google",
     `<p style="margin:0 0 12px;">Hi ${escapeHtml(firstName)},</p>
-     <p style="margin:0 0 20px;color:#3f4750;">
+     <p style="margin:0 0 20px;color:${C.soft};">
        Someone asked to reset the password on your BumbleNote account, but there's
        no password to reset — this account signs in with Google.
      </p>
      <p style="margin:0 0 20px;">
-       <a href="${safeUrl}" style="display:inline-block;background:#fdb300;color:#1f2430;text-decoration:none;font-weight:700;padding:13px 26px;border-radius:12px;">Continue with Google</a>
+       ${button(safeUrl, "Continue with Google")}
      </p>
-     <p style="margin:0;color:#3f4750;">
+     <p style="margin:0;color:${C.soft};">
        If this wasn't you, ignore this email — nothing about your account changed.
      </p>`,
   );
@@ -236,15 +268,15 @@ export async function sendOperatorAlertEmail(args: {
     .map(
       ([key, value]) =>
         `<tr>
-           <td style="padding:6px 14px 6px 0;color:#8b909a;white-space:nowrap;vertical-align:top;">${escapeHtml(key)}</td>
-           <td style="padding:6px 0;color:#1f2430;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-word;">${escapeHtml(value)}</td>
+           <td style="padding:6px 14px 6px 0;color:${C.muted};white-space:nowrap;vertical-align:top;">${escapeHtml(key)}</td>
+           <td style="padding:6px 0;color:${C.cocoa};font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-word;">${escapeHtml(value)}</td>
          </tr>`,
     )
     .join("");
 
   const html = shell(
     subject,
-    `<p style="margin:0 0 18px;color:#3f4750;">${escapeHtml(summary)}</p>
+    `<p style="margin:0 0 18px;color:${C.soft};">${escapeHtml(summary)}</p>
      <table style="width:100%;border-collapse:collapse;font-size:13px;">${rows}</table>`,
   );
 
@@ -258,14 +290,48 @@ export async function sendOperatorAlertEmail(args: {
   if (error) throw new Error(explainSendError(error.message));
 }
 
+/** What a "Get in touch" message is about, as the tutor tagged it. */
+export type ContactTopic = "problem" | "feedback" | "question";
+
+const CONTACT_LABEL: Record<ContactTopic, string> = {
+  problem: "Problem report",
+  feedback: "Feedback",
+  question: "Question",
+};
+
 /**
- * Where we post, for the "follow along" line in waitlist emails. Leave the list
- * empty and the line disappears.
+ * A tutor's message from the dashboard "Get in touch" button, to the operator.
+ * Reply-To is the tutor, so answering it goes straight back to them. The topic
+ * leads the subject, so problem reports stand out in the inbox.
  */
-const SOCIAL_LINKS: { name: string; url: string }[] = [
-  { name: "Instagram", url: "https://www.instagram.com/bumblenote_" },
-  { name: "TikTok", url: "https://www.tiktok.com/@bumblenote" },
-];
+export async function sendFeedbackEmail(args: {
+  to: string;
+  tutorName: string;
+  tutorEmail: string;
+  message: string;
+  page: string;
+  topic?: ContactTopic;
+}): Promise<void> {
+  const { to, tutorName, tutorEmail, message, page, topic } = args;
+  const label = topic ? CONTACT_LABEL[topic] : "Message";
+
+  const html = shell(
+    `New ${label.toLowerCase()}`,
+    `<p style="margin:0 0 6px;color:${C.cocoa};font-weight:600;">${escapeHtml(tutorName)}</p>
+     <p style="margin:0 0 18px;color:${C.muted};font-size:13px;">${escapeHtml(tutorEmail)} · from ${escapeHtml(page)}</p>
+     <div style="white-space:pre-wrap;color:${C.soft};line-height:1.6;">${escapeHtml(message)}</div>`,
+  );
+
+  const { error } = await getClient().emails.send({
+    from: env.EMAIL_FROM,
+    to,
+    replyTo: tutorEmail,
+    subject: `[BumbleNote] ${label} from ${tutorName}`,
+    html,
+  });
+
+  if (error) throw new Error(explainSendError(error.message));
+}
 
 /**
  * The waitlist welcome email (launch sequence, email 1). Callers go through

@@ -6,7 +6,7 @@ import Reveal from "../Reveal";
 import CtaLink from "../CtaLink";
 import { useSignedIn } from "../SignedIn";
 import { Asterisk, Display, Eyebrow, Script } from "../bn/Bn";
-import { MIN_COUNTED_LESSON_MIN, PLANS } from "@/lib/plans";
+import { PLANS } from "@/lib/plans";
 import { annualSavingUsd, formatUsd, PLAN_PRICES_USD, type PaidPlanId } from "@/lib/pricing";
 
 // Prices and lesson limits come straight from the same modules billing and quota
@@ -199,8 +199,8 @@ export default function Pricing() {
           })}
         </div>
 
-        <Reveal className="mx-auto mt-12 max-w-2xl text-center text-[.97rem] text-butter/80">
-          {!signedIn && (
+        {!signedIn && (
+          <Reveal className="mx-auto mt-12 max-w-2xl text-center text-[.97rem] text-butter/80">
             <p>
               Choosing a plan takes you to checkout once your account is created. Want to
               try first?{" "}
@@ -209,12 +209,8 @@ export default function Pricing() {
               </Link>{" "}
               — 1 student, 2 lessons, no card required.
             </p>
-          )}
-          <p className={signedIn ? "" : "mt-2"}>
-            A recording counts as a lesson once it runs {MIN_COUNTED_LESSON_MIN} minutes or
-            longer, so a call that drops early doesn&apos;t cost you one.
-          </p>
-        </Reveal>
+          </Reveal>
+        )}
       </div>
     </section>
   );

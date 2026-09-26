@@ -104,3 +104,20 @@ export function PersonAvatarIcon({ className, size = 20 }: IconProps) {
     </svg>
   );
 }
+
+export function PlayCircleIcon({ className, size = 20 }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m10 8.5 5 3.5-5 3.5v-7Z" />
+    </svg>
+  );
+}
+
+export function ChevronDownIcon({ className, size = 16 }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} aria-hidden>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}

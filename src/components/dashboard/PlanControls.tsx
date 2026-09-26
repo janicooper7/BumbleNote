@@ -73,7 +73,7 @@ export default function PlanControls({
   return (
     <div className="mt-5 grid gap-4">
       {pause && (
-        <div className="rounded-xl border border-brand-line bg-brand-soft/50 px-4 py-3 text-sm text-ink-soft">
+        <div className="rounded-xl border border-brand-line bg-brand-soft/50 px-4 py-3 text-base text-ink-soft">
           <div className="font-semibold text-ink">
             {pause.started ? `Paused until ${pause.until}` : `Pause scheduled from ${pause.from}`}
           </div>
@@ -86,7 +86,7 @@ export default function PlanControls({
             <button
               onClick={() => act(cancelPause)}
               disabled={busy}
-              className="mt-3 rounded-lg border border-brand-line bg-white px-3 py-1.5 text-[.84rem] font-semibold text-ink transition-colors hover:border-brand disabled:opacity-60"
+              className="mt-3 rounded-lg border border-brand-line bg-white px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:border-brand disabled:opacity-60"
             >
               {busy ? "Cancelling…" : "Cancel the pause"}
             </button>
@@ -95,7 +95,7 @@ export default function PlanControls({
       )}
 
       {pendingPlan && (
-        <div className="rounded-xl border border-brand-line bg-brand-soft/50 px-4 py-3 text-sm text-ink-soft">
+        <div className="rounded-xl border border-brand-line bg-brand-soft/50 px-4 py-3 text-base text-ink-soft">
           <div className="font-semibold text-ink">
             Downgrade to {pendingPlan.name} on {pendingPlan.at}
           </div>
@@ -114,24 +114,24 @@ export default function PlanControls({
       )}
 
       <div>
-        <div className="text-[.84rem] font-semibold text-ink">Change plan</div>
+        <div className="text-sm font-semibold text-ink">Change plan</div>
         {locked ? (
-          <p className="mt-1 text-[.82rem] text-muted">{locked}</p>
+          <p className="mt-1 text-sm text-muted">{locked}</p>
         ) : (
-          <ul className="mt-2 grid gap-2">
+          <ul className="mt-2 divide-y divide-line border-y border-line">
             {options.map((o) => {
                 const open = confirming?.kind === "plan" && confirming.plan.id === o.id;
                 return (
-                  <li key={o.id} className="rounded-xl border border-line bg-white/60 px-4 py-3">
+                  <li key={o.id} className="py-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <div className="font-semibold text-ink">{o.name}</div>
-                        <div className="text-[.82rem] text-muted">
+                        <div className="text-sm text-muted">
                           {o.lessons} lessons a month · {o.price}
                         </div>
                       </div>
                       {pendingPlan?.id === o.id ? (
-                        <span className="rounded-full bg-brand-soft px-3 py-1 text-[.78rem] font-semibold text-ink-soft">
+                        <span className="rounded-full bg-brand-soft px-3 py-1 text-sm font-semibold text-ink-soft">
                           From {pendingPlan.at}
                         </span>
                       ) : !open && (
@@ -143,8 +143,8 @@ export default function PlanControls({
                           disabled={busy}
                           className={
                             o.direction === "up"
-                              ? "rounded-full bg-cocoa px-3 py-1.5 text-[.84rem] font-semibold uppercase tracking-[.1em] text-butter transition-all hover:-translate-y-0.5 hover:bg-cocoa-lift"
-                              : "rounded-lg border border-brand-line bg-white px-3 py-1.5 text-[.84rem] font-semibold text-ink transition-colors hover:border-brand"
+                              ? "rounded-full bg-cocoa px-3 py-1.5 text-sm font-semibold uppercase tracking-[.1em] text-butter transition-all hover:-translate-y-0.5 hover:bg-cocoa-lift"
+                              : "rounded-lg border border-brand-line bg-white px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:border-brand"
                           }
                         >
                           {o.direction === "up" ? "Upgrade" : "Downgrade"}
@@ -175,9 +175,9 @@ export default function PlanControls({
 
       {canPause && nextPause && (
         <div>
-          <div className="text-[.84rem] font-semibold text-ink">Taking a break?</div>
+          <div className="text-sm font-semibold text-ink">Taking a break?</div>
           {pendingPlan ? (
-            <p className="mt-1 text-[.82rem] text-muted">
+            <p className="mt-1 text-sm text-muted">
               You can pause once your switch to {pendingPlan.name} has happened, or cancel the
               downgrade above to pause sooner.
             </p>
@@ -196,7 +196,7 @@ export default function PlanControls({
             />
           ) : (
             <>
-              <p className="mt-1 text-[.82rem] text-muted">
+              <p className="mt-1 text-sm text-muted">
                 Skip your next billing month, {nextPause.from} to {nextPause.until}, without
                 cancelling. Billing resumes automatically.
               </p>
@@ -206,7 +206,7 @@ export default function PlanControls({
                   setConfirming({ kind: "pause" });
                 }}
                 disabled={busy}
-                className="mt-2 rounded-lg border border-brand-line bg-white px-3 py-1.5 text-[.84rem] font-semibold text-ink transition-colors hover:border-brand"
+                className="mt-2 rounded-lg border border-brand-line bg-white px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:border-brand"
               >
                 Pause next month
               </button>
@@ -218,7 +218,7 @@ export default function PlanControls({
       {error && (
         <div
           role="alert"
-          className="rounded-xl border border-[#f1c4c2] bg-[#fdf0ef] px-4 py-2.5 text-sm text-[#a8403c]"
+          className="rounded-xl border border-[#f1c4c2] bg-[#fdf0ef] px-4 py-2.5 text-base text-[#a8403c]"
         >
           {error}
         </div>
@@ -242,19 +242,19 @@ function Confirm({
 }) {
   return (
     <div className="mt-3 rounded-lg border border-brand-line bg-white/80 p-3">
-      <p className="text-[.84rem] text-ink-soft">{text}</p>
+      <p className="text-sm text-ink-soft">{text}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           onClick={onConfirm}
           disabled={busy}
-          className="rounded-full bg-cocoa px-3 py-1.5 text-[.84rem] font-semibold uppercase tracking-[.1em] text-butter transition-all hover:bg-cocoa-lift disabled:opacity-60"
+          className="rounded-full bg-cocoa px-3 py-1.5 text-sm font-semibold uppercase tracking-[.1em] text-butter transition-all hover:bg-cocoa-lift disabled:opacity-60"
         >
           {busy ? "Working…" : confirmLabel}
         </button>
         <button
           onClick={onCancel}
           disabled={busy}
-          className="rounded-lg border border-line px-3 py-1.5 text-[.84rem] font-semibold text-ink-soft transition-colors hover:text-ink"
+          className="rounded-lg border border-line px-3 py-1.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink"
         >
           Cancel
         </button>

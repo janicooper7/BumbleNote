@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import BeeFlight from "@/components/BeeFlight";
 import SiteHeader from "@/components/SiteHeader";
 import Hero from "@/components/sections/Hero";
+import DailyNote from "@/components/sections/DailyNote";
 import PlatformStrip from "@/components/sections/PlatformStrip";
 import HowItWorks from "@/components/sections/HowItWorks";
 import FeedbackSplit from "@/components/sections/FeedbackSplit";
@@ -45,6 +46,7 @@ export default function Home() {
         <BeeFlight />
         <main>
           <Hero />
+          <DailyNote />
           <PlatformStrip />
           <HowItWorks />
           <FeedbackSplit />

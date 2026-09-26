@@ -59,7 +59,7 @@ Tutors are the controllers for student data, so strictly this is their DPIA. Bum
 | R6 | Breach of the database or blob store | Low | High | TLS; tenant-scoped queries; operator-only access; hashed reset and capture tokens | Low–Medium: single operator, no formal access review |
 | R7 | US transfer exposes data to foreign access | Low | Medium | DPF / IDTA Addendum; database in the UK; audio held briefly | Low |
 | R8 | Tutor's account deleted but data survives | Low | Medium | Cascade delete; backups roll off within `backupRetentionDays` | Low |
-| R9 | Report emailed to the wrong address | Medium | Medium | Tutor enters and confirms the address; tutor gets a BCC copy | Medium |
+| R9 | Report emailed to the wrong address | Medium | Medium | Tutor enters and confirms the address; tutor can opt in to a BCC copy | Medium |
 
 ## 5. Actions outstanding
 

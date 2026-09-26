@@ -44,7 +44,7 @@ export default function DashboardError({
           </button>
 
           {error.digest && (
-            <p className="mt-7 text-[.8rem] text-muted">
+            <p className="mt-7 text-sm text-muted">
               Reference{" "}
               <code className="font-mono text-ink-soft">{error.digest}</code> — quote
               it if you get in touch.

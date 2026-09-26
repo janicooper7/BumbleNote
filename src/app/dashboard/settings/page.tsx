@@ -41,103 +41,125 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
     <>
       <Topbar title="Settings" subtitle="Account, billing, and preferences" />
       <div className="px-6 py-8 lg:px-10">
-        <div className="grid max-w-5xl gap-4">
-          {/* Profile and plan sit side by side on wide screens. `items-start`
-              keeps the shorter plan card at its natural height instead of
-              stretching it to match the profile form. */}
-          <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+        <div className="max-w-4xl divide-y divide-line">
+          <Section title="Profile" description="How you appear to students.">
             <ProfileSettings
               name={tutor.name}
               email={tutor.email}
               memberSince={memberSince}
             />
+          </Section>
 
-            {/* Right column: the plan, then the billing that will govern it. */}
-            <div className="grid gap-4">
-              {/* Plan & usage — what quota.ts will actually enforce. */}
-              <div className="rounded-2xl border border-line bg-surface p-6 shadow-soft-sm">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <div className="font-semibold text-ink">Plan &amp; usage</div>
-                  <span className="rounded-full bg-brand-soft px-3 py-1 text-[.82rem] font-semibold text-brand-deep">
-                    {lessons.plan.name}
-                  </span>
+          {/* What quota.ts will actually enforce. */}
+          <Section
+            title="Plan & usage"
+            description={
+              <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-sm font-semibold text-brand-deep">
+                {lessons.plan.name}
+              </span>
+            }
+          >
+            {unlimited ? (
+              <>
+                <div className="text-base text-ink-soft">
+                  <span className="font-semibold text-ink">{lessons.used}</span>{" "}
+                  {lessons.used === 1 ? "lesson" : "lessons"} recorded this month
                 </div>
-
-                {unlimited ? (
-                  <>
-                    <div className="mt-5 text-sm text-ink-soft">
-                      <span className="font-semibold text-ink">{lessons.used}</span>{" "}
-                      {lessons.used === 1 ? "lesson" : "lessons"} recorded this month
-                    </div>
-                    {nearFairUse && (
-                      <p className="mt-2 text-[.82rem] text-muted">
-                        Fair use caps your plan at {lessons.limit} lessons a month,
-                        resetting on the 1st.
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div className="mt-5 text-sm text-ink-soft">
-                      <span className="font-semibold text-ink">
-                        {lessons.used} of {lessons.limit}
-                      </span>{" "}
-                      {lessons.plan.lessonWindow === "lifetime"
-                        ? "free trial lessons used"
-                        : lessons.rollover
-                          ? "lessons used this billing month"
-                          : "lessons used this month"}
-                    </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-brand-soft">
-                      <div
-                        className="h-full rounded-full bg-brand transition-[width] duration-500"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <p className="mt-2 text-[.82rem] text-muted">
-                      {lessons.plan.lessonWindow === "lifetime"
-                        ? "The trial doesn't reset — choose a plan to keep recording."
-                        : lessons.rollover
-                          ? <>
-                              {lessons.rolledOver > 0 &&
-                                `Includes ${lessons.rolledOver} carried over. `}
-                              {lessons.paused
-                                ? "Paused — no new lessons are added this billing month."
-                                : <>
-                                    Your allowance resets on {renewsOn(lessons.renewsAt)}, your billing date.
-                                    <br />
-                                    Up to {lessons.plan.rolloverCap} unused lessons carry over.
-                                  </>}
-                            </>
-                          : "Resets on the 1st of each month."}
-                    </p>
-                  </>
+                {nearFairUse && (
+                  <p className="mt-2 text-sm text-muted">
+                    Fair use caps your plan at {lessons.limit} lessons a month,
+                    resetting on the 1st.
+                  </p>
                 )}
-
-                <div className="mt-5 border-t border-line pt-4 text-sm text-ink-soft">
-                  <span className="font-semibold text-ink">{students.used}</span>{" "}
-                  {students.used === 1 ? "student profile" : "student profiles"}
-                  {students.limit !== null && <> of {students.limit} included</>}
+              </>
+            ) : (
+              <>
+                <div className="text-base text-ink-soft">
+                  <span className="font-semibold text-ink">
+                    {lessons.used} of {lessons.limit}
+                  </span>{" "}
+                  {lessons.plan.lessonWindow === "lifetime"
+                    ? "free trial lessons used"
+                    : lessons.rollover
+                      ? "lessons used this billing month"
+                      : "lessons used this month"}
                 </div>
-              </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-brand-soft">
+                  <div
+                    className="h-full rounded-full bg-brand transition-[width] duration-500"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-sm text-muted">
+                  {lessons.plan.lessonWindow === "lifetime"
+                    ? "The trial doesn't reset — choose a plan to keep recording."
+                    : lessons.rollover
+                      ? <>
+                          {lessons.rolledOver > 0 &&
+                            `Includes ${lessons.rolledOver} carried over. `}
+                          {lessons.paused
+                            ? "Paused — no new lessons are added this billing month."
+                            : <>
+                                Your allowance resets on {renewsOn(lessons.renewsAt)}, your billing date.
+                                <br />
+                                Up to {lessons.plan.rolloverCap} unused lessons carry over.
+                              </>}
+                        </>
+                      : "Resets on the 1st of each month."}
+                </p>
+              </>
+            )}
 
-              <BillingCard
-                tutor={tutor}
-                plan={lessons.plan}
-                lessonsLeft={lessons.remaining}
-                notice={isBillingNotice(billing) ? billing : undefined}
-              />
+            <div className="mt-4 text-base text-ink-soft">
+              <span className="font-semibold text-ink">{students.used}</span>{" "}
+              {students.used === 1 ? "student profile" : "student profiles"}
+              {students.limit !== null && <> of {students.limit} included</>}
             </div>
-          </div>
+          </Section>
 
-          {/* Last on the page, and set apart — the only irreversible control here. */}
-          <DeleteAccountCard
-            email={tutor.email}
-            studentCount={students.used}
-            lessonCount={lessonTotal}
-          />
+          <Section title="Billing" description="Your plan, invoices and payment details.">
+            <BillingCard
+              tutor={tutor}
+              plan={lessons.plan}
+              lessonsLeft={lessons.remaining}
+              notice={isBillingNotice(billing) ? billing : undefined}
+            />
+          </Section>
+
+          {/* Last on the page — the only irreversible control here. */}
+          <Section title="Delete account">
+            <DeleteAccountCard
+              email={tutor.email}
+              studentCount={students.used}
+              lessonCount={lessonTotal}
+            />
+          </Section>
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * One settings row: the heading sits in a narrow left column on wide screens and
+ * the controls to its right, with hairlines between rows instead of cards.
+ */
+function Section({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="grid gap-4 py-8 first:pt-0 md:grid-cols-[13rem_1fr] md:gap-10">
+      <div>
+        <h2 className="text-lg font-semibold text-ink">{title}</h2>
+        {description && <div className="mt-1 text-sm text-muted">{description}</div>}
+      </div>
+      <div className="min-w-0">{children}</div>
+    </section>
   );
 }

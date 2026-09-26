@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import Topbar from "@/components/dashboard/Topbar";
 import Field from "@/components/auth/Field";
-import Avatar from "@/components/dashboard/Avatar";
 import { createStudent } from "@/app/actions/students";
 import { GOALS, LEVELS } from "@/lib/student-options";
 
@@ -12,7 +11,7 @@ export default function NewStudentPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [native, setNative] = useState("");
-  const [level, setLevel] = useState("A2");
+  const [level, setLevel] = useState(LEVELS[0]);
   const [goal, setGoal] = useState(GOALS[0]);
   const [targetExam, setTargetExam] = useState("");
   const [interests, setInterests] = useState("");
@@ -73,9 +72,23 @@ export default function NewStudentPage() {
     return (
       <>
         <Topbar title="Student added" subtitle="They're on your roster" />
-        <div className="px-6 py-10 lg:px-10">
-          <div className="mx-auto max-w-xl rounded-2xl border border-line bg-surface p-8 text-center shadow-soft-sm">
-            <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-mint/15 text-2xl text-mint">✓</div>
+        <div className="px-6 py-12 lg:px-10">
+          <div className="mx-auto max-w-xl text-center">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-success/12 text-success-deep">
+              <svg
+                width="26"
+                height="26"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.25"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            </div>
             <h2 className="mt-5 font-display text-2xl text-ink uppercase tracking-[.03em]">
               {created.name} is ready to go
             </h2>
@@ -83,7 +96,7 @@ export default function NewStudentPage() {
               Their profile is set up. Record your first lesson and BumbleNote will start
               building their journey.
             </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <div className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
               <Link
                 href={`/dashboard/students/${created.id}`}
                 className="inline-flex items-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
@@ -93,7 +106,7 @@ export default function NewStudentPage() {
               </Link>
               <Link
                 href="/dashboard/students"
-                className="rounded-xl border border-brand-line bg-white/60 px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 hover:border-brand"
+                className="text-base font-semibold text-brand-deep hover:underline"
               >
                 Back to students
               </Link>
@@ -109,48 +122,31 @@ export default function NewStudentPage() {
       <Topbar title="Add a student" subtitle="Set up a profile so feedback is sharp from lesson one" />
 
       <div className="px-6 py-8 lg:px-10">
-        <Link href="/dashboard/students" className="text-sm font-medium text-brand-deep hover:underline">
-          ← All students
-        </Link>
+        <form onSubmit={handleSubmit} className="max-w-4xl">
+          <Link href="/dashboard/students" className="text-sm font-medium text-brand-deep hover:underline">
+            ← All students
+          </Link>
 
-        <form
-          onSubmit={handleSubmit}
-          className="mt-4 max-w-2xl rounded-2xl border border-line bg-surface p-8 shadow-soft-sm"
-        >
-          {/* live preview */}
-          <div className="mb-8 flex items-center gap-4 rounded-xl border border-line bg-brand-soft/40 p-4">
-            <Avatar initial={name.trim() ? name.trim()[0].toUpperCase() : undefined} size={48} />
-            <div>
-              <div className="font-semibold text-ink">{name.trim() || "New student"}</div>
-              <div className="text-sm text-muted">
-                {level} · {goal}
-                {native.trim() ? ` · ${native.trim()}` : ""}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-5">
-            <Field
-              label="Full name"
-              name="name"
-              value={name}
-              onChange={setName}
-              placeholder="e.g. Maria Silva"
-              error={nameError}
-            />
-
-            <Field
-              label="Email"
-              type="email"
-              name="email"
-              value={email}
-              onChange={setEmail}
-              placeholder="e.g. maria@email.com"
-              autoComplete="off"
-              hint="Where lesson-report PDFs are sent. You can add this later."
-            />
-
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="divide-y divide-line">
+            <Section title="The basics" description="Who they are and where reports go.">
+              <Field
+                label="Full name"
+                name="name"
+                value={name}
+                onChange={setName}
+                placeholder="e.g. Maria Silva"
+                error={nameError}
+              />
+              <Field
+                label="Email"
+                type="email"
+                name="email"
+                value={email}
+                onChange={setEmail}
+                placeholder="e.g. maria@email.com"
+                autoComplete="off"
+                hint="Where lesson-report PDFs are sent. You can add this later."
+              />
               <Field
                 label="Native language"
                 name="native"
@@ -159,17 +155,16 @@ export default function NewStudentPage() {
                 placeholder="e.g. Portuguese (optional)"
                 hint="Helps anticipate common errors."
               />
-              <Select
-                label="Current level"
-                value={level}
-                onChange={setLevel}
-                options={LEVELS}
-                hint="CEFR A1–C2 — a starting guess. BumbleNote confirms the real level after 4 taught lessons."
-              />
-            </div>
+            </Section>
 
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <Select label="Primary goal" value={goal} onChange={setGoal} options={GOALS} />
+            <Section
+              title="Level & goals"
+              description="A starting guess — BumbleNote confirms the real level after 4 taught lessons."
+            >
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <Select label="Current level (CEFR)" value={level} onChange={setLevel} options={LEVELS} />
+                <Select label="Primary goal" value={goal} onChange={setGoal} options={GOALS} />
+              </div>
               <Field
                 label="Target exam"
                 name="targetExam"
@@ -177,52 +172,56 @@ export default function NewStudentPage() {
                 onChange={setTargetExam}
                 placeholder="e.g. IELTS 7.5 (optional)"
               />
-            </div>
+            </Section>
 
-            <Field
-              label="Hourly rate"
-              type="number"
-              name="hourlyRate"
-              value={hourlyRate}
-              onChange={setHourlyRate}
-              placeholder="e.g. 25 (optional)"
-              hint="What you charge per hour for this student."
-            />
+            <Section title="Teaching notes" description="Shapes the examples and focus in every report.">
+              <Field
+                label="Interests & topics"
+                name="interests"
+                value={interests}
+                onChange={setInterests}
+                placeholder="e.g. travel, cooking, tech (optional)"
+                hint="Separate with commas — makes examples engaging."
+              />
+              <Field
+                label="Areas to improve"
+                name="focus"
+                value={focus}
+                onChange={setFocus}
+                placeholder="e.g. articles, pronunciation (optional)"
+                hint="Separate with commas — your starting notes on weaknesses."
+              />
+              <Textarea
+                label="Additional notes"
+                value={notes}
+                onChange={setNotes}
+                placeholder="Optional. Anything from past lessons or another tutor — history, preferences, things to remember…"
+                hint="Private to you. Shown on the student's profile."
+              />
+            </Section>
 
-            <Field
-              label="Interests & topics"
-              name="interests"
-              value={interests}
-              onChange={setInterests}
-              placeholder="travel, cooking, tech"
-              hint="Separate with commas — makes examples engaging."
-            />
-
-            <Field
-              label="Areas to improve"
-              name="focus"
-              value={focus}
-              onChange={setFocus}
-              placeholder="articles, pronunciation"
-              hint="Separate with commas — your starting notes on weaknesses."
-            />
-
-            <Textarea
-              label="Additional notes"
-              value={notes}
-              onChange={setNotes}
-              placeholder="Anything from past lessons or another tutor — history, preferences, things to remember…"
-              hint="Private to you. Shown on the student's profile."
-            />
+            <Section title="Rate" description="Private to you.">
+              <div className="sm:max-w-[16rem]">
+                <Field
+                  label="Hourly rate"
+                  type="number"
+                  name="hourlyRate"
+                  value={hourlyRate}
+                  onChange={setHourlyRate}
+                  placeholder="e.g. 25 (optional)"
+                  hint="What you charge per hour."
+                />
+              </div>
+            </Section>
           </div>
 
-          <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-line pt-6">
+          <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-3 border-t border-line pt-6">
             {submitError && (
               <span className="mr-auto text-sm font-medium text-[#d9534f]">{submitError}</span>
             )}
             <Link
               href="/dashboard/students"
-              className="rounded-xl border border-brand-line bg-white/60 px-5 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 hover:border-brand"
+              className="text-base font-semibold text-ink-soft transition-colors hover:text-ink"
             >
               Cancel
             </Link>
@@ -238,6 +237,30 @@ export default function NewStudentPage() {
         </form>
       </div>
     </>
+  );
+}
+
+/**
+ * One group of fields, laid out like the settings page: the heading in a narrow
+ * left column on wide screens, the fields to its right, hairlines between.
+ */
+function Section({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="grid gap-4 py-8 md:grid-cols-[13rem_1fr] md:gap-10">
+      <div>
+        <h2 className="text-lg font-semibold text-ink">{title}</h2>
+        {description && <p className="mt-1 text-sm text-muted">{description}</p>}
+      </div>
+      <div className="flex min-w-0 flex-col gap-5">{children}</div>
+    </section>
   );
 }
 
@@ -274,13 +297,11 @@ function Select({
   value,
   onChange,
   options,
-  hint,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: string[];
-  hint?: string;
 }) {
   return (
     <label className="block">
@@ -296,7 +317,6 @@ function Select({
           </option>
         ))}
       </select>
-      {hint && <span className="mt-1.5 block text-sm text-muted">{hint}</span>}
     </label>
   );
 }

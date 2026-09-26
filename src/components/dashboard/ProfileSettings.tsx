@@ -21,6 +21,9 @@ export default function ProfileSettings({
   const [error, setError] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState(false);
   const [pending, startTransition] = useTransition();
+  // The name field and account details are tucked away: most visits to
+  // settings aren't to rename yourself.
+  const [open, setOpen] = useState(false);
 
   // Compare normalized, so trailing spaces alone don't arm the Save button.
   const dirty = normalizeTutorName(draft) !== saved;
@@ -43,78 +46,122 @@ export default function ProfileSettings({
   }
 
   return (
-    <div className="rounded-2xl border border-line bg-surface p-6 shadow-soft-sm">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div className="font-semibold text-ink">Profile</div>
-        {justSaved && <span className="text-xs font-semibold text-mint">Saved ✓</span>}
-      </div>
-
-      <div className="mt-5 flex items-center gap-4">
+    <div>
+      <div className="flex items-center gap-4">
         <Avatar initial={initial} size={56} />
-        <div className="min-w-0">
-          <div className="truncate font-display text-lg text-ink uppercase tracking-[.03em]">{saved}</div>
-          <div className="truncate text-sm text-muted">{email}</div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-display text-lg text-ink uppercase tracking-[.03em]">
+            {saved}
+          </div>
+          <div className="truncate text-base text-muted">{email}</div>
         </div>
-      </div>
-
-      <div className="mt-6">
-        <label htmlFor="tutor-name" className="text-xs font-bold uppercase tracking-wide text-muted">
-          Display name
-        </label>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <input
-            id="tutor-name"
-            value={draft}
-            maxLength={MAX_NAME_LENGTH}
-            onChange={(e) => {
-              setDraft(e.target.value);
+        <button
+          onClick={() => {
+            // Closing throws away an unsaved edit rather than leaving it hidden.
+            if (open) {
+              setDraft(saved);
               setError(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") save();
-              if (e.key === "Escape") {
-                setDraft(saved);
-                setError(null);
-              }
-            }}
-            placeholder="Your name"
-            className="min-w-[12rem] flex-1 rounded-xl border border-brand-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none transition-all focus:border-brand focus:ring-4 focus:ring-brand/30"
-          />
-          <button
-            onClick={save}
-            disabled={!dirty || pending}
-            className="flex-none rounded-full bg-cocoa px-5 py-2.5 text-sm font-semibold text-butter transition-all duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-45 uppercase tracking-[.1em] hover:bg-cocoa-lift"
+            }
+            setOpen(!open);
+          }}
+          aria-expanded={open}
+          aria-controls="profile-details"
+          className="flex flex-none items-center gap-1.5 text-base font-medium text-ink-soft transition-colors hover:text-ink"
+        >
+          {open ? "Close" : "Edit profile"}
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+            className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           >
-            {pending ? "Saving…" : "Save"}
-          </button>
-        </div>
-        {error ? (
-          <p className="mt-2 text-xs font-medium text-[#a23b38]">{error}</p>
-        ) : (
-          <p className="mt-2 text-xs text-muted">
-            Students see this: it&rsquo;s the subject line and sign-off on their lesson
-            emails, and the credit on every report PDF.
-          </p>
-        )}
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
       </div>
 
-      <dl className="mt-6 flex flex-col gap-3 border-t border-line pt-5 text-sm">
-        <div className="flex items-center justify-between gap-4">
-          <dt className="text-ink-soft">Email</dt>
-          <dd className="truncate text-right font-semibold text-ink">{email}</dd>
+      {open && (
+        <div id="profile-details">
+          <div className="mt-6">
+            <label
+              htmlFor="tutor-name"
+              className="text-sm font-bold uppercase tracking-wide text-muted"
+            >
+              Display name
+            </label>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <input
+                id="tutor-name"
+                autoFocus
+                value={draft}
+                maxLength={MAX_NAME_LENGTH}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  setError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") save();
+                  if (e.key === "Escape") {
+                    setDraft(saved);
+                    setError(null);
+                  }
+                }}
+                placeholder="Your name"
+                className="min-w-[12rem] flex-1 rounded-xl border border-brand-line bg-white px-3.5 py-2.5 text-base text-ink outline-none transition-all focus:border-brand focus:ring-4 focus:ring-brand/30"
+              />
+              <button
+                onClick={save}
+                disabled={!dirty || pending}
+                className="flex-none rounded-full bg-cocoa px-5 py-2.5 text-sm font-semibold text-butter transition-all duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-45 uppercase tracking-[.1em] hover:bg-cocoa-lift"
+              >
+                {pending ? "Saving…" : "Save"}
+              </button>
+              {justSaved && (
+                <span className="self-center text-sm font-semibold text-mint">
+                  Saved ✓
+                </span>
+              )}
+            </div>
+            {error ? (
+              <p className="mt-2 text-sm font-medium text-[#a23b38]">{error}</p>
+            ) : (
+              <p className="mt-2 text-sm text-muted">
+                Students see this: it&rsquo;s the subject line and sign-off on
+                their lesson emails, and the credit on every report PDF.
+              </p>
+            )}
+          </div>
+
+          <dl className="mt-6 flex flex-col gap-3 text-base">
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-ink-soft">Email</dt>
+              <dd className="truncate text-right font-semibold text-ink">
+                {email}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-ink-soft">Signed in with</dt>
+              <dd className="text-right font-semibold text-ink">Google</dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-ink-soft">Member since</dt>
+              <dd className="text-right font-semibold text-ink">
+                {memberSince}
+              </dd>
+            </div>
+          </dl>
+          <p className="mt-3 text-sm text-muted">
+            Your email comes from your Google account and can&rsquo;t be changed
+            here.
+          </p>
         </div>
-        <div className="flex items-center justify-between gap-4">
-          <dt className="text-ink-soft">Signed in with</dt>
-          <dd className="text-right font-semibold text-ink">Google</dd>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <dt className="text-ink-soft">Member since</dt>
-          <dd className="text-right font-semibold text-ink">{memberSince}</dd>
-        </div>
-      </dl>
-      <p className="mt-3 text-xs text-muted">
-        Your email comes from your Google account and can&rsquo;t be changed here.
-      </p>
+      )}
     </div>
   );
 }

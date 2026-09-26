@@ -185,8 +185,8 @@ export type SendLessonReportResult = { ok: true } | { ok: false; error: string }
 /**
  * Render the report PDF from what's stored and email it to the student, with
  * any attachments still on file. Throws with a tutor-readable message.
- * `copyTutor` BCCs the tutor — only on the first send, so resends don't pile
- * duplicates into their inbox.
+ * `copyTutor` BCCs the tutor — opt-in from the send/resend buttons, since each
+ * copy is another billed email.
  */
 async function deliverLessonReport(
   tutorId: string,
@@ -247,7 +247,10 @@ async function deliverLessonReport(
  * any edits saved since — with no status change. Attachments from the first
  * send were deleted, so only files added while editing go along with the PDF.
  */
-export async function resendLessonReport(id: string): Promise<SendLessonReportResult> {
+export async function resendLessonReport(
+  id: string,
+  { copyTutor = false }: { copyTutor?: boolean } = {},
+): Promise<SendLessonReportResult> {
   const tutorId = await currentTutorId();
   try {
     const [row] = await db
@@ -257,7 +260,7 @@ export async function resendLessonReport(id: string): Promise<SendLessonReportRe
       .limit(1);
     if (!row) throw new Error("Lesson not found.");
     if (row.status !== "sent") throw new Error("Send the report before resending it.");
-    await deliverLessonReport(tutorId, id);
+    await deliverLessonReport(tutorId, id, { copyTutor });
     revalidatePath("/dashboard", "layout");
     return { ok: true };
   } catch (err) {
@@ -271,6 +274,7 @@ export async function resendLessonReport(id: string): Promise<SendLessonReportRe
 export async function sendLessonReport(
   id: string,
   data: SessionFeedbackInput,
+  { copyTutor = false }: { copyTutor?: boolean } = {},
 ): Promise<SendLessonReportResult> {
   const tutorId = await currentTutorId();
 
@@ -280,7 +284,7 @@ export async function sendLessonReport(
     .where(and(eq(sessions.tutorId, tutorId), eq(sessions.id, id)));
 
   try {
-    await deliverLessonReport(tutorId, id, { copyTutor: true });
+    await deliverLessonReport(tutorId, id, { copyTutor });
 
     await db
       .update(sessions)

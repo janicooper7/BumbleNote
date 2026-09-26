@@ -703,7 +703,7 @@ const TRAJECTORY_COPY: Record<Trajectory, { label: string; className: string }> 
 function TrajectoryChip({ trajectory }: { trajectory: Trajectory }) {
   const { label, className } = TRAJECTORY_COPY[trajectory];
   return (
-    <span className={`rounded-full px-3 py-1 text-[.82rem] font-semibold ${className}`}>
+    <span className={`rounded-full px-3 py-1 text-sm font-semibold ${className}`}>
       {label}
     </span>
   );

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { auth, currentTutorId } from "@/auth";
 import Sidebar from "@/components/dashboard/Sidebar";
 import PendingUploads from "@/components/dashboard/PendingUploads";
+import FeedbackButton from "@/components/dashboard/FeedbackButton";
 import { bnFontVars } from "@/components/bn/fonts";
 import { getStudents, getTutor, hasCombinableLessons } from "@/db/queries";
 import { lessonUsage } from "@/lib/quota";
@@ -92,7 +93,7 @@ export default async function DashboardLayout({
       />
       <div className="min-w-0 flex-1">{children}</div>
       <PendingUploads students={students} />
-
+      <FeedbackButton />
     </div>
   );
 }
