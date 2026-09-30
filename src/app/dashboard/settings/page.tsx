@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Topbar from "@/components/dashboard/Topbar";
 import ProfileSettings from "@/components/dashboard/ProfileSettings";
 import DeleteAccountCard from "@/components/dashboard/DeleteAccountCard";
-import BillingCard, { isBillingNotice } from "@/components/dashboard/BillingCard";
+import BillingCard, { BillingNotice, isBillingNotice } from "@/components/dashboard/BillingCard";
 import ExtraLessons from "@/components/dashboard/ExtraLessons";
 import { isEntitled } from "@/lib/billing";
 import { currentTutorId } from "@/auth";
@@ -15,6 +15,7 @@ const renewsOn = (d: Date | null) =>
 export default async function SettingsPage({ searchParams }: PageProps<"/dashboard/settings">) {
   // ?billing=success|pending|cancelled|error, set by the billing routes on the way back.
   const { billing } = await searchParams;
+  const notice = isBillingNotice(billing) ? billing : undefined;
   const tutorId = await currentTutorId();
   const [tutor, lessons, students, lessonTotal] = await Promise.all([
     getTutor(),
@@ -65,6 +66,8 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
               </span>
             }
           >
+            {/* A pack's confirmation belongs by the count it just raised. */}
+            {notice === "lessons" && <BillingNotice notice="lessons" className="mb-4" />}
             {unlimited ? (
               <>
                 <div className="text-base text-ink-soft">
@@ -138,7 +141,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
               tutor={tutor}
               plan={lessons.plan}
               lessonsLeft={lessons.remaining}
-              notice={isBillingNotice(billing) ? billing : undefined}
+              notice={notice === "lessons" ? undefined : notice}
             />
           </Section>
 

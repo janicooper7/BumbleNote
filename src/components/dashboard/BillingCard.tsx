@@ -224,14 +224,22 @@ export default function BillingCard({
   );
 }
 
-function NoticeBanner({ tone, text }: { tone: "good" | "info" | "bad"; text: string }) {
+/**
+ * A billing notice on its own, for pages that show it somewhere other than the
+ * card — Settings puts "extra lessons added" next to the lesson count it changed.
+ */
+export function BillingNotice({ notice, className }: { notice: Notice; className?: string }) {
+  return <NoticeBanner {...NOTICES[notice]} className={className} />;
+}
+
+function NoticeBanner({ tone, text, className = "mt-3" }: { tone: "good" | "info" | "bad"; text: string; className?: string }) {
   const styles = {
     good: "border-[#bfe3c6] bg-[#eef8f0] text-[#2e6b3a]",
     info: "border-brand-line bg-brand-soft/50 text-ink-soft",
     bad: "border-[#f1c4c2] bg-[#fdf0ef] text-[#a8403c]",
   }[tone];
   return (
-    <div role="status" className={`mt-3 rounded-xl border px-4 py-2.5 text-base ${styles}`}>
+    <div role="status" className={`${className} rounded-xl border px-4 py-2.5 text-base ${styles}`}>
       {text}
     </div>
   );
