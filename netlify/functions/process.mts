@@ -12,6 +12,10 @@
 //   - createDraftLessonCore  (@/lib/lessons) — the revalidatePath-free variant,
 //                             since next/cache has no request context out here.
 //
+// Transcription is queued (src/lib/lesson-queue.ts): the worker waits for one of
+// a fixed number of Deepgram slots, and if the line is long it exits with the
+// lesson still queued for netlify/functions/lesson-queue to pick up.
+//
 // Netlify auto-retries a background function that throws, which would double-
 // insert lessons — so every path here is caught and reported via the status blob,
 // and the function never throws.
@@ -22,6 +26,14 @@ import { transcribeLesson } from "@/lib/stt";
 // Import the Next-free core directly (NOT @/lib/lessons) so this bundle never
 // pulls in `next/cache`, which isn't resolvable in a standalone function.
 import { createDraftLessonCore } from "@/lib/lessons-core";
+import {
+  enterQueue,
+  IN_WORKER_WAIT_MS,
+  leaveQueue,
+  refreshReservation,
+  releaseSlot,
+  waitForSlot,
+} from "@/lib/lesson-queue";
 import { releaseLesson } from "@/lib/quota";
 import {
   uploadStore,
@@ -130,11 +142,40 @@ const handler = async (req: Request): Promise<Response> => {
       consistency: "strong",
     })) as string | null;
 
+    // On the tutor's in-progress list from here until the draft exists or this
+    // fails. A re-kicked lesson keeps its place in the queue. Its held credit is
+    // refreshed too, or a long wait could outlast the reservation.
+    await Promise.all([
+      enterQueue({ uploadId, tutorId, studentId, durationMin }, transcript ? "drafting" : "waiting"),
+      refreshReservation(uploadId),
+    ]);
+
     if (transcript) {
       console.log(
         `[process] reusing cached transcript (${transcript.length} chars) — skipping Deepgram`,
       );
     } else {
+      const s = store;
+      const gotSlot = await waitForSlot(uploadId, {
+        budgetMs: IN_WORKER_WAIT_MS,
+        onWaiting: async (position) => {
+          console.log(`[process] queued for a transcription slot, position ${position}`);
+          await s.setJSON(statusKey(uploadId), { state: "queued", position } satisfies UploadStatus);
+        },
+      });
+      if (!gotSlot) {
+        // Not a failure: the lesson stays queued and the lesson-queue sweep starts
+        // a new worker for it. This one exits rather than spend its budget waiting.
+        console.log(`[process] still queued after ${IN_WORKER_WAIT_MS / 1000}s — leaving it to the sweep`);
+        return new Response(null, { status: 202 });
+      }
+      // The stall clock in /api/upload/status starts now, not when the lesson
+      // joined the queue.
+      await Promise.all([
+        store.setJSON(jobKey(uploadId), { ...job, startedAt: Date.now() } satisfies UploadJob),
+        store.setJSON(statusKey(uploadId), { state: "processing" } satisfies UploadStatus),
+      ]);
+
       const [studentAudio, tutorAudio] = await Promise.all([
         readTrack(store, uploadId, "student", job.parts.student),
         readTrack(store, uploadId, "tutor", job.parts.tutor),
@@ -148,11 +189,16 @@ const handler = async (req: Request): Promise<Response> => {
       // real lesson time; without them the two speakers are interleaved against
       // two different compressed clocks. Absent for untrimmed (or pre-trimming)
       // jobs, where the timestamps are already real.
-      transcript = await transcribeLesson({
-        studentAudio,
-        tutorAudio,
-        trimMaps: job.trimMaps,
-      });
+      try {
+        transcript = await transcribeLesson({
+          studentAudio,
+          tutorAudio,
+          trimMaps: job.trimMaps,
+        });
+      } finally {
+        // Free the slot for the next lesson in line, whatever Deepgram said.
+        await releaseSlot(uploadId).catch((e) => console.error("[process] could not release slot:", e));
+      }
       await store.set(transcriptKey(uploadId), transcript);
       console.log(`[process] transcript ready (${transcript.length} chars) — cached`);
     }
@@ -181,6 +227,7 @@ const handler = async (req: Request): Promise<Response> => {
         store!.delete(key),
       ),
       clearLessonFailed(job.tutorId, uploadId),
+      leaveQueue(uploadId),
     ]);
     console.log(`[process] complete uploadId=${uploadId}`);
   } catch (err) {
@@ -206,6 +253,7 @@ const handler = async (req: Request): Promise<Response> => {
         releaseLesson(uploadId),
       ]);
     }
+    if (uploadId) await leaveQueue(uploadId);
 
     // The alert that matters most: the tutor is staring at a failed lesson they
     // can't fix themselves, and the audio is recoverable only until the

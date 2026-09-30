@@ -332,18 +332,21 @@ async function runFeedbackPrompt(
   // especially inside the Netlify background worker. Streaming keeps the
   // connection alive with incremental events; finalMessage() assembles the
   // complete response. Structured outputs + adaptive thinking both work here.
-  const stream = getClient().messages.stream({
-    model: MODEL,
-    max_tokens: 16000,
-    thinking: { type: "adaptive" },
-    output_config: {
-      effort: "medium",
-      format: { type: "json_schema", schema: feedbackSchema(includeProfile) },
-    },
-    system,
-    messages: [{ role: "user", content: userContent }],
-  });
-  const response = await stream.finalMessage();
+  const response = await whenNotBusy(() =>
+    getClient()
+      .messages.stream({
+        model: MODEL,
+        max_tokens: 16000,
+        thinking: { type: "adaptive" },
+        output_config: {
+          effort: "medium",
+          format: { type: "json_schema", schema: feedbackSchema(includeProfile) },
+        },
+        system,
+        messages: [{ role: "user", content: userContent }],
+      })
+      .finalMessage(),
+  );
   // Recorded before any check below: a refused or truncated response is billed too.
   await recordClaudeUsage(usageKind, MODEL, response.usage);
 
@@ -362,6 +365,29 @@ async function runFeedbackPrompt(
     );
   }
   return parsed;
+}
+
+/**
+ * Waits between attempts when the API says it's busy: rate limited (429) or
+ * overloaded (529). Those answers come back at once, so unlike the client's own
+ * retries (capped low because of the stream timeout) they can safely be given a
+ * few more tries: about a minute and a half in total, well inside the worker.
+ */
+const BUSY_WAITS_MS = [15_000, 30_000, 45_000];
+
+async function whenNotBusy<T>(call: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await call();
+    } catch (err) {
+      // By status rather than instanceof Anthropic.APIError: same errors, and the
+      // tests' stand-in SDK has no error classes.
+      const status = (err as { status?: unknown } | null)?.status;
+      if ((status !== 429 && status !== 529) || attempt >= BUSY_WAITS_MS.length) throw err;
+      console.warn(`[ai] Claude is busy (${status}); trying again in ${BUSY_WAITS_MS[attempt] / 1000}s`);
+      await new Promise((r) => setTimeout(r, BUSY_WAITS_MS[attempt]));
+    }
+  }
 }
 
 function parseTextOutput(response: Anthropic.Message): unknown {

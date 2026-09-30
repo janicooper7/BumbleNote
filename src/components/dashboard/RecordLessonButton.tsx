@@ -2,8 +2,9 @@
 
 // Global "Record a lesson" button for the sidebar. Because it isn't tied to a
 // student, it first prompts which student the lesson is for, then drives the
-// shared recorder hook. Recording/processing shows a modal overlay so the tutor
-// keeps control from anywhere in the dashboard.
+// shared recorder hook. Recording shows a modal overlay so the tutor keeps
+// control from anywhere in the dashboard; once the lesson is filed the overlay
+// hands over to the lesson tracker in the corner (PendingUploads).
 
 import { useMemo, useState } from "react";
 import DashPortal from "./DashPortal";
@@ -41,7 +42,7 @@ export default function RecordLessonButton({
   students: PickStudent[];
   quota: LessonQuotaView;
 }) {
-  const { status, elapsed, error, canRetry, silent, start, stop, retry, reset } = useSessionRecorder();
+  const { status, elapsed, error, silent, start, stop, reset } = useSessionRecorder();
   const warning = silenceWarning(silent);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [chosen, setChosen] = useState<PickStudent | null>(null);
@@ -76,6 +77,12 @@ export default function RecordLessonButton({
     setQuery("");
     setTrial(false);
     reset();
+  }
+
+  /** Straight back to "who is this lesson with?" for back-to-back lessons. */
+  function recordAnother() {
+    closeIdle();
+    setPickerOpen(true);
   }
 
   return (
@@ -279,45 +286,50 @@ export default function RecordLessonButton({
               </div>
             )}
 
-            {status === "processing" && (
+            {status === "saving" && (
               <div className="flex flex-col items-center py-4 text-center">
                 <Spinner />
-                <div className="mt-3 font-semibold text-ink">Transcribing &amp; drafting {firstName}’s lesson…</div>
-                <p className="mt-1 text-xs text-ink-soft">
-                  Separating the two voices and writing the feedback — a few seconds.
-                </p>
+                <div className="mt-3 font-semibold text-ink">Saving {firstName}’s lesson…</div>
                 <p className="mt-2 text-xs font-medium text-[#c0524e]">
-                  Don&apos;t close this tab yet — the lesson isn&apos;t saved until this finishes.
+                  Don&apos;t close this tab yet — this only takes a moment.
                 </p>
+              </div>
+            )}
+
+            {status === "filed" && (
+              <div className="text-center">
+                <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-brand-soft text-xl text-ink" aria-hidden>
+                  ✓
+                </div>
+                <div className="font-display text-2xl text-ink uppercase tracking-[.03em]">
+                  {firstName}’s lesson is filed
+                </div>
+                <p className="mx-auto mt-2 max-w-md text-base text-ink-soft">
+                  We&apos;re uploading it and writing the notes now. You can follow it in the
+                  corner of the screen, and you can record your next lesson straight away.
+                </p>
+                <button
+                  onClick={recordAnother}
+                  className="mt-6 w-full rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
+                >
+                  Record another lesson
+                </button>
+                <button
+                  onClick={closeIdle}
+                  className="mt-2 w-full rounded-xl border border-line px-6 py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink"
+                >
+                  Close
+                </button>
               </div>
             )}
 
             {status === "error" && (
               <div className="text-center">
-                <div className="mb-1 font-semibold text-[#c0524e]">
-                  {canRetry ? "The lesson didn’t finish processing" : "Recording didn’t go through"}
-                </div>
+                <div className="mb-1 font-semibold text-[#c0524e]">Recording didn’t go through</div>
                 <p className="text-sm text-ink-soft">{error}</p>
-                {canRetry && (
-                  <p className="mt-1 text-xs text-muted">
-                    Your recording is safe — try again now, or close this and pick it up from your dashboard later.
-                  </p>
-                )}
-                {canRetry && (
-                  <button
-                    onClick={() => void retry()}
-                    className="mt-5 w-full rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
-                  >
-                    Try again
-                  </button>
-                )}
                 <button
                   onClick={closeIdle}
-                  className={
-                    canRetry
-                      ? "mt-2 w-full rounded-xl border border-line px-6 py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink"
-                      : "mt-5 w-full rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5"
-                  }
+                  className="mt-5 w-full rounded-xl bg-brand px-6 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5"
                 >
                   Close
                 </button>

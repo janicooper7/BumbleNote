@@ -39,6 +39,7 @@ async function failedLessonsFor(
     const failed = await listFailedLessons(tutorId);
     return failed.map((f) => ({
       uploadId: f.uploadId,
+      studentId: f.studentId,
       studentName: studentNames.get(f.studentId) ?? "a student",
       durationMin: f.durationMin,
       failedAt: f.failedAt,

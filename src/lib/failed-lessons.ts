@@ -6,7 +6,7 @@
 // (/api/upload/retry, the dashboard list) and the operator tool
 // (/api/admin/recover), so both follow exactly the same safety rules.
 
-import { env } from "@/lib/env";
+import { enterQueue, leaveQueue, startWorker } from "@/lib/lesson-queue";
 import { isQuotaError, releaseLesson, reserveLesson } from "@/lib/quota";
 import {
   AUDIO_RETENTION_MS,
@@ -73,7 +73,7 @@ export async function restartProcessing(
   if (!job || (tutorId !== null && job.tutorId !== tutorId)) {
     return { ok: false, status: 404, error: "We couldn't find that lesson." };
   }
-  if (status?.state === "processing") {
+  if (status?.state === "processing" || status?.state === "queued") {
     return { ok: false, status: 409, error: "This lesson is already being processed." };
   }
   if (status?.state === "done") {
@@ -106,18 +106,14 @@ export async function restartProcessing(
   await Promise.all([
     store.setJSON(jobKey(uploadId), { ...job, startedAt: Date.now() } satisfies UploadJob),
     store.setJSON(statusKey(uploadId), { state: "processing" } satisfies UploadStatus),
+    enterQueue(
+      { uploadId, tutorId: job.tutorId, studentId: job.studentId, durationMin: job.durationMin },
+      "waiting",
+    ),
   ]);
 
   try {
-    const res = await fetch(`${origin}/.netlify/functions/process`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-internal-secret": env.INTERNAL_TASK_SECRET,
-      },
-      body: JSON.stringify({ uploadId }),
-    });
-    if (!res.ok && res.status !== 202) throw new Error(`Processing worker returned ${res.status}.`);
+    await startWorker(origin, uploadId);
   } catch (err) {
     const error = err instanceof Error ? err.message : "Couldn't start processing.";
     await store.setJSON(statusKey(uploadId), {
@@ -125,7 +121,7 @@ export async function restartProcessing(
       error,
       failedAt: Date.now(),
     } satisfies UploadStatus);
-    await releaseLesson(uploadId);
+    await Promise.all([releaseLesson(uploadId), leaveQueue(uploadId)]);
     return { ok: false, status: 502, error: "We couldn't restart processing. Please try again shortly." };
   }
 
@@ -148,7 +144,7 @@ export async function dismissFailedLesson(
   if (!job || job.tutorId !== tutorId) {
     return { ok: false, status: 404, error: "We couldn't find that lesson." };
   }
-  if (status?.state === "processing") {
+  if (status?.state === "processing" || status?.state === "queued") {
     return { ok: false, status: 409, error: "This lesson is being processed right now." };
   }
   if (status?.state !== "done") {
@@ -190,7 +186,9 @@ export async function listFailedLessons(tutorId: string): Promise<FailedLessonVi
       const expired = Date.now() - entry.failedAt > AUDIO_RETENTION_MS;
       if (status?.state !== "error" || expired || !(await canRerun(store, entry.uploadId))) {
         // Still processing (a retry in flight) isn't stale — just not shown.
-        if (status?.state !== "processing") await clearLessonFailed(tutorId, entry.uploadId);
+        if (status?.state !== "processing" && status?.state !== "queued") {
+          await clearLessonFailed(tutorId, entry.uploadId);
+        }
         return null;
       }
       return { ...entry, error: status.error };

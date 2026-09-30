@@ -1,9 +1,10 @@
 // Poll the state of a chunked upload's background processing. The client calls
-// this every few seconds until state is "done" (then navigates to the draft) or
+// this every few seconds until state is "done" (then offers the draft) or
 // "error". Auth: session (web) or Bearer capture token (extension). A tutor may
 // only read their own upload's status.
 
 import type { NextRequest } from "next/server";
+import { leaveQueue } from "@/lib/lesson-queue";
 import { releaseLesson } from "@/lib/quota";
 import { resolveTutorId } from "@/lib/upload-auth";
 import {
@@ -71,6 +72,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       // A killed worker never gave its credit back. The reservation TTL would free
       // it eventually; this frees it now, so a retry doesn't look over the limit.
       releaseLesson(uploadId),
+      leaveQueue(uploadId),
     ]);
     return json(stalled);
   }

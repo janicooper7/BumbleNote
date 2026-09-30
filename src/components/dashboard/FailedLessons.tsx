@@ -7,10 +7,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { dismissFailedLesson, retryLessonProcessing } from "@/lib/upload-client";
+import { dismissFailedLesson, retryLessonProcessing, trackLesson } from "@/lib/upload-client";
 
 export type FailedLessonItem = {
   uploadId: string;
+  studentId: string;
   studentName: string;
   durationMin: number;
   failedAt: number;
@@ -42,11 +43,16 @@ export default function FailedLessons({ items }: { items: FailedLessonItem[] }) 
       },
     }));
 
-  async function retry(uploadId: string) {
+  // Once the server has it again, the lesson tracker in the corner follows it
+  // (queue, processing, ready) like any new lesson, and it leaves this list.
+  async function retry(item: FailedLessonItem) {
+    const { uploadId } = item;
     setRows((r) => ({ ...r, [uploadId]: { phase: "running" } }));
     try {
-      const { lessonId } = await retryLessonProcessing(uploadId);
-      router.push(`/dashboard/sessions/${lessonId}`);
+      await retryLessonProcessing(uploadId);
+      trackLesson({ uploadId, studentId: item.studentId, durationMin: item.durationMin });
+      setDismissed((d) => new Set(d).add(uploadId));
+      router.refresh();
     } catch (err) {
       fail(uploadId, err);
     }
@@ -121,7 +127,7 @@ export default function FailedLessons({ items }: { items: FailedLessonItem[] }) 
                 </button>
                 {item.canRetry && (
                   <button
-                    onClick={() => void retry(item.uploadId)}
+                    onClick={() => void retry(item)}
                     disabled={busy}
                     className="inline-flex items-center gap-2 rounded-full bg-cocoa px-4 py-2 text-sm font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0 uppercase tracking-[.1em] hover:bg-cocoa-lift"
                   >

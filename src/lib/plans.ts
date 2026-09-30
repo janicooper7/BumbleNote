@@ -51,7 +51,7 @@ export const PLANS: Record<PlanId, Plan> = {
  * afterwards (mergeSessions in src/app/actions/merge.ts), and the combined lesson
  * uses one credit once it reaches this length.
  */
-export const MIN_COUNTED_LESSON_MIN = 25;
+export const MIN_COUNTED_LESSON_MIN = 15;
 
 export function countsAsLesson(durationMin: number): boolean {
   return durationMin >= MIN_COUNTED_LESSON_MIN;

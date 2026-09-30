@@ -194,6 +194,39 @@ export const lessonReservations = pgTable(
 );
 
 /**
+ * Lessons on their way from uploaded audio to a draft (src/lib/lesson-queue.ts).
+ * Doubles as the transcription queue — at most TRANSCRIBE_SLOTS lessons talk to
+ * Deepgram at once, the rest wait here in `queued_at` order — and as the tutor's
+ * "in progress" list.
+ *
+ * `state` is "waiting" (for a transcription slot), "transcribing" (holds one)
+ * or "drafting" (transcript done, with Claude). The row is deleted when the
+ * lesson is written or the attempt fails.
+ */
+export const lessonJobs = pgTable(
+  "lesson_jobs",
+  {
+    uploadId: text("upload_id").primaryKey(),
+    tutorId: uuid("tutor_id")
+      .notNull()
+      .references(() => tutors.id, { onDelete: "cascade" }),
+    studentId: text("student_id").notNull(),
+    durationMin: integer("duration_min").notNull(),
+    state: text("state").notNull().default("waiting"),
+    // Place in the queue. Set once, so a lesson re-kicked by the sweep keeps it.
+    queuedAt: timestamp("queued_at", { withTimezone: true }).notNull().defaultNow(),
+    // When the transcription slot was taken; a slot older than SLOT_TTL is free.
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    // Last sign of life from a worker, so the sweep only re-kicks orphans.
+    touchedAt: timestamp("touched_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("lesson_jobs_tutor_idx").on(t.tutorId),
+    index("lesson_jobs_state_idx").on(t.state, t.queuedAt),
+  ],
+);
+
+/**
  * Lesson allowances granted to a subscriber (src/lib/credits.ts). One row per
  * lesson period of an unbroken subscription — a month from the billing date, or
  * from an upgrade — decided once and never re-decided: `lessons` is the plan's

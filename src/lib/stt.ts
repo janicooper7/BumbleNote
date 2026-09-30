@@ -23,7 +23,10 @@ const MODEL = "nova-3";
 
 let client: DeepgramClient | undefined;
 function getClient(): DeepgramClient {
-  if (!client) client = new DeepgramClient({ apiKey: env.DEEPGRAM_API_KEY });
+  // The SDK retries 429s and 5xx with backoff (1s, 2s, 4s, 8s…), honouring
+  // Retry-After. Four tries rides out a busy moment the queue didn't prevent
+  // (lib/lesson-queue caps us below Deepgram's limit) in about 15 seconds.
+  if (!client) client = new DeepgramClient({ apiKey: env.DEEPGRAM_API_KEY, maxRetries: 4 });
   return client;
 }
 

@@ -7,8 +7,8 @@ import type { NextRequest } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { students } from "@/db/schema";
-import { env } from "@/lib/env";
 import { resolveTutorId } from "@/lib/upload-auth";
+import { enterQueue, leaveQueue, startWorker } from "@/lib/lesson-queue";
 import { isQuotaError, releaseLesson, reserveLesson } from "@/lib/quota";
 import { parseTrimMap } from "@/lib/trim-map-validation";
 import {
@@ -123,6 +123,8 @@ export async function POST(req: NextRequest): Promise<Response> {
   await Promise.all([
     store.setJSON(jobKey(uploadId), job),
     store.setJSON(statusKey(uploadId), processing),
+    // On the tutor's in-progress list straight away; the worker confirms it.
+    enterQueue({ uploadId, tutorId, studentId, durationMin: job.durationMin }, "waiting"),
   ]);
 
   // Kick the background function at its canonical URL. It returns 202 immediately
@@ -130,22 +132,13 @@ export async function POST(req: NextRequest): Promise<Response> {
   // trigger was accepted. If it's unreachable (e.g. not deployed → 404), surface
   // that as an error status instead of leaving the client polling forever.
   try {
-    const res = await fetch(`${req.nextUrl.origin}/.netlify/functions/process`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-internal-secret": env.INTERNAL_TASK_SECRET,
-      },
-      body: JSON.stringify({ uploadId }),
-    });
-    if (!res.ok && res.status !== 202) {
-      throw new Error(`Processing worker returned ${res.status}.`);
-    }
+    await startWorker(req.nextUrl.origin, uploadId);
   } catch (err) {
     const error = err instanceof Error ? err.message : "Couldn't start processing.";
     await Promise.all([
       store.setJSON(statusKey(uploadId), { state: "error", error } satisfies UploadStatus),
       releaseLesson(uploadId),
+      leaveQueue(uploadId),
     ]);
     return json({ error }, 502);
   }

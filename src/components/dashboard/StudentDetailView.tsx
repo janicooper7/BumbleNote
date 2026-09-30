@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Avatar from "./Avatar";
 import LevelBadge from "./LevelBadge";
-import SessionRecorder from "./SessionRecorder";
 import StatusBadge from "./StatusBadge";
 import { ChevronRightIcon } from "./icons";
 import { sortSessions, splitLessonTitle, type Session, type Student } from "@/lib/mock";
@@ -261,16 +260,6 @@ export default function StudentDetailView({
         )}
       </div>
 
-      {active && (
-        <div className="mt-6">
-          <SessionRecorder
-            studentId={student.id}
-            studentName={profile.name}
-            canMarkTrial={history.length === 0}
-          />
-        </div>
-      )}
-
       <div className="mt-8 grid grid-cols-1 gap-x-12 gap-y-10 lg:grid-cols-[1fr_1.5fr]">
         {/* profile */}
         <section className="min-w-0">
@@ -449,7 +438,10 @@ export default function StudentDetailView({
             <div className="text-sm font-bold uppercase tracking-wide text-brand-deep">Suggested next</div>
             <h2 className="mt-1 text-lg font-semibold text-ink">Where to take {firstName} next</h2>
             <p className="mt-2 text-base text-ink-soft">
-              {lessonsTaught === 0 ? (
+              {lessonsTaught === 0 && history.length > 0 ? (
+                // Drafts don't feed the journey until the tutor has reviewed them.
+                <>Review and confirm {history.length === 1 ? `${firstName}’s lesson` : `${firstName}’s ${history.length} lessons`} and BumbleNote will start building their journey — vocabulary, areas to improve, and what to work on next.</>
+              ) : lessonsTaught === 0 ? (
                 <>Record your first lesson with {firstName} and BumbleNote will start building their journey — vocabulary, areas to improve, and what to work on next.</>
               ) : recommendedFocus ? (
                 <>Across {lessonsTaught} lesson{lessonsTaught === 1 ? "" : "s"}, the area costing {firstName} most is{" "}

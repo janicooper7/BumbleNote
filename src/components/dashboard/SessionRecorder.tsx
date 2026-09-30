@@ -16,7 +16,7 @@ export default function SessionRecorder({
   /** Only a student's first lesson can be their trial lesson. */
   canMarkTrial: boolean;
 }) {
-  const { status, elapsed, error, canRetry, silent, start, stop, retry, reset } = useSessionRecorder();
+  const { status, elapsed, error, silent, start, stop, reset } = useSessionRecorder();
   const warning = silenceWarning(silent);
   const [trial, setTrial] = useState(false);
   const firstName = studentName.split(" ")[0];
@@ -88,48 +88,48 @@ export default function SessionRecorder({
         </div>
       )}
 
-      {status === "processing" && (
+      {status === "saving" && (
         <div className="flex items-center gap-3">
           <Spinner />
           <div>
-            <div className="font-semibold text-ink">Transcribing &amp; drafting {firstName}’s lesson…</div>
-            <p className="text-xs text-ink-soft">Separating the two voices and writing the feedback — a few seconds.</p>
+            <div className="font-semibold text-ink">Saving {firstName}’s lesson…</div>
             <p className="mt-1 text-xs font-medium text-[#c0524e]">
-              Don&apos;t close this tab yet — the lesson isn&apos;t saved until this finishes.
+              Don&apos;t close this tab yet — this only takes a moment.
             </p>
           </div>
+        </div>
+      )}
+
+      {status === "filed" && (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="font-semibold text-ink">✓ {firstName}’s lesson is filed</div>
+            <p className="mt-0.5 text-sm text-ink-soft">
+              We&apos;re uploading it and writing the notes now — follow it in the corner of the
+              screen. You can record your next lesson straight away.
+            </p>
+          </div>
+          <button
+            onClick={reset}
+            className="inline-flex flex-none items-center justify-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
+          >
+            Done
+          </button>
         </div>
       )}
 
       {status === "error" && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="font-semibold text-[#c0524e]">
-              {canRetry ? "The lesson didn’t finish processing" : "Recording didn’t go through"}
-            </div>
+            <div className="font-semibold text-[#c0524e]">Recording didn’t go through</div>
             <p className="mt-0.5 text-sm text-ink-soft">{error}</p>
-            {canRetry && (
-              <p className="mt-1 text-xs text-muted">
-                Your recording is safe — try again now, or close this and pick it up from your dashboard later.
-              </p>
-            )}
           </div>
-          <div className="flex flex-none gap-2">
-            {canRetry && (
-              <button
-                onClick={reset}
-                className="rounded-xl border border-line px-4 py-3 text-sm font-semibold text-ink-soft transition-colors hover:text-ink"
-              >
-                Dismiss
-              </button>
-            )}
-            <button
-              onClick={canRetry ? retry : reset}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
-            >
-              {canRetry ? "Try again" : "Start over"}
-            </button>
-          </div>
+          <button
+            onClick={reset}
+            className="inline-flex flex-none items-center justify-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
+          >
+            Start over
+          </button>
         </div>
       )}
     </div>

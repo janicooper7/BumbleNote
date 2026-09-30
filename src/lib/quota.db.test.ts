@@ -134,9 +134,21 @@ describe("idempotent lesson creation", () => {
     expect(await lessonsCreated()).toBe(2);
   });
 
-  it("doesn't use a trial credit for a recording under 25 minutes", async () => {
+  it("doesn't use a trial credit for a recording under 15 minutes", async () => {
     await draft("short", 10);
     expect(await lessonsCreated()).toBe(2);
+  });
+
+  it("numbers two lessons for one student drafted at once one after the other", async () => {
+    // Back-to-back recordings leave the transcription queue together, and both
+    // read the student's history before either is written.
+    await Promise.all([draft("b2b-1", 10), draft("b2b-2", 10)]);
+    const titles = (
+      await pg.query<{ title: string }>(
+        "select title from sessions where upload_id in ('b2b-1', 'b2b-2') order by title",
+      )
+    ).rows.map((r) => r.title);
+    expect(titles).toEqual(["Lesson 4 · Test topic", "Lesson 5 · Test topic"]);
   });
 
   it("refuses with the trial message once the trial is used up", async () => {

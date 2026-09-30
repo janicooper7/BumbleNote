@@ -78,7 +78,7 @@ async function expiresAt(
     return (status.failedAt ?? 0) + AUDIO_RETENTION_MS;
   }
 
-  if (status?.state === "processing" || status?.state === "done") {
+  if (status?.state === "processing" || status?.state === "queued" || status?.state === "done") {
     // A live job must survive the sweep. `startedAt` is far more recent than the
     // retention window for anything actually running (the worker is capped at 15
     // minutes), so this only expires jobs that died without writing a status.

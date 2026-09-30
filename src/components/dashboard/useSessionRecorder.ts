@@ -5,21 +5,20 @@
 //
 // Captures the lesson tab's audio via getDisplayMedia (= student) and the mic
 // via getUserMedia (= tutor) as two separate tracks. On stop the recording goes
-// straight into the browser outbox (lib/pending-uploads) and is uploaded from
-// there, so a failed upload or a closed tab no longer loses the lesson — the
-// dashboard banner (PendingUploads) picks up anything left behind.
+// straight into the browser outbox (lib/pending-uploads) and the recorder is
+// done: the dashboard's lesson tracker (PendingUploads) uploads it, follows it
+// through the transcription queue, and says when the notes are ready. So a
+// tutor teaching back to back can start the next recording straight away, and
+// a failed upload or a closed tab still doesn't lose the lesson.
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  queueLessonRecording,
-  retryLessonProcessing,
-  sendPendingLesson,
-  UploadError,
-} from "@/lib/upload-client";
-import { withUploadLock } from "@/lib/pending-uploads";
+import { LESSON_RECORDED, queueLessonRecording } from "@/lib/upload-client";
 
-export type RecorderStatus = "idle" | "recording" | "processing" | "error";
+/**
+ * "saving" is the moment between Stop and the recording being safe in the
+ * outbox; "filed" means it is, and the tracker has it from here.
+ */
+export type RecorderStatus = "idle" | "recording" | "saving" | "filed" | "error";
 
 // Flush a data chunk every 5s. Without a timeslice, MediaRecorder buffers the
 // whole lesson into a single WebM blob with no duration/periodic-cluster
@@ -46,8 +45,6 @@ const LEVEL_POLL_MS = 250;
 type Track = "student" | "tutor";
 
 export function useSessionRecorder() {
-  const router = useRouter();
-
   const [status, setStatus] = useState<RecorderStatus>("idle");
   const [error, setError] = useState<string | undefined>();
   const [elapsed, setElapsed] = useState(0);
@@ -61,10 +58,6 @@ export function useSessionRecorder() {
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const studentId = useRef("");
   const isTrial = useRef(false);
-  // The outbox entry for the last recording; set once it is safely queued.
-  const queuedId = useRef<string | null>(null);
-  const failure = useRef<UploadError | null>(null);
-  const [canRetry, setCanRetry] = useState(false);
   const [silent, setSilent] = useState<Track[]>([]);
   const stopLevels = useRef<(() => void) | null>(null);
   const tooShort = useRef(false);
@@ -75,10 +68,9 @@ export function useSessionRecorder() {
   }, []);
 
   useEffect(() => {
-    // Recording and upload both live only in this tab's memory until the draft
-    // exists — closing or refreshing here silently loses the whole lesson with
-    // no server-side trace to recover from. Warn before that can happen.
-    if (status !== "recording" && status !== "processing") return;
+    // Until the recording is in the outbox it lives only in this tab's memory —
+    // closing or refreshing here silently loses the whole lesson. Warn first.
+    if (status !== "recording" && status !== "saving") return;
     const warn = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       // Most browsers show their own fixed wording here regardless of this
@@ -111,17 +103,16 @@ export function useSessionRecorder() {
       blobs.current[key] = new Blob(chunks, { type: "audio/webm" });
       remaining.current -= 1;
       if (remaining.current > 0) return;
+      stopTracks();
       if (tooShort.current) {
-        stopTracks();
         blobs.current = {};
         setError(
           `That recording was under ${MIN_RECORDING_SEC} seconds, so it wasn’t kept. Start recording again once the lesson is under way.`,
         );
-        setCanRetry(false);
         setStatus("error");
         return;
       }
-      void upload();
+      void save();
     };
     return rec;
   }
@@ -156,8 +147,6 @@ export function useSessionRecorder() {
 
       const studentStream = new MediaStream([tabAudio]);
       blobs.current = {};
-      queuedId.current = null;
-      failure.current = null;
       remaining.current = 2;
       recorders.current = [
         makeRecorder(studentStream, "student"),
@@ -192,100 +181,45 @@ export function useSessionRecorder() {
     stopLevels.current?.();
     stopLevels.current = null;
     setSilent([]);
-    setStatus("processing");
+    setStatus("saving");
     recorders.current.forEach((r) => {
       if (r.state !== "inactive") r.stop();
     });
     recorders.current = [];
   }
 
-  function finish(id: string) {
-    stopTracks();
-    blobs.current = {};
-    queuedId.current = null;
-    failure.current = null;
-    // Draft is ready — clear the recording UI (the sidebar button lives in the
-    // persistent layout, so it won't unmount on navigation) and open the lesson.
-    setStatus("idle");
-    setElapsed(0);
-    setCanRetry(false);
-    router.push(`/dashboard/sessions/${id}`);
-  }
-
-  function fail(err: unknown) {
-    stopTracks();
-    failure.current = err instanceof UploadError ? err : null;
-    setError(err instanceof Error ? err.message : "Couldn't process the recording.");
-    setCanRetry(
-      failure.current?.retry === "reprocess" ||
-        (failure.current?.retry === "reupload" && !!queuedId.current),
-    );
-    setStatus("error");
-  }
-
-  async function upload() {
+  /** Into the outbox, then over to the tracker, which uploads and follows it. */
+  async function save() {
     try {
-      if (!queuedId.current) {
-        const { student, tutor } = blobs.current;
-        if (!student || !tutor) {
-          throw new Error("The recording came through empty — please try again.");
-        }
-        // Into the outbox before anything touches the network: from here the
-        // lesson survives a failed upload, a closed tab, or a crashed browser.
-        queuedId.current = await queueLessonRecording({
-          studentId: studentId.current,
-          isTrial: isTrial.current,
-          // Fixed now, so a retry minutes later doesn't inflate it.
-          durationMin: Math.max(1, Math.round((Date.now() - startedAt.current) / 60000)),
-          student,
-          tutor,
-        });
-        blobs.current = {}; // the outbox holds them now
+      const { student, tutor } = blobs.current;
+      if (!student || !tutor) {
+        throw new Error("The recording came through empty — please try again.");
       }
-      const id = queuedId.current;
-      // Chunk-upload the two tracks to Netlify Blobs, then a background worker
-      // transcribes + drafts and we poll for the finished lesson id. (A single
-      // upload would blow Netlify's 6 MB body limit and 26–60 s function timeout.)
-      const result = await withUploadLock(id, () => sendPendingLesson(id));
-      if (!result) {
-        throw new UploadError("This lesson is already uploading in another tab.", null);
-      }
-      finish(result.lessonId);
+      const uploadId = await queueLessonRecording({
+        studentId: studentId.current,
+        isTrial: isTrial.current,
+        // Fixed now, so a retry minutes later doesn't inflate it.
+        durationMin: Math.max(1, Math.round((Date.now() - startedAt.current) / 60000)),
+        student,
+        tutor,
+      });
+      blobs.current = {}; // the outbox holds them now
+      window.dispatchEvent(new CustomEvent<string>(LESSON_RECORDED, { detail: uploadId }));
+      setElapsed(0);
+      setStatus("filed");
     } catch (err) {
-      fail(err);
-    }
-  }
-
-  /**
-   * Try a failed lesson again without re-recording it. Which way depends on where
-   * it failed — see UploadError. A re-upload resumes from the outbox copy.
-   */
-  async function retry() {
-    const f = failure.current;
-    if (!f?.retry) return;
-    setError(undefined);
-    setStatus("processing");
-    if (f.retry === "reupload") return upload();
-    try {
-      const { lessonId } = await retryLessonProcessing(f.uploadId!);
-      finish(lessonId);
-    } catch (err) {
-      fail(err);
+      setError(err instanceof Error ? err.message : "Couldn't save the recording.");
+      setStatus("error");
     }
   }
 
   function reset() {
-    // Deliberately leaves the outbox alone: closing the error dialog must not
-    // throw away a lesson that hasn't reached the server yet.
     blobs.current = {};
-    queuedId.current = null;
-    failure.current = null;
-    setCanRetry(false);
     setStatus("idle");
     setError(undefined);
   }
 
-  return { status, elapsed, error, canRetry, silent, start, stop, retry, reset };
+  return { status, elapsed, error, silent, start, stop, reset };
 }
 
 /**

@@ -104,7 +104,14 @@ export async function createDraftLessonCore(
 
   // Lesson number counts drafts too — the tutor taught the lesson whether or not
   // they have reviewed it yet, so numbering must not jump when one is confirmed.
+  // This is only the guess for the id slug: the title's number is counted again
+  // at insert, under a per-student lock, because two lessons drafted at once
+  // (back-to-back recordings leaving the queue together) both read the same
+  // priorSessions and would both be "Lesson 1".
   const lessonNo = priorSessions.length + 1;
+  const numberedTitle = sql`${"Lesson "} || ((select count(*) from ${sessions}
+    where ${sessions.tutorId} = ${tutorId} and ${sessions.studentId} = ${student.id}) + 1)::text
+    || ${` · ${feedback.topic}`}`;
 
   const now = new Date();
   const isoDate = now.toISOString().slice(0, 10);
@@ -140,7 +147,7 @@ export async function createDraftLessonCore(
         studentId: student.id,
         studentName: student.name,
         studentInitial: student.initial,
-        title: `Lesson ${lessonNo} · ${feedback.topic}`,
+        title: numberedTitle,
         date,
         isoDate,
         durationMin,
@@ -168,7 +175,10 @@ export async function createDraftLessonCore(
     // the tutor's trial allowance — and only for a recording long enough to be a lesson.
     const counts = sql.raw(countsAsLesson(durationMin) ? "true" : "false");
 
-    const [result] = await db.batch([
+    const [, result] = await db.batch([
+      // Serialises inserts for this student, so the title's count below sees any
+      // lesson committed just before it (READ COMMITTED: fresh snapshot per statement).
+      db.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`lesson-number:${student.id}`}, 0))`),
       db.execute(sql`
         with ins as ${insert},
         bump as (

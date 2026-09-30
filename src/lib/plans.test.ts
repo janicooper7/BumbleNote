@@ -38,13 +38,13 @@ describe("planFor", () => {
 
 describe("countsAsLesson", () => {
   it("counts from exactly the minimum", () => {
-    expect(MIN_COUNTED_LESSON_MIN).toBe(25);
-    expect(countsAsLesson(25)).toBe(true);
+    expect(MIN_COUNTED_LESSON_MIN).toBe(15);
+    expect(countsAsLesson(15)).toBe(true);
     expect(countsAsLesson(60)).toBe(true);
   });
 
   it("doesn't count anything shorter", () => {
-    expect(countsAsLesson(24.99)).toBe(false);
+    expect(countsAsLesson(14.99)).toBe(false);
     expect(countsAsLesson(0)).toBe(false);
   });
 });

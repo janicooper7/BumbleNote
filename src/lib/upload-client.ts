@@ -2,9 +2,10 @@
 //
 // Uploads a lesson from the browser outbox (lib/pending-uploads): slices each
 // track into sub-6 MB parts (so every request clears Netlify's function-body
-// limit), uploads them to /api/upload/chunk, finalizes via /api/upload/complete,
-// then polls /api/upload/status until the background worker has produced the
-// draft. Returns the new lesson id to navigate to.
+// limit), uploads them to /api/upload/chunk and finalizes via /api/upload/complete.
+// From there the lesson is the server's: the background worker (after a wait in
+// the transcription queue, if it's busy) writes the draft, and the dashboard's
+// lesson tracker (components/dashboard/PendingUploads) follows it.
 //
 // Each track is silence-trimmed first (see lib/audio-trim): it is a large cut in
 // the Deepgram bill, and the smaller upload is a free bonus. The resulting trim
@@ -25,8 +26,6 @@ const CHUNK_SIZE = 4 * 1024 * 1024; // 4 MB — comfortably under the 6 MB limit
 // arrives slower. On a slow home connection 4 at once pushed single chunks past
 // Netlify's body timeout (408); 2 still overlaps request latency.
 const UPLOAD_CONCURRENCY = 2;
-const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 15 * 60 * 1000; // background function's own ceiling.
 const MAX_ATTEMPTS = 5; // per request, incl. the first try.
 const RETRY_BASE_MS = 600; // exponential backoff base.
 
@@ -110,53 +109,67 @@ export class UploadError extends Error {
   }
 }
 
-async function pollUntilDone(
-  uploadId: string,
-  authHeader: Record<string, string>,
-  signal?: AbortSignal,
-): Promise<{ lessonId: string }> {
-  const deadline = Date.now() + POLL_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-    if (signal?.aborted) throw new UploadError("Upload cancelled.", null);
-
-    // A transient network error mid-poll must not kill a job that's still
-    // processing (or already done) — swallow it and poll again next tick.
-    let res: Response;
-    try {
-      res = await fetch(`/api/upload/status?uploadId=${uploadId}`, {
-        headers: authHeader,
-        signal,
-      });
-    } catch {
-      if (signal?.aborted) throw new UploadError("Upload cancelled.", null);
-      continue;
-    }
-    if (!res.ok) continue; // transient (e.g. eventual-consistency 404); keep polling.
-    const status = await res.json();
-    if (status.state === "done") return { lessonId: status.lessonId };
-    if (status.state === "error") {
-      throw new UploadError(status.error || "Processing failed.", "reprocess", uploadId);
-    }
-  }
-  // The job may still finish; the server keeps the audio either way.
-  throw new UploadError("Processing is taking longer than expected.", "reprocess", uploadId);
-}
-
-/** Re-run processing for an upload whose audio the server already has. */
-export async function retryLessonProcessing(uploadId: string): Promise<{ lessonId: string }> {
+/**
+ * Re-run processing for an upload whose audio the server already has. Resolves
+ * once the server has taken it back on; the tracker follows it from there.
+ */
+export async function retryLessonProcessing(uploadId: string): Promise<void> {
   const res = await fetchRetry(`/api/upload/retry?uploadId=${encodeURIComponent(uploadId)}`, {
     method: "POST",
   });
+  if (res.ok) return;
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    // 409 "already processing" is worth following; anything else is final.
-    if (res.status === 409 && /already being processed/.test(data.error ?? "")) {
-      return pollUntilDone(uploadId, {});
-    }
-    throw new UploadError(data.error || `Couldn't retry (${res.status}).`, null, uploadId);
+  // Already running (another tab, a double click) is as good as restarted.
+  if (res.status === 409 && /already being processed/.test(data.error ?? "")) return;
+  throw new UploadError(data.error || `Couldn't retry (${res.status}).`, null, uploadId);
+}
+
+/** Where a lesson the server has taken on has got to (UploadStatus). */
+export type LessonProgress =
+  | { state: "processing" }
+  | { state: "queued"; position: number }
+  | { state: "done"; lessonId: string }
+  | { state: "error"; error: string };
+
+/** One look at a lesson's progress; null when it can't be read right now. */
+export async function lessonProgress(uploadId: string): Promise<LessonProgress | null> {
+  try {
+    const res = await fetch(`/api/upload/status?uploadId=${encodeURIComponent(uploadId)}`);
+    if (!res.ok) return null; // transient (e.g. eventual-consistency 404); ask again.
+    return (await res.json()) as LessonProgress;
+  } catch {
+    return null;
   }
-  return pollUntilDone(uploadId, {});
+}
+
+/** A lesson the server has taken on, for the dashboard's tracker to follow. */
+export type TrackedLesson = { uploadId: string; studentId: string; durationMin: number };
+
+/** Fired with a TrackedLesson when the server takes a lesson on (or back on). */
+export const LESSON_TRACK = "bumblenote:lesson-track";
+
+/** Fired with an upload id when a new recording lands in the outbox. */
+export const LESSON_RECORDED = "bumblenote:lesson-recorded";
+
+export function trackLesson(lesson: TrackedLesson): void {
+  window.dispatchEvent(new CustomEvent<TrackedLesson>(LESSON_TRACK, { detail: lesson }));
+}
+
+export type ActiveLesson = TrackedLesson & {
+  state: "waiting" | "transcribing" | "drafting";
+  /** Place in the transcription queue, 1 = next; null unless waiting. */
+  position: number | null;
+};
+
+/** The tutor's lessons on their way to a draft, from the server. */
+export async function activeLessons(): Promise<ActiveLesson[]> {
+  try {
+    const res = await fetch("/api/upload/active");
+    if (!res.ok) return [];
+    return ((await res.json()).lessons ?? []) as ActiveLesson[];
+  } catch {
+    return [];
+  }
 }
 
 /** Drop a failed lesson from the dashboard and delete its stored audio. */
@@ -207,15 +220,15 @@ async function uploadedParts(uploadId: string): Promise<Record<Track, Set<number
 }
 
 /**
- * Send a queued lesson to the server and wait for its draft. Safe to call again
- * after any failure: it resumes where the last attempt stopped. The outbox entry
- * is removed as soon as /complete accepts the upload — from there the audio is
- * the server's, and a processing failure is retried from the server copy.
+ * Send a queued lesson to the server. Safe to call again after any failure: it
+ * resumes where the last attempt stopped. Resolves once /complete accepts the
+ * upload, when the outbox entry is removed — from there the audio is the
+ * server's, and a processing failure is retried from the server copy.
  */
 export async function sendPendingLesson(
   uploadId: string,
   signal?: AbortSignal,
-): Promise<{ lessonId: string }> {
+): Promise<TrackedLesson> {
   const lesson = await getPending(uploadId);
   if (!lesson) throw new UploadError("This recording is no longer saved on this device.", null);
 
@@ -331,5 +344,5 @@ export async function sendPendingLesson(
   }
 
   await deletePending(uploadId);
-  return pollUntilDone(uploadId, {}, signal);
+  return { uploadId, studentId: lesson.studentId, durationMin: lesson.durationMin };
 }

@@ -59,6 +59,12 @@ export const STALL_AFTER_MS = 13 * 60 * 1000;
 /** Poll state read by /api/upload/status. */
 export type UploadStatus =
   | { state: "processing" }
+  /**
+   * Waiting for a transcription slot (src/lib/lesson-queue.ts). `position` is its
+   * place in line, 1 = next. Not a stall: a queued lesson has no worker's clock
+   * running, and the lesson-queue sweep keeps it moving.
+   */
+  | { state: "queued"; position: number }
   | { state: "done"; lessonId: string }
   | {
       state: "error";
