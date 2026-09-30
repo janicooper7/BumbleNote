@@ -4,11 +4,23 @@ import { Resend } from "resend";
 import { env } from "./env";
 import type { Session } from "./mock";
 import { SOCIAL_LINKS } from "./socials";
+import { recordEmailSent } from "./usage";
+import type { UsageReport } from "./usage-report";
 
 let client: Resend | undefined;
 function getClient(): Resend {
   if (!client) client = new Resend(env.RESEND_API_KEY);
   return client;
+}
+
+/**
+ * Every send goes through here so each accepted email is counted for the spend
+ * report — the counts are what run into Resend's daily and monthly caps.
+ */
+async function send(kind: string, payload: Parameters<Resend["emails"]["send"]>[0]) {
+  const result = await getClient().emails.send(payload);
+  if (!result.error) await recordEmailSent(kind);
+  return result;
 }
 
 /**
@@ -130,7 +142,7 @@ export async function sendLessonReportEmail(args: {
         &middot; questions go to ${escapeHtml(tutorName)} &mdash; just reply to this email.`,
   });
 
-  const { error } = await getClient().emails.send({
+  const { error } = await send("lesson-report", {
     from: env.EMAIL_FROM,
     to,
     replyTo: tutorEmail,
@@ -193,7 +205,7 @@ export async function sendPasswordResetEmail(args: {
      </p>`,
   );
 
-  const { error } = await getClient().emails.send({
+  const { error } = await send("password-reset", {
     from: env.EMAIL_FROM,
     to,
     subject: "Reset your BumbleNote password",
@@ -234,7 +246,7 @@ export async function sendPasswordResetGoogleEmail(args: {
      </p>`,
   );
 
-  const { error } = await getClient().emails.send({
+  const { error } = await send("password-reset-google", {
     from: env.EMAIL_FROM,
     to,
     subject: "Signing in to BumbleNote",
@@ -280,10 +292,55 @@ export async function sendOperatorAlertEmail(args: {
      <table style="width:100%;border-collapse:collapse;font-size:13px;">${rows}</table>`,
   );
 
-  const { error } = await getClient().emails.send({
+  const { error } = await send("alert", {
     from: env.EMAIL_FROM,
     to,
     subject: `[BumbleNote] ${subject}`,
+    html,
+  });
+
+  if (error) throw new Error(explainSendError(error.message));
+}
+
+/**
+ * The daily / monthly spend report (src/lib/usage-report.ts) to the operator.
+ * Numbers and vendor names only, no people, same as the alerts.
+ */
+export async function sendUsageReportEmail(to: string, report: UsageReport): Promise<void> {
+  const table = (rows: [string, string][], big = false) =>
+    `<table style="width:100%;border-collapse:collapse;font-size:${big ? 15 : 13}px;">${rows
+      .map(
+        ([key, value]) =>
+          `<tr>
+             <td style="padding:5px 14px 5px 0;color:${C.muted};vertical-align:top;">${escapeHtml(key)}</td>
+             <td style="padding:5px 0;color:${C.cocoa};text-align:right;${big ? "font-weight:700;" : ""}">${escapeHtml(value)}</td>
+           </tr>`,
+      )
+      .join("")}</table>`;
+
+  const warnings = report.warnings.length
+    ? `<div style="background:${C.butter};border-radius:8px;padding:12px 16px;margin:0 0 20px;font-size:14px;">
+         ${report.warnings.map((w) => `<p style="margin:4px 0;">⚠ ${escapeHtml(w)}</p>`).join("")}
+       </div>`
+    : "";
+
+  const sections = report.sections
+    .map(
+      (s) =>
+        `<div style="margin-top:22px;padding-top:14px;border-top:1px solid ${C.line};">
+           <div style="font-weight:700;font-size:14px;margin-bottom:6px;">${escapeHtml(s.title)}</div>
+           ${table(s.rows)}
+         </div>`,
+    )
+    .join("");
+
+  const html = shell(report.heading, `${warnings}${table(report.headline, true)}${sections}
+    <p style="margin:22px 0 0;font-size:12px;color:${C.muted};">Claude and Deepgram are estimates from each call's usage at list price. Vendor invoices are the source of truth.</p>`);
+
+  const { error } = await send("usage-report", {
+    from: env.EMAIL_FROM,
+    to,
+    subject: `[BumbleNote] ${report.subject}`,
     html,
   });
 
@@ -322,7 +379,7 @@ export async function sendFeedbackEmail(args: {
      <div style="white-space:pre-wrap;color:${C.soft};line-height:1.6;">${escapeHtml(message)}</div>`,
   );
 
-  const { error } = await getClient().emails.send({
+  const { error } = await send("feedback", {
     from: env.EMAIL_FROM,
     to,
     replyTo: tutorEmail,
@@ -404,7 +461,7 @@ export async function sendWaitlistWelcomeEmail(args: {
     `You're getting this because you joined the BumbleNote waitlist. Unsubscribe: ${unsubscribeUrl}`,
   ].join("\n\n");
 
-  const { error } = await getClient().emails.send({
+  const { error } = await send("waitlist-welcome", {
     from: env.MARKETING_EMAIL_FROM,
     to,
     subject: "You're on the BumbleNote list",

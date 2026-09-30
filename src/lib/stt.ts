@@ -16,6 +16,7 @@
 import { DeepgramClient } from "@deepgram/sdk";
 import type { TrimMap } from "./audio-trim";
 import { env } from "./env";
+import { recordDeepgramUsage } from "./usage";
 
 // nova-3 is Deepgram's latest general model. Kept as a constant for easy tuning.
 const MODEL = "nova-3";
@@ -94,6 +95,9 @@ async function transcribeTrack(
 
   // Callback-mode responses have no `results`; we transcribe synchronously.
   const results = "results" in res ? res.results : undefined;
+  // Billed on the audio submitted, which is the trimmed track's own duration.
+  const seconds = "metadata" in res ? Number(res.metadata?.duration) : NaN;
+  if (Number.isFinite(seconds)) await recordDeepgramUsage("transcribe", MODEL, seconds);
   const words = (results?.channels?.[0]?.alternatives?.[0]?.words ?? []) as DgWord[];
   const toLessonTime = makeTimeMapper(map);
   return words.map((w) => ({

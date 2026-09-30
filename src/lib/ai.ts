@@ -10,6 +10,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "./env";
 import { CEFR_LEVELS, type CEFRLevel, type TalkTime, type VocabItem } from "./mock";
+import { recordClaudeUsage } from "./usage";
 
 // Kept as a single swappable constant. Sonnet 5 is used here for speed (roughly
 // halves the analysis step vs Opus 4.8, ~5x cheaper) while keeping high quality
@@ -246,7 +247,7 @@ export async function generateLessonFeedback(
     .join("\n");
 
   const system = context.isTrial ? SYSTEM_PROMPT + TRIAL_PROFILE_ADDENDUM : SYSTEM_PROMPT;
-  return runFeedbackPrompt(system, userContent, "this transcript", !!context.isTrial);
+  return runFeedbackPrompt(system, userContent, "this transcript", !!context.isTrial, "lesson-feedback");
 }
 
 const MERGE_SYSTEM_PROMPT = `You are an expert English-language tutor. A one-to-one lesson was interrupted — the call dropped and was recorded in several parts — and feedback was drafted separately for each part. Combine those drafts into the single feedback report the student would have received had the lesson been recorded in one go.
@@ -313,7 +314,7 @@ export async function mergeLessonFeedback(
     ),
   ].join("\n");
 
-  return runFeedbackPrompt(MERGE_SYSTEM_PROMPT, userContent, "these lesson parts", false);
+  return runFeedbackPrompt(MERGE_SYSTEM_PROMPT, userContent, "these lesson parts", false, "lesson-merge");
 }
 
 async function runFeedbackPrompt(
@@ -321,6 +322,8 @@ async function runFeedbackPrompt(
   userContent: string,
   subject: string,
   includeProfile: boolean,
+  /** Label for the spend report (src/lib/usage.ts). */
+  usageKind: string,
 ): Promise<GeneratedFeedback> {
   // Stream rather than a single blocking request. A long lesson (e.g. a 49-min
   // transcript) is a large input with meaningful output + thinking, and a
@@ -341,6 +344,8 @@ async function runFeedbackPrompt(
     messages: [{ role: "user", content: userContent }],
   });
   const response = await stream.finalMessage();
+  // Recorded before any check below: a refused or truncated response is billed too.
+  await recordClaudeUsage(usageKind, MODEL, response.usage);
 
   if (response.stop_reason === "refusal") {
     throw new Error(`The model declined to generate feedback for ${subject}.`);

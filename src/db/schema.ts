@@ -14,6 +14,7 @@ import {
   boolean,
   customType,
   date,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -308,6 +309,36 @@ export const rateLimits = pgTable(
     primaryKey({ columns: [t.key, t.windowStart] }),
     index("rate_limits_window_start_idx").on(t.windowStart),
   ],
+);
+
+/**
+ * One row per billable call to a metered vendor — a Claude request, a Deepgram
+ * track, a Resend email — written by src/lib/usage.ts at the moment of the call.
+ * The daily and monthly spend reports (src/lib/usage-report.ts) are sums over it.
+ *
+ * `costUsd` is our estimate from published list prices at write time, so a later
+ * price change never rewrites history. Null when the call couldn't be priced
+ * (an unknown model id), which the report flags rather than counting as free.
+ * No tutor, student or email address is stored: this table is for money, and
+ * outlives every lesson it describes.
+ */
+export const usageEvents = pgTable(
+  "usage_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    /** "anthropic" | "deepgram" | "resend" — see UsageService. */
+    service: text("service").notNull(),
+    /** What the call was for, e.g. "lesson-feedback", "transcribe", "lesson-report". */
+    kind: text("kind").notNull(),
+    /** Output tokens, audio seconds or emails, per `unit`. */
+    quantity: doublePrecision("quantity").notNull(),
+    unit: text("unit").notNull(),
+    costUsd: doublePrecision("cost_usd"),
+    /** Service-specific detail, e.g. the full token breakdown and model. */
+    meta: jsonb("meta").$type<Record<string, string | number>>(),
+  },
+  (t) => [index("usage_events_occurred_at_idx").on(t.occurredAt)],
 );
 
 export const tutorsRelations = relations(tutors, ({ many }) => ({

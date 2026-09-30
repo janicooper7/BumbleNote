@@ -169,6 +169,13 @@
       "when": 1790367198468,
       "tag": "0023_credit_grants_by_period",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790775169716,
+      "tag": "0024_usage_events",
+      "breakpoints": true
     }
   ]
 }
