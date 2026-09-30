@@ -55,7 +55,7 @@ export const metadata: Metadata = {
   // every page — including /enter, where the gate redirects anonymous crawlers.
   other: {
     "trustpilot-one-time-domain-verification-id":
-      "daa926cf-86f5-4b0c-817b-dcd2c00e1c4a",
+      "555433c1-a4d6-45a5-9602-324d1f8a4388",
   },
 };
 
