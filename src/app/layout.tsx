@@ -51,6 +51,12 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
   },
+  // Trustpilot domain ownership check. Lives in the root layout so it's on
+  // every page — including /enter, where the gate redirects anonymous crawlers.
+  other: {
+    "trustpilot-one-time-domain-verification-id":
+      "daa926cf-86f5-4b0c-817b-dcd2c00e1c4a",
+  },
 };
 
 export default function RootLayout({
