@@ -77,7 +77,7 @@ export default function HowItWorks() {
         <Reveal className="mx-auto mb-14 max-w-3xl text-center">
           <Eyebrow className="text-ink-soft">How it works</Eyebrow>
           <Display className="mt-5 text-[clamp(2.3rem,5vw,3.8rem)] text-cocoa">
-            From live lesson <Script>to</Script>
+            From live lesson <Script marker={false}>to</Script>
             <br className="hidden sm:block" /> polished feedback
           </Display>
           <p className="mx-auto mt-6 max-w-[52ch] text-lg text-ink-soft">

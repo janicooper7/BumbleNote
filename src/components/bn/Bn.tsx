@@ -43,10 +43,13 @@ export function Display({
 export function Script({
   children,
   block = false,
+  marker = true,
   className = "",
 }: {
   children: React.ReactNode;
   block?: boolean;
+  /** The butter highlighter stroke behind the word. */
+  marker?: boolean;
   className?: string;
 }) {
   return (
@@ -55,7 +58,7 @@ export function Script({
         block ? "relative z-10 -my-[.18em] block text-[1.18em] leading-[1.1]" : "text-[1.22em] leading-none"
       } ${className}`}
     >
-      <span className="bn-marker">{children}</span>
+      {marker ? <span className="bn-marker">{children}</span> : children}
     </span>
   );
 }

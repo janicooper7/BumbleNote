@@ -22,7 +22,7 @@ export default function Hero() {
             style={{ animationDelay: "80ms" }}
           >
             <span className="whitespace-nowrap">Teach the lesson.</span>
-            <Script block className="text-sky-deep">
+            <Script block className="text-cocoa">
               the feedback
             </Script>
             writes itself.

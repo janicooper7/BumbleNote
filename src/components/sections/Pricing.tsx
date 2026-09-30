@@ -67,7 +67,7 @@ export default function Pricing() {
           <Eyebrow className="text-sky">Pricing</Eyebrow>
           <Display className="mt-5 text-[clamp(2.3rem,5vw,3.8rem)]">
             Plans that grow
-            <Script block className="text-sky-deep">with your</Script>
+            <Script block marker={false} className="text-[#f8e67a]">with your</Script>
             teaching week
           </Display>
           <p className="mt-6 text-lg text-butter/85">

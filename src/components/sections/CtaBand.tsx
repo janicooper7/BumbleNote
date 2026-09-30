@@ -17,7 +17,7 @@ export default function CtaBand() {
             <Eyebrow className="text-ink-soft">Spend your energy teaching</Eyebrow>
             <Display className="mt-6 text-[clamp(2.2rem,5vw,3.6rem)] text-cocoa">
               Better feedback
-              <Script block className="text-sky-deep">
+              <Script block marker={false} className="text-cocoa">
                 for every
               </Script>
               student

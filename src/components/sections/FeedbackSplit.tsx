@@ -95,7 +95,7 @@ export default function FeedbackSplit() {
         <Reveal className="mx-auto mb-16 max-w-3xl text-center">
           <Eyebrow className="text-sky">From lesson to recap</Eyebrow>
           <Display className="mt-5 text-[clamp(2.3rem,5vw,3.8rem)]">
-            It reads <Script className="text-sky-deep">every</Script> line,
+            It reads <Script marker={false} className="text-[#f8e67a]">every</Script> line,
             <br /> so you don&apos;t have to
           </Display>
           <p className="mx-auto mt-6 max-w-[56ch] text-lg text-butter/85">
@@ -172,7 +172,7 @@ export default function FeedbackSplit() {
           <Eyebrow className="text-sky">One for the student · one just for you</Eyebrow>
           <Display as="h3" className="mt-5 text-[clamp(2.1rem,4.4vw,3.3rem)]">
             Two outputs
-            <Script block className="text-sky-deep">
+            <Script block marker={false} className="text-[#f8e67a]">
               from one
             </Script>
             lesson
@@ -193,7 +193,7 @@ export default function FeedbackSplit() {
               </div>
 
               <h4 className="font-display text-3xl uppercase">
-                Your lesson <Script>recap</Script>
+                Your lesson recap
               </h4>
               <p className="mt-2 text-ink-soft">
                 Plain-English and encouraging — something they&apos;ll actually keep.
@@ -235,7 +235,7 @@ export default function FeedbackSplit() {
                 </span>
               </div>
 
-              <p className="mt-auto pt-7 font-script text-3xl text-ink">
+              <p className="mt-auto pt-7 font-display text-2xl text-ink">
                 Keep it up — see you next lesson
               </p>
             </article>
@@ -254,7 +254,7 @@ export default function FeedbackSplit() {
                 </div>
 
                 <h4 className="font-display text-3xl uppercase">
-                  Tutor <Script>notes</Script>
+                  Tutor notes
                 </h4>
 
                 {/* The ruling lives on the list itself, and every row is a whole

@@ -20,7 +20,7 @@ export default function Journey() {
           <Eyebrow className="text-ink-soft">The student journey</Eyebrow>
           <Display className="mt-5 text-[clamp(2.3rem,5vw,3.8rem)] text-cocoa">
             It remembers
-            <Script block className="text-sky-deep">
+            <Script block className="text-cocoa">
               every lesson
             </Script>
             so you don&apos;t have to

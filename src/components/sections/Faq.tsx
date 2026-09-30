@@ -34,7 +34,7 @@ export default function Faq() {
           <Eyebrow className="text-ink-soft">FAQ</Eyebrow>
           <Display className="mt-5 text-[clamp(2.3rem,5vw,3.8rem)] text-cocoa">
             Questions
-            <Script block className="text-sky-deep">
+            <Script block className="text-cocoa">
               before you
             </Script>
             start
