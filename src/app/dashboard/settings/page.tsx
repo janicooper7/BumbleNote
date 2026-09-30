@@ -27,7 +27,11 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
   // the tutor deletes their own account in the tab next door.
   if (!tutor) notFound();
 
-  const pct = Math.min(100, Math.round((lessons.used / lessons.limit) * 100));
+  // Extra-lesson packs count towards the month's total: what's left in them plus
+  // what they've already paid for this period (which `used` includes).
+  const extraThisPeriod = lessons.extraLessons + lessons.extraUsed;
+  const total = lessons.limit + extraThisPeriod;
+  const pct = Math.min(100, Math.round((lessons.used / total) * 100));
   const memberSince = tutor.createdAt.toLocaleDateString("en-GB", {
     month: "long",
     year: "numeric",
@@ -78,7 +82,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
               <>
                 <div className="text-base text-ink-soft">
                   <span className="font-semibold text-ink">
-                    {lessons.used} of {lessons.limit}
+                    {lessons.used} of {total}
                   </span>{" "}
                   {lessons.plan.lessonWindow === "lifetime"
                     ? "free trial lessons used"
@@ -97,6 +101,8 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
                     ? "The trial doesn't reset — choose a plan to keep recording."
                     : lessons.rollover
                       ? <>
+                          {extraThisPeriod > 0 &&
+                            `Includes ${extraThisPeriod} extra ${extraThisPeriod === 1 ? "lesson" : "lessons"}. `}
                           {lessons.rolledOver > 0 &&
                             `Includes ${lessons.rolledOver} carried over. `}
                           {lessons.paused

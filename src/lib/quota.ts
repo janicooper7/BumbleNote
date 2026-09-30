@@ -135,6 +135,8 @@ export type LessonUsage = {
   /** Unused lessons from bought packs, usable once `remaining` hits zero
    *  (subscribers only; always 0 otherwise). */
   extraLessons: number;
+  /** Pack lessons already spent this period (counted in `used`). */
+  extraUsed: number;
   /** When the soonest-expiring pack with lessons left expires. */
   extraExpiresAt: Date | null;
 };
@@ -172,6 +174,7 @@ export async function lessonUsage(tutorId: string): Promise<LessonUsage> {
     paused: false,
     renewsAt: plan.lessonWindow === "month" ? nextMonthStart() : null,
     extraLessons: 0,
+    extraUsed: 0,
     extraExpiresAt: null,
   };
 }
@@ -212,6 +215,7 @@ async function periodUsage(
     paused,
     renewsAt: period.end,
     extraLessons: packs.remaining,
+    extraUsed: packs.usedThisPeriod,
     extraExpiresAt: packs.nextExpiry,
   };
 }
