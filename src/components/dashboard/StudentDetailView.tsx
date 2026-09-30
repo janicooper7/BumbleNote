@@ -18,6 +18,7 @@ import {
   updateStudentProfile,
 } from "@/app/actions/students";
 import { setSessionTitle } from "@/app/actions/sessions";
+import { Busy } from "../Spinner";
 
 type ProfileDraft = {
   name: string;
@@ -247,7 +248,7 @@ export default function StudentDetailView({
               disabled={savingProfile}
               className="rounded-full bg-cocoa px-5 py-2.5 text-sm font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 uppercase tracking-[.1em] hover:bg-cocoa-lift"
             >
-              {savingProfile ? "Saving…" : "Save"}
+              {savingProfile ? <Busy>Saving…</Busy> : "Save"}
             </button>
           </div>
         ) : (
@@ -415,7 +416,7 @@ export default function StudentDetailView({
                       disabled={deleting}
                       className="rounded-lg bg-[#d9534f] px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50"
                     >
-                      {deleting ? "Deleting…" : "Yes, delete"}
+                      {deleting ? <Busy>Deleting…</Busy> : "Yes, delete"}
                     </button>
                     <button
                       onClick={() => setConfirming(false)}

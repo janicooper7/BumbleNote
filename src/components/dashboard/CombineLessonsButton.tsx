@@ -15,6 +15,7 @@ import { SearchIcon } from "./icons";
 import { getMergeableLessons, mergeSessions } from "@/app/actions/merge";
 import { MAX_MERGE_PARTS, MERGE_WINDOW_HOURS, type MergeCandidate } from "@/lib/merge";
 import { MIN_COUNTED_LESSON_MIN, countsAsLesson } from "@/lib/plans";
+import { Busy } from "../Spinner";
 
 type PickStudent = { id: string; name: string; initial: string };
 
@@ -287,7 +288,7 @@ export default function CombineLessonsButton({ students }: { students: PickStude
                     className="flex-[2] rounded-full bg-cocoa px-4 py-2 text-sm font-semibold text-butter transition-colors disabled:cursor-not-allowed disabled:opacity-60 uppercase tracking-[.1em] hover:bg-cocoa-lift"
                   >
                     {merging
-                      ? "Combining… (about a minute)"
+                      ? <Busy>Combining… (about a minute)</Busy>
                       : picked.length >= 2
                         ? `Combine ${picked.length} lessons`
                         : "Combine lessons"}

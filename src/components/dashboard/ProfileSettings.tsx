@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Avatar from "./Avatar";
 import { updateTutorName } from "@/app/actions/tutor";
 import { MAX_NAME_LENGTH, normalizeTutorName } from "@/lib/tutor";
+import { Busy } from "../Spinner";
 
 export default function ProfileSettings({
   name,
@@ -120,7 +121,7 @@ export default function ProfileSettings({
                 disabled={!dirty || pending}
                 className="flex-none rounded-full bg-cocoa px-5 py-2.5 text-sm font-semibold text-butter transition-all duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-45 uppercase tracking-[.1em] hover:bg-cocoa-lift"
               >
-                {pending ? "Saving…" : "Save"}
+                {pending ? <Busy>Saving…</Busy> : "Save"}
               </button>
               {justSaved && (
                 <span className="self-center text-sm font-semibold text-mint">

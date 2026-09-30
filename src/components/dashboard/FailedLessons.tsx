@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { dismissFailedLesson, retryLessonProcessing, trackLesson } from "@/lib/upload-client";
+import { Busy } from "../Spinner";
 
 export type FailedLessonItem = {
   uploadId: string;
@@ -123,7 +124,7 @@ export default function FailedLessons({ items }: { items: FailedLessonItem[] }) 
                   disabled={busy}
                   className="rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink-soft uppercase tracking-[.1em] transition-colors duration-300 hover:border-ink-soft hover:text-ink disabled:cursor-wait disabled:opacity-70"
                 >
-                  {row.phase === "dismissing" ? "Dismissing…" : "Dismiss"}
+                  {row.phase === "dismissing" ? <Busy>Dismissing…</Busy> : "Dismiss"}
                 </button>
                 {item.canRetry && (
                   <button

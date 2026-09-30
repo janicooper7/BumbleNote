@@ -31,6 +31,7 @@ import {
   isAllowedAttachment,
   type AttachmentMeta,
 } from '@/lib/attachments'
+import { Busy } from '../Spinner'
 
 /** The editable slice of a session, in a stable key order so two snapshots of it
  *  can be compared with a plain string equality check (see `dirty` below). */
@@ -503,7 +504,7 @@ export default function SessionReview({
                 disabled={deleting}
                 className='rounded-lg bg-[#d9534f] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#c33] disabled:cursor-not-allowed disabled:opacity-60'
               >
-                {deleting ? 'Deleting…' : 'Yes, delete'}
+                {deleting ? <Busy>Deleting…</Busy> : 'Yes, delete'}
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
@@ -550,7 +551,7 @@ export default function SessionReview({
                   disabled={saving}
                   className='rounded-xl border border-brand-line bg-white/70 px-5 py-3 font-semibold text-ink transition-all duration-300 hover:-translate-y-0.5 hover:border-brand disabled:cursor-not-allowed disabled:opacity-60'
                 >
-                  {saving ? 'Saving…' : 'Save changes'}
+                  {saving ? <Busy>Saving…</Busy> : 'Save changes'}
                 </button>
               </>
             ) : (
@@ -575,7 +576,7 @@ export default function SessionReview({
             >
               {saving &&
               (pending === 'draft' || (pending === 'confirmed' && confirmed))
-                ? 'Saving…'
+                ? <Busy>Saving…</Busy>
                 : confirmed
                   ? 'Save changes'
                   : 'Save draft'}
@@ -589,7 +590,7 @@ export default function SessionReview({
             {confirmed || sent
               ? 'Confirmed ✓'
               : pending === 'confirmed'
-                ? 'Confirming…'
+                ? <Busy>Confirming…</Busy>
                 : 'Confirm lesson'}
           </button>
           {sent ? (
@@ -608,7 +609,7 @@ export default function SessionReview({
                   disabled={resending}
                   className='rounded-full bg-cocoa px-5 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]'
                 >
-                  {resending ? 'Resending…' : 'Yes, resend'}
+                  {resending ? <Busy>Resending…</Busy> : 'Yes, resend'}
                 </button>
                 <button
                   onClick={() => setConfirmResend(false)}
@@ -651,7 +652,7 @@ export default function SessionReview({
                 className='inline-flex items-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]'
                 style={{ boxShadow: '0 10px 24px -10px rgba(65,46,40,.45)' }}
               >
-                {pending === 'sent' ? 'Sending…' : 'Send to student →'}
+                {pending === 'sent' ? <Busy>Sending…</Busy> : 'Send to student →'}
               </button>
             </>
           )}
@@ -861,7 +862,7 @@ function MergePanel({
                 className='rounded-full bg-cocoa px-4 py-2 text-sm font-semibold text-butter transition-colors disabled:cursor-not-allowed disabled:opacity-60 uppercase tracking-[.1em] hover:bg-cocoa-lift'
               >
                 {merging
-                  ? 'Combining… (about a minute)'
+                  ? <Busy>Combining… (about a minute)</Busy>
                   : `Combine ${picked.length} recordings`}
               </button>
             </div>
@@ -1170,7 +1171,7 @@ function AttachmentsEditor({
             disabled={uploading || used >= MAX_ATTACHMENT_TOTAL_BYTES}
             className='text-sm font-semibold text-brand-deep hover:underline disabled:cursor-not-allowed disabled:opacity-60 disabled:no-underline'
           >
-            {uploading ? 'Attaching…' : '+ Attach file'}
+            {uploading ? <Busy>Attaching…</Busy> : '+ Attach file'}
           </button>
           <span className='text-xs text-muted'>
             {formatBytes(used)} of {formatBytes(MAX_ATTACHMENT_TOTAL_BYTES)}

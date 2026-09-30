@@ -11,6 +11,7 @@ import DashPortal from "./DashPortal";
 import { usePathname } from "next/navigation";
 import { sendFeedback } from "@/app/actions/feedback";
 import type { ContactTopic } from "@/lib/email";
+import { Busy } from "../Spinner";
 
 type Phase = "idle" | "sending" | "sent";
 
@@ -232,7 +233,7 @@ export default function FeedbackButton({ inSidebar = false }: { inSidebar?: bool
                     disabled={phase === "sending" || !message.trim()}
                     className="flex-1 rounded-full bg-cocoa px-4 py-2.5 text-[.85rem] font-semibold uppercase tracking-[.1em] text-butter transition-colors hover:bg-cocoa-lift disabled:opacity-50"
                   >
-                    {phase === "sending" ? "Sending…" : "Send"}
+                    {phase === "sending" ? <Busy>Sending…</Busy> : "Send"}
                   </button>
                 </div>
               </form>

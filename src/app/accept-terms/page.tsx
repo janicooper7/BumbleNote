@@ -7,6 +7,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { acceptTerms, signOutAction } from "@/app/actions/auth";
+import SubmitButton from "@/components/SubmitButton";
 import AuthLayout from "@/components/auth/AuthLayout";
 import { Asterisk, Script } from "@/components/bn/Bn";
 import AuthSubmit from "@/components/auth/AuthSubmit";
@@ -74,9 +75,9 @@ export default async function AcceptTermsPage({ searchParams }: PageProps<"/acce
       </form>
 
       <form action={signOutAction} className="mt-4 text-center">
-        <button type="submit" className="text-sm text-muted underline-offset-2 hover:text-cocoa hover:underline">
+        <SubmitButton pendingLabel="Signing out…" className="text-sm text-muted underline-offset-2 hover:text-cocoa hover:underline">
           Not now — sign out
-        </button>
+        </SubmitButton>
       </form>
     </AuthLayout>
   );

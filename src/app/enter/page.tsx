@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import SubmitButton from "@/components/SubmitButton";
 import { enterSite } from "@/app/actions/gate";
 import BeeFlight from "@/components/BeeFlight";
 import Logo from "@/components/Logo";
@@ -160,12 +161,9 @@ export default async function EnterPage({
                       error ? "ring-[#e77]" : "ring-butter/25 focus:ring-butter/60"
                     }`}
                   />
-                  <button
-                    type="submit"
-                    className="flex-none rounded-full bg-butter px-6 py-3 text-[.85rem] font-semibold uppercase tracking-[.12em] text-cocoa transition-all duration-300 hover:-translate-y-0.5 hover:bg-white"
-                  >
+                  <SubmitButton className="flex-none rounded-full bg-butter px-6 py-3 text-[.85rem] font-semibold uppercase tracking-[.12em] text-cocoa transition-all duration-300 hover:-translate-y-0.5 hover:bg-white">
                     Enter
-                  </button>
+                  </SubmitButton>
                 </div>
                 {error ? (
                   <span id="gate-error" className="mt-2 block text-sm text-[#ffb4a8]">

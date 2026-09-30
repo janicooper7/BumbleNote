@@ -12,6 +12,7 @@ import {
   pauseSubscription,
   type BillingActionResult,
 } from "@/app/actions/billing";
+import { Busy } from "../Spinner";
 
 export type PlanOption = {
   id: string;
@@ -88,7 +89,7 @@ export default function PlanControls({
               disabled={busy}
               className="mt-3 rounded-lg border border-brand-line bg-white px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:border-brand disabled:opacity-60"
             >
-              {busy ? "Cancelling…" : "Cancel the pause"}
+              {busy ? <Busy>Cancelling…</Busy> : "Cancel the pause"}
             </button>
           )}
         </div>
@@ -249,7 +250,7 @@ function Confirm({
           disabled={busy}
           className="rounded-full bg-cocoa px-3 py-1.5 text-sm font-semibold uppercase tracking-[.1em] text-butter transition-all hover:bg-cocoa-lift disabled:opacity-60"
         >
-          {busy ? "Working…" : confirmLabel}
+          {busy ? <Busy>Working…</Busy> : confirmLabel}
         </button>
         <button
           onClick={onCancel}

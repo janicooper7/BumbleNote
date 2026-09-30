@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import { env } from "./env";
 import type { Session } from "./mock";
 import { SOCIAL_LINKS } from "./socials";
+import { TRUSTPILOT_PAGE_URL, TRUSTPILOT_REVIEW_URL } from "./trustpilot";
 import { recordEmailSent } from "./usage";
 import type { UsageReport } from "./usage-report";
 
@@ -54,10 +55,6 @@ const FONTS_LINK = `<link href="https://fonts.googleapis.com/css2?family=Fraunce
 function button(href: string, label: string): string {
   return `<a href="${href}" style="display:inline-block;background:${C.cocoa};color:${C.butter};text-decoration:none;font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase;padding:13px 26px;border-radius:999px;">${label}</a>`;
 }
-
-/** BumbleNote's Trustpilot company page, and its "write a review" form. */
-const TRUSTPILOT_PAGE_URL = "https://uk.trustpilot.com/review/bumblenote.com";
-const TRUSTPILOT_REVIEW_URL = "https://uk.trustpilot.com/evaluate/bumblenote.com";
 
 /** The review line for emails to tutors and the waitlist (students get their own). */
 const TUTOR_REVIEW_LINE =

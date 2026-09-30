@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useId } from "react";
 import { joinWaitlist, type WaitlistState } from "@/app/actions/waitlist";
+import { Busy } from "../Spinner";
 
 const initial: WaitlistState = { status: "idle" };
 
@@ -91,7 +92,7 @@ export default function WaitlistForm({
             dark ? "bg-butter text-cocoa hover:bg-white" : "bg-cocoa text-butter hover:bg-cocoa-lift"
           }`}
         >
-          {pending ? "Adding you…" : cta}
+          {pending ? <Busy>Adding you…</Busy> : cta}
           {!pending && (
             <span aria-hidden className="transition-transform duration-300 group-hover:translate-x-1">
               →

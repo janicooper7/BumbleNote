@@ -9,6 +9,8 @@ import { formatUsd, isPaidPlanId } from "@/lib/pricing";
 import { PLANS, type Plan } from "@/lib/plans";
 import type { TutorProfile } from "@/db/queries";
 import PlanControls, { type PlanOption } from "./PlanControls";
+import PlanPicker from "./PlanPicker";
+import RedirectLink from "../RedirectLink";
 
 type Notice = "success" | "lessons" | "pending" | "cancelled" | "error";
 
@@ -142,12 +144,12 @@ export default function BillingCard({
               }
             />
           )}
-          <a
+          <RedirectLink
             href="/dashboard/billing/portal"
             className="mt-5 inline-flex rounded-full bg-cocoa px-4 py-2 text-sm font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift"
           >
             {pastDue ? "Update payment method" : "Manage billing"}
-          </a>
+          </RedirectLink>
           <p className="mt-2 text-sm text-muted">
             Update your card, download invoices or cancel.
           </p>
@@ -158,65 +160,14 @@ export default function BillingCard({
         </p>
       ) : (
         <>
-          {/* Blue, not butter: on the dashboard yellow reads as a warning. */}
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-brand-soft px-3.5 py-1.5 text-sm text-brand-deep">
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M20 12v10H4V12" />
-              <path d="M2 7h20v5H2z" />
-              <path d="M12 22V7" />
-              <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
-              <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
-            </svg>
-            <span>
-              <span className="font-semibold">2 months free</span> when you pay yearly
-            </span>
-          </div>
-          <ul className="divide-y divide-line border-b border-line">
-            {PAID_PLAN_IDS.map((id) => (
-              <li
-                key={id}
-                className="flex flex-wrap items-center justify-between gap-3 py-3.5 first:pt-0"
-              >
-                <div>
-                  <div className="font-semibold text-ink">{PLANS[id].name}</div>
-                  <div className="text-sm text-muted">
-                    {PLANS[id].lessons} lessons a month
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <a
-                    href={`/dashboard/billing/checkout?plan=${id}&interval=month`}
-                    className="rounded-lg border border-brand-line bg-white px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:border-brand"
-                  >
-                    ${formatUsd(PLAN_PRICES_USD[id].month)}/mo
-                  </a>
-                  <a
-                    href={`/dashboard/billing/checkout?plan=${id}&interval=year`}
-                    className="rounded-full bg-cocoa px-3 py-1.5 text-sm font-semibold text-butter transition-all hover:-translate-y-0.5 uppercase tracking-[.1em] hover:bg-cocoa-lift"
-                  >
-                    ${formatUsd(PLAN_PRICES_USD[id].year)}/yr
-                  </a>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <PlanPicker />
           {tutor.stripeCustomerId && (
-            <a
+            <RedirectLink
               href="/dashboard/billing/portal"
-              className="mt-3 inline-block text-sm text-brand-deep hover:underline"
+              className="mt-4 inline-block text-sm text-brand-deep hover:underline"
             >
               View past invoices
-            </a>
+            </RedirectLink>
           )}
         </>
       )}

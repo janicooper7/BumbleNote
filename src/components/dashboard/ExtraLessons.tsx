@@ -5,6 +5,7 @@
 
 import { formatUsd, LESSON_PACKS } from "@/lib/pricing";
 import { PACK_VALID_MONTHS } from "@/lib/lesson-packs";
+import RedirectLink from "../RedirectLink";
 
 const fmtDay = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" });
 
@@ -41,14 +42,16 @@ export default function ExtraLessons({
         <>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
             {LESSON_PACKS.map((pack) => (
-              <a
+              <RedirectLink
                 key={pack.lessons}
                 href={`/dashboard/billing/lessons?pack=${pack.lessons}`}
                 className="rounded-lg border border-brand-line bg-white px-3 py-2 text-center transition-colors hover:border-brand"
               >
-                <span className="block text-sm font-semibold text-ink">{pack.lessons} lessons</span>
-                <span className="block text-sm text-muted">${formatUsd(pack.usd)}</span>
-              </a>
+                <span>
+                  <span className="block text-sm font-semibold text-ink">{pack.lessons} lessons</span>
+                  <span className="block text-sm text-muted">${formatUsd(pack.usd)}</span>
+                </span>
+              </RedirectLink>
             ))}
           </div>
           <p className="mt-2 text-xs text-muted">

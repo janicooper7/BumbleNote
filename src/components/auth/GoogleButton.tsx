@@ -1,3 +1,11 @@
+"use client";
+
+// Google sign-in/up button. As a form submit, it swaps the G for a spinner
+// while the server action builds the OAuth redirect.
+
+import { useFormStatus } from "react-dom";
+import Spinner from "../Spinner";
+
 export default function GoogleButton({
   label,
   onClick,
@@ -9,13 +17,19 @@ export default function GoogleButton({
   disabled?: boolean;
   submit?: boolean;
 }) {
+  const { pending } = useFormStatus();
+  const busy = submit && pending;
   return (
     <button
       type={submit ? "submit" : "button"}
       onClick={onClick}
-      disabled={disabled}
+      disabled={disabled || busy}
+      aria-busy={busy}
       className="flex w-full items-center justify-center gap-3 rounded-full bg-white px-6 py-4 text-[.85rem] font-semibold uppercase tracking-[.12em] text-cocoa ring-[1.5px] ring-cocoa/20 transition-all duration-300 hover:-translate-y-0.5 hover:bg-butter-soft hover:ring-cocoa/40 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:bg-white"
     >
+      {busy ? (
+        <Spinner className="!h-5 !w-5" />
+      ) : (
       <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
         <path
           fill="#4285F4"
@@ -34,6 +48,7 @@ export default function GoogleButton({
           d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.05l3.67 2.84c.87-2.6 3.29-4.51 6.15-4.51Z"
         />
       </svg>
+      )}
       {label}
     </button>
   );

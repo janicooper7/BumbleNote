@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Hanken_Grotesk } from "next/font/google";
+import { Suspense } from "react";
+import NavProgress from "@/components/NavProgress";
 import PrivacyNotice from "@/components/PrivacyNotice";
 import { SITE_URL } from "@/lib/app-url";
 import { gateEnabled } from "@/lib/site-gate";
@@ -68,6 +70,11 @@ export default function RootLayout({
     // en-GB to match the en_GB Open Graph locale: a UK business, UK spelling.
     <html lang="en-GB" className={`${fraunces.variable} ${hanken.variable}`}>
       <body>
+        {/* Suspense: it reads the search params, which would otherwise opt
+            every static page out of prerendering. */}
+        <Suspense fallback={null}>
+          <NavProgress />
+        </Suspense>
         {children}
         <PrivacyNotice />
       </body>

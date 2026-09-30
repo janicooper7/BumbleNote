@@ -6,6 +6,7 @@ import Topbar from "@/components/dashboard/Topbar";
 import Field from "@/components/auth/Field";
 import { createStudent } from "@/app/actions/students";
 import { GOALS, LEVELS } from "@/lib/student-options";
+import { Busy } from "@/components/Spinner";
 
 export default function NewStudentPage() {
   const [name, setName] = useState("");
@@ -231,7 +232,7 @@ export default function NewStudentPage() {
               className="inline-flex items-center gap-2 rounded-full bg-cocoa px-6 py-3 font-semibold text-butter transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
               style={{ boxShadow: "0 10px 24px -10px rgba(65,46,40,.45)" }}
             >
-              {saving ? "Adding…" : "Add student"}
+              {saving ? <Busy>Adding…</Busy> : "Add student"}
             </button>
           </div>
         </form>

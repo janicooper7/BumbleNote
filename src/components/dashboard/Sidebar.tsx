@@ -13,10 +13,12 @@ import {
   ChevronDownIcon,
 } from "./icons";
 import { GUIDES } from "@/lib/guides";
+import { TRUSTPILOT_PAGE_URL, TRUSTPILOT_REVIEW_URL } from "@/lib/trustpilot";
 import RecordLessonButton, { type LessonQuotaView } from "./RecordLessonButton";
 import CombineLessonsButton from "./CombineLessonsButton";
 import FeedbackButton from "./FeedbackButton";
 import { signOutAction } from "@/app/actions/auth";
+import SubmitButton from "../SubmitButton";
 
 const nav = [
   { href: "/dashboard", label: "Overview", Icon: GridIcon, exact: true },
@@ -79,6 +81,34 @@ function GuidesMenu({ pathname }: { pathname: string }) {
   );
 }
 
+// Review invite under the record buttons. Same wording as the emails: aimed
+// at every tutor, since Trustpilot doesn't allow asking only happy ones.
+function TrustpilotCard() {
+  return (
+    <div className="mb-4 rounded-[22px] border border-cocoa/15 bg-white px-4 py-3">
+      <a
+        href={TRUSTPILOT_PAGE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-sans text-[1rem] font-bold text-[#191919]"
+      >
+        <span className="text-[#00b67a]">★</span>&nbsp;Trustpilot
+      </a>
+      <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+        Enjoying BumbleNote? A quick review helps other tutors find us.
+      </p>
+      <a
+        href={TRUSTPILOT_REVIEW_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-1.5 inline-block text-xs font-bold text-cocoa underline underline-offset-2 hover:text-cocoa-lift"
+      >
+        Leave a review
+      </a>
+    </div>
+  );
+}
+
 type SidebarUser ={ name?: string | null; email?: string | null } | null;
 type PickStudent = { id: string; name: string; initial: string; hasLessons: boolean };
 
@@ -129,11 +159,13 @@ export default function Sidebar({
         <FeedbackButton inSidebar />
       </nav>
 
-      <div className="mt-auto">
+      <div className="mt-auto pt-4">
         <div className="mb-4">
           <RecordLessonButton students={students} quota={quota} />
           {canCombineLessons && <CombineLessonsButton students={students} />}
         </div>
+
+        <TrustpilotCard />
 
         <div className="rounded-[22px] border border-cocoa/15 bg-butter-soft p-3">
           <div className="flex items-center gap-3">
@@ -148,12 +180,12 @@ export default function Sidebar({
             </div>
           </div>
           <form action={signOutAction} className="mt-2.5">
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Signing out…"
               className="w-full rounded-full border-[1.5px] border-cocoa/25 px-3 py-2 text-[.78rem] font-semibold uppercase tracking-[.14em] text-cocoa transition-colors hover:border-cocoa hover:bg-white"
             >
               Sign out
-            </button>
+            </SubmitButton>
           </form>
         </div>
       </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { deleteAccount } from "@/app/actions/tutor";
+import { Busy } from "../Spinner";
 
 /**
  * The account-deletion row. Rendered last on the settings page — it's the most
@@ -85,7 +86,7 @@ export default function DeleteAccountCard({
               disabled={!matches || deleting}
               className="rounded-lg bg-[#d9534f] px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50"
             >
-              {deleting ? "Deleting…" : "Delete everything"}
+              {deleting ? <Busy>Deleting…</Busy> : "Delete everything"}
             </button>
             <button
               onClick={() => {
