@@ -10,10 +10,11 @@ import { PLANS, type Plan } from "@/lib/plans";
 import type { TutorProfile } from "@/db/queries";
 import PlanControls, { type PlanOption } from "./PlanControls";
 
-type Notice = "success" | "pending" | "cancelled" | "error";
+type Notice = "success" | "lessons" | "pending" | "cancelled" | "error";
 
 const NOTICES: Record<Notice, { tone: "good" | "info" | "bad"; text: string }> = {
   success: { tone: "good", text: "You're all set — thanks for subscribing." },
+  lessons: { tone: "good", text: "Extra lessons added — they're ready to use once your plan's lessons run out." },
   pending: {
     tone: "info",
     text: "Payment received. Your plan will update in a moment — refresh if it hasn't.",

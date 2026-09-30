@@ -3,6 +3,8 @@ import Topbar from "@/components/dashboard/Topbar";
 import ProfileSettings from "@/components/dashboard/ProfileSettings";
 import DeleteAccountCard from "@/components/dashboard/DeleteAccountCard";
 import BillingCard, { isBillingNotice } from "@/components/dashboard/BillingCard";
+import ExtraLessons from "@/components/dashboard/ExtraLessons";
+import { isEntitled } from "@/lib/billing";
 import { currentTutorId } from "@/auth";
 import { getLessonTotal, getTutor } from "@/db/queries";
 import { lessonUsage, studentUsage } from "@/lib/quota";
@@ -108,6 +110,14 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
                       : "Resets on the 1st of each month."}
                 </p>
               </>
+            )}
+
+            {lessons.rollover && (
+              <ExtraLessons
+                extraLessons={lessons.extraLessons}
+                extraExpiresAt={lessons.extraExpiresAt}
+                canBuy={isEntitled(tutor.subscriptionStatus) && !tutor.cancelAtPeriodEnd}
+              />
             )}
 
             <div className="mt-4 text-base text-ink-soft">

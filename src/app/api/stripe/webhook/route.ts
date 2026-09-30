@@ -14,7 +14,9 @@
 //
 // Every event is reduced to a subscription id and handed to syncSubscription(),
 // which re-reads the subscription from Stripe. So a retried, duplicated or
-// out-of-order event does no harm.
+// out-of-order event does no harm. The one exception is a paid Checkout for a
+// pack of extra lessons, which has no subscription: it's recorded by
+// grantLessonPack(), idempotent on the session id.
 //
 // Status codes matter: a non-2xx makes Stripe retry for up to three days, which
 // is what we want for a transient failure (DB blip) and NOT what we want for a
@@ -24,6 +26,7 @@ import type Stripe from "stripe";
 import { alertOperator } from "@/lib/alerts";
 import { stripe, syncSubscription } from "@/lib/billing";
 import { env } from "@/lib/env";
+import { grantLessonPack } from "@/lib/lesson-packs";
 
 function subscriptionIdOf(event: Stripe.Event): string | null {
   switch (event.type) {
@@ -66,22 +69,30 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const subscriptionId = subscriptionIdOf(event);
-  if (!subscriptionId) return new Response("Ignored.", { status: 200 });
+  const packSession =
+    event.type === "checkout.session.completed" && event.data.object.metadata?.kind === "lesson_pack"
+      ? event.data.object
+      : null;
+  if (!subscriptionId && !packSession) return new Response("Ignored.", { status: 200 });
 
   try {
-    await syncSubscription(subscriptionId);
+    if (subscriptionId) await syncSubscription(subscriptionId);
+    if (packSession) await grantLessonPack(packSession);
   } catch (err) {
     console.error(`stripe webhook ${event.type} failed`, err);
     await alertOperator({
       subject: "Stripe webhook failed",
-      summary:
-        "A subscription change couldn't be applied, so a tutor's plan may be wrong. " +
-        "Stripe will retry automatically.",
+      summary: packSession
+        ? "A paid pack of extra lessons couldn't be recorded, so the tutor may not have them yet. " +
+          "Stripe will retry automatically."
+        : "A subscription change couldn't be applied, so a tutor's plan may be wrong. " +
+          "Stripe will retry automatically.",
       fingerprint: `stripe-webhook:${event.type}`,
       fields: {
         event: event.type,
         eventId: event.id,
-        subscription: subscriptionId,
+        subscription: subscriptionId ?? "none (lesson pack)",
+        session: packSession?.id ?? "",
         error: err instanceof Error ? err.message : String(err),
       },
     });

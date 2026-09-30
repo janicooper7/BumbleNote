@@ -312,6 +312,29 @@ export const rateLimits = pgTable(
 );
 
 /**
+ * Extra lessons bought as a one-off pack (src/lib/lesson-packs.ts), on top of a
+ * subscriber's monthly allowance. Nothing here is ever decremented: what's left
+ * of a pack is worked out from the lessons taught while it was valid, so it
+ * can't drift from them. One row per paid Checkout, keyed on its session id so
+ * the webhook and the checkout return can both grant it without doubling up.
+ */
+export const lessonPacks = pgTable(
+  "lesson_packs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tutorId: uuid("tutor_id")
+      .notNull()
+      .references(() => tutors.id, { onDelete: "cascade" }),
+    lessons: integer("lessons").notNull(),
+    purchasedAt: timestamp("purchased_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    stripeSessionId: text("stripe_session_id").notNull().unique(),
+    amountCents: integer("amount_cents").notNull(),
+  },
+  (t) => [index("lesson_packs_tutor_idx").on(t.tutorId)],
+);
+
+/**
  * One row per billable call to a metered vendor — a Claude request, a Deepgram
  * track, a Resend email — written by src/lib/usage.ts at the moment of the call.
  * The daily and monthly spend reports (src/lib/usage-report.ts) are sums over it.

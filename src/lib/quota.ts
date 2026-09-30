@@ -41,11 +41,17 @@
 // (a lesson_reservations row) from the moment work starts until the lesson is
 // written or the attempt fails, and counts held credits against the limit.
 // assertLessonQuota() remains for read-only "can they?" checks.
+//
+// EXTRA LESSON PACKS: a subscriber can buy packs of lessons (src/lib/lesson-packs.ts)
+// that are spent once a period's allowance runs out. They extend a period's limit
+// by what's left in valid packs plus what packs already paid for this period —
+// `used` counts those lessons too, so leaving them out would take them twice.
 
 import { and, count, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { lessonReservations, sessions, students, tutors } from "@/db/schema";
 import { ensureCreditGrants, isPausedAt, type CreditPeriod } from "@/lib/credits";
+import { packBalance, type PackBalance } from "@/lib/lesson-packs";
 import { MIN_COUNTED_LESSON_MIN, planFor, type Plan } from "@/lib/plans";
 
 /**
@@ -126,6 +132,11 @@ export type LessonUsage = {
   /** When the next allowance arrives: the billing date for a subscriber, the
    *  1st for a calendar-month plan, null for the trial. */
   renewsAt: Date | null;
+  /** Unused lessons from bought packs, usable once `remaining` hits zero
+   *  (subscribers only; always 0 otherwise). */
+  extraLessons: number;
+  /** When the soonest-expiring pack with lessons left expires. */
+  extraExpiresAt: Date | null;
 };
 
 /** How many lessons this tutor has used in their plan's window, against its limit. */
@@ -160,6 +171,8 @@ export async function lessonUsage(tutorId: string): Promise<LessonUsage> {
     rolledOver: 0,
     paused: false,
     renewsAt: plan.lessonWindow === "month" ? nextMonthStart() : null,
+    extraLessons: 0,
+    extraExpiresAt: null,
   };
 }
 
@@ -173,16 +186,19 @@ async function periodUsage(
   period: CreditPeriod,
   paused: boolean,
 ): Promise<LessonUsage> {
-  const [row] = await db
-    .select({ n: count() })
-    .from(sessions)
-    .where(
-      and(
-        eq(sessions.tutorId, tutorId),
-        gte(sessions.createdAt, period.start),
-        gte(sessions.durationMin, MIN_COUNTED_LESSON_MIN),
+  const [[row], packs] = await Promise.all([
+    db
+      .select({ n: count() })
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.tutorId, tutorId),
+          gte(sessions.createdAt, period.start),
+          gte(sessions.durationMin, MIN_COUNTED_LESSON_MIN),
+        ),
       ),
-    );
+    packBalance(tutorId, period),
+  ]);
   const limit = period.lessons + period.carriedIn;
   const used = row?.n ?? 0;
   return {
@@ -190,11 +206,13 @@ async function periodUsage(
     used,
     limit,
     remaining: Math.max(0, limit - used),
-    allowed: used < limit,
+    allowed: used < limit || packs.remaining > 0,
     rollover: true,
     rolledOver: period.carriedIn,
     paused,
     renewsAt: period.end,
+    extraLessons: packs.remaining,
+    extraExpiresAt: packs.nextExpiry,
   };
 }
 
@@ -210,7 +228,7 @@ export async function assertLessonQuota(tutorId: string): Promise<LessonUsage> {
             `Resume your plan in Settings to keep recording.`
           : usage.rollover
             ? `You've used all ${usage.limit} lessons on the ${usage.plan.name} plan this period, including any carried over. ` +
-              `Your next ${usage.plan.lessons} arrive on ${fmtDay(usage.renewsAt!)} — upgrade to keep recording before then.`
+              `Your next ${usage.plan.lessons} arrive on ${fmtDay(usage.renewsAt!)} — buy extra lessons or upgrade in Settings to keep recording before then.`
             : `You've used all ${usage.limit} lessons on the ${usage.plan.name} plan this month. ` +
               `Your allowance resets on the 1st — upgrade to keep recording before then.`,
       usage.plan,
@@ -254,8 +272,12 @@ export async function reserveLesson(
              where ${sessions.tutorId} = ${tutorId}
                and ${sessions.createdAt} >= ${(period?.start ?? currentMonthStart()).toISOString()}
                and ${sessions.durationMin} >= ${MIN_COUNTED_LESSON_MIN})`;
-  // A subscriber's limit includes what rolled over; everyone else's is the plan's.
-  const limit = period ? period.lessons + period.carriedIn : plan.lessons;
+  // A subscriber's limit includes what rolled over and their extra-lesson packs;
+  // everyone else's is the plan's.
+  const packs: PackBalance | null = period ? await packBalance(tutorId, period) : null;
+  const limit = period
+    ? period.lessons + period.carriedIn + packs!.remaining + packs!.usedThisPeriod
+    : plan.lessons;
   const held = sql`(select count(*) from ${lessonReservations}
                     where ${lessonReservations.tutorId} = ${tutorId}
                       and ${lessonReservations.uploadId} <> ${reservationId}

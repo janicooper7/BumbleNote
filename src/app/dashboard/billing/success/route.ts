@@ -10,6 +10,7 @@ import type { NextRequest } from "next/server";
 import { redirect } from "next/navigation";
 import { currentTutorId } from "@/auth";
 import { stripe, syncSubscription } from "@/lib/billing";
+import { grantLessonPack } from "@/lib/lesson-packs";
 
 export async function GET(req: NextRequest): Promise<never> {
   const tutorId = await currentTutorId();
@@ -23,6 +24,9 @@ export async function GET(req: NextRequest): Promise<never> {
     // — otherwise anyone could sync (harmlessly, but still) someone else's.
     if (session.client_reference_id !== tutorId) {
       outcome = "error";
+    } else if (session.metadata?.kind === "lesson_pack") {
+      // A pack of extra lessons: recorded now for the same reason as a plan.
+      outcome = (await grantLessonPack(session)) ? "lessons" : "pending";
     } else if (typeof session.subscription === "string") {
       await syncSubscription(session.subscription);
     } else if (session.subscription) {

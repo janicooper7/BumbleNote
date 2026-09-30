@@ -9,6 +9,8 @@
 //    searches by (src/lib/pricing.ts). If an amount in pricing.ts changed, a new
 //    price is created, the lookup key moves onto it and the old one is archived.
 //    Existing subscribers keep their old amount until moved in Stripe.
+//    Plus one product for extra lesson packs (bumblenote_lesson_packs) with a
+//    one-off price per pack size, under the same replace-on-change rule.
 // 2. Customer portal configuration named "BumbleNote" (src/lib/billing.ts
 //    portalUrl finds it by that name): cancel at period end, update card, invoice
 //    history. Switching plan is in-app only, so it's turned off here.
@@ -21,6 +23,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { config } from "dotenv";
 import Stripe from "stripe";
 import {
+  LESSON_PACKS,
+  lessonPackLookupKey,
   PAID_PLAN_IDS,
   PLAN_PRICES_USD,
   PORTAL_CONFIG_NAME,
@@ -92,6 +96,43 @@ async function setUpPrices(stripe: Stripe) {
       if (current?.active) await stripe.prices.update(current.id, { active: false });
       console.log(`  + ${lookupKey} = $${cents / 100}/${interval}${current ? " (replaced old price)" : ""}`);
     }
+  }
+}
+
+async function setUpLessonPacks(stripe: Stripe) {
+  const productId = "bumblenote_lesson_packs";
+  try {
+    await stripe.products.retrieve(productId);
+    console.log(`✓ product ${productId}`);
+  } catch (err) {
+    if (!(err instanceof Stripe.errors.StripeInvalidRequestError) || err.statusCode !== 404) throw err;
+    await stripe.products.create({
+      id: productId,
+      name: "BumbleNote extra lessons",
+      description: "A one-off pack of extra lessons, usable for 3 months on top of your plan",
+    });
+    console.log(`+ product ${productId}`);
+  }
+
+  for (const pack of LESSON_PACKS) {
+    const lookupKey = lessonPackLookupKey(pack.lessons);
+    const cents = toCents(pack.usd);
+    const { data } = await stripe.prices.list({ lookup_keys: [lookupKey], limit: 1 });
+    const current = data[0];
+    if (current?.active && current.unit_amount === cents && current.currency === "usd" && !current.recurring) {
+      console.log(`  ✓ ${lookupKey} = $${cents / 100}`);
+      continue;
+    }
+    await stripe.prices.create({
+      product: productId,
+      currency: "usd",
+      unit_amount: cents,
+      nickname: `${pack.lessons} extra lessons`,
+      lookup_key: lookupKey,
+      transfer_lookup_key: true,
+    });
+    if (current?.active) await stripe.prices.update(current.id, { active: false });
+    console.log(`  + ${lookupKey} = $${cents / 100}${current ? " (replaced old price)" : ""}`);
   }
 }
 
@@ -191,6 +232,7 @@ async function main() {
 
   const stripe = new Stripe(key);
   await setUpPrices(stripe);
+  await setUpLessonPacks(stripe);
   await setUpPortal(stripe);
   await setUpWebhook(stripe);
   if (process.argv.includes("--test-coupon")) await mintTestCoupon(stripe);

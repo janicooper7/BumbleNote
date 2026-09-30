@@ -21,6 +21,28 @@ export const PLAN_PRICES_USD: Record<PaidPlanId, Record<BillingInterval, number>
   pro: { month: 59.99, year: 599.9 },
 };
 
+/**
+ * One-off packs of extra lessons for subscribers (src/lib/lesson-packs.ts).
+ * Priced above every plan's own per-lesson rate ($0.46–0.53), so a tutor who
+ * runs out every month is always better off upgrading — the packs are for the
+ * occasional busy month. Same rule as the plans: scripts/stripe-setup.ts turns
+ * these into Stripe prices, so a change here needs a re-run.
+ */
+export const LESSON_PACKS = [
+  { lessons: 10, usd: 8.99 },
+  { lessons: 20, usd: 15.99 },
+  { lessons: 30, usd: 21.99 },
+] as const;
+export type LessonPackSize = (typeof LESSON_PACKS)[number]["lessons"];
+
+export function lessonPackFor(lessons: unknown) {
+  return LESSON_PACKS.find((p) => p.lessons === Number(lessons)) ?? null;
+}
+
+export function lessonPackLookupKey(lessons: LessonPackSize): string {
+  return `bumblenote_lessons_${lessons}`;
+}
+
 /** Whole cents, safe from float drift (15.99 * 100 is 1599.0000000000002). */
 export function toCents(usd: number): number {
   return Math.round(usd * 100);

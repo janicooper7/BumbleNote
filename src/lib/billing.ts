@@ -4,6 +4,9 @@
 //
 //   Checkout    — /dashboard/billing/checkout sends a tutor to Stripe's hosted
 //                 page for one plan + interval.
+//   Packs       — /dashboard/billing/lessons sends a subscriber to a one-off
+//                 Checkout for a pack of extra lessons (src/lib/lesson-packs.ts);
+//                 the webhook and the checkout return both record it.
 //   Portal      — /dashboard/billing/portal sends a paying tutor to Stripe's
 //                 hosted portal to update the card, see invoices, or cancel.
 //                 Plan changes are in-app only: the portal can't restart the
@@ -40,10 +43,12 @@ import { env } from "@/lib/env";
 import { PLANS, type PlanId } from "@/lib/plans";
 import {
   isPaidPlanId,
+  lessonPackLookupKey,
   parseLookupKey,
   PORTAL_CONFIG_NAME,
   priceLookupKey,
   type BillingInterval,
+  type LessonPackSize,
   type PaidPlanId,
 } from "@/lib/pricing";
 
@@ -153,6 +158,51 @@ export async function checkoutUrl(
     // without a customer lookup.
     subscription_data: { metadata: { tutorId } },
     allow_promotion_codes: true,
+    success_url: `${origin}/dashboard/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/dashboard/settings?billing=cancelled`,
+  });
+  if (!session.url) throw new Error("Stripe didn't return a checkout URL.");
+  return session.url;
+}
+
+/**
+ * URL of a one-off Checkout for a pack of extra lessons. Subscribers only: packs
+ * top up a monthly allowance, so without a live paid plan there's nothing for
+ * them to extend — and quota.ts wouldn't count them. Throws for anyone else;
+ * the Settings page only offers packs to subscribers.
+ */
+export async function lessonPackCheckoutUrl(
+  tutorId: string,
+  lessons: LessonPackSize,
+  origin: string,
+): Promise<string> {
+  const [row] = await db
+    .select({ status: tutors.subscriptionStatus, plan: tutors.plan, creditsSince: tutors.creditsSince })
+    .from(tutors)
+    .where(eq(tutors.id, tutorId))
+    .limit(1);
+  if (!isEntitled(row?.status) || !isPaidPlanId(row?.plan) || !row?.creditsSince) {
+    throw new Error("Extra lessons are only available on a paid plan.");
+  }
+
+  const key = lessonPackLookupKey(lessons);
+  const [customer, { data }] = await Promise.all([
+    ensureCustomer(tutorId),
+    stripe().prices.list({ lookup_keys: [key], active: true, limit: 1 }),
+  ]);
+  if (!data[0]) throw new Error(`No active Stripe price with lookup key "${key}" — run scripts/stripe-setup.ts.`);
+
+  const metadata = { kind: "lesson_pack", tutorId, lessons: String(lessons) };
+  const session = await stripe().checkout.sessions.create({
+    mode: "payment",
+    customer,
+    client_reference_id: tutorId,
+    line_items: [{ price: data[0].id, quantity: 1 }],
+    metadata,
+    payment_intent_data: { metadata },
+    // Pay by card only: the pack is granted on "paid", which a bank transfer
+    // wouldn't be for days.
+    payment_method_types: ["card"],
     success_url: `${origin}/dashboard/billing/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/dashboard/settings?billing=cancelled`,
   });

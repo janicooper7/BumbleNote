@@ -69,6 +69,7 @@ export default async function DashboardLayout({
     trial: usage.plan.lessonWindow === "lifetime",
     paused: usage.paused,
     rollover: usage.rollover,
+    extraLessons: usage.extraLessons,
     renewsOn: usage.renewsAt
       ? usage.renewsAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" })
       : null,

@@ -30,6 +30,8 @@ export type LessonQuotaView = {
   rollover: boolean;
   /** When the next allowance arrives, e.g. "20 October"; null for the trial. */
   renewsOn: string | null;
+  /** Lessons left from bought packs, used once `remaining` runs out. */
+  extraLessons: number;
 };
 
 export default function RecordLessonButton({
@@ -130,13 +132,33 @@ export default function RecordLessonButton({
                         </p>
                       </>
                     )}
-                    <Link
-                      href="/dashboard/settings"
-                      onClick={closeIdle}
-                      className="mt-3 block rounded-full bg-cocoa px-4 py-2 text-center font-semibold text-butter uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
-                    >
-                      {quota.trial ? "Choose a plan" : "Upgrade plan"}
-                    </Link>
+                    {quota.rollover && !quota.paused ? (
+                      // A subscriber mid-month: a pack keeps them recording today.
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        <Link
+                          href="/dashboard/settings#extra-lessons"
+                          onClick={closeIdle}
+                          className="block rounded-full bg-cocoa px-4 py-2 text-center font-semibold text-butter uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
+                        >
+                          Buy extra lessons
+                        </Link>
+                        <Link
+                          href="/dashboard/settings"
+                          onClick={closeIdle}
+                          className="block rounded-full border border-cocoa px-4 py-2 text-center font-semibold text-cocoa uppercase tracking-[.1em] hover:bg-white/60 text-[.85rem]"
+                        >
+                          Upgrade plan
+                        </Link>
+                      </div>
+                    ) : (
+                      <Link
+                        href="/dashboard/settings"
+                        onClick={closeIdle}
+                        className="mt-3 block rounded-full bg-cocoa px-4 py-2 text-center font-semibold text-butter uppercase tracking-[.1em] hover:bg-cocoa-lift text-[.85rem]"
+                      >
+                        {quota.trial ? "Choose a plan" : "Upgrade plan"}
+                      </Link>
+                    )}
                   </div>
                 ) : students.length === 0 ? (
                   <div className="rounded-xl border border-line bg-white/60 p-4 text-sm text-ink-soft">
@@ -205,7 +227,10 @@ export default function RecordLessonButton({
                   quota.allowed &&
                   quota.remaining <= 3 && (
                     <p className="mt-3 text-center text-xs text-muted">
-                      {quota.remaining} of {quota.limit} lessons left this month on {quota.planName}.
+                      {quota.remaining === 0
+                        ? `Using your extra lessons: ${quota.extraLessons} left.`
+                        : `${quota.remaining} of ${quota.limit} lessons left this month on ${quota.planName}` +
+                          (quota.extraLessons > 0 ? `, plus ${quota.extraLessons} extra.` : ".")}
                     </p>
                   )
                 )}
