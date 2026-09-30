@@ -13,8 +13,8 @@
 //     analytics, tag manager, or advertising code of any kind.
 //   - "not used to train their models" (Deepgram) — true because of
 //     mip_opt_out in src/lib/stt.ts. Remove that flag and this page lies.
-//   - the #students section is linked from every lesson-report email
-//     (src/lib/email.ts). Keep the anchor stable.
+//   - the #students section is what tutors link students to before recording
+//     them (see the note at the end of it). Keep the anchor stable.
 //
 // If you change what the product does with lesson data, change this page in the
 // same commit.

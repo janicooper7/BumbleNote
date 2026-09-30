@@ -55,6 +55,30 @@ function button(href: string, label: string): string {
   return `<a href="${href}" style="display:inline-block;background:${C.cocoa};color:${C.butter};text-decoration:none;font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase;padding:13px 26px;border-radius:999px;">${label}</a>`;
 }
 
+/** BumbleNote's Trustpilot company page, and its "write a review" form. */
+const TRUSTPILOT_PAGE_URL = "https://uk.trustpilot.com/review/bumblenote.com";
+const TRUSTPILOT_REVIEW_URL = "https://uk.trustpilot.com/evaluate/bumblenote.com";
+
+/** The review line for emails to tutors and the waitlist (students get their own). */
+const TUTOR_REVIEW_LINE =
+  "Enjoying BumbleNote? A quick review on Trustpilot helps other tutors find us, and we read every single one.";
+
+/**
+ * Review invitation under the sign-off. The logo is live text (green star +
+ * wordmark) rather than an image, so it shows even where images are blocked.
+ * Worded for happy and unhappy readers alike: Trustpilot doesn't allow asking
+ * only the people you expect to be pleased.
+ */
+function trustpilotInvite(line: string): string {
+  return `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;border-top:1px solid ${C.line};">
+          <tr><td style="padding-top:18px;">
+            <a href="${TRUSTPILOT_PAGE_URL}" style="text-decoration:none;font-family:Helvetica,Arial,sans-serif;font-size:17px;font-weight:700;color:#191919;"><span style="color:#00b67a;">&#9733;</span>&nbsp;Trustpilot</a>
+            <p style="margin:8px 0 0;font-size:14px;line-height:1.5;color:${C.soft};">${line} <a href="${TRUSTPILOT_REVIEW_URL}" style="color:${C.cocoa};font-weight:700;">Leave a review</a></p>
+          </td></tr>
+        </table>`;
+}
+
 /**
  * Shared chrome for every product email: logo and serif heading on white,
  * a sky rule under the header, cocoa body text and a soft footer band.
@@ -127,19 +151,18 @@ export async function sendLessonReportEmail(args: {
         <p style="margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>
         <p style="margin:0 0 16px;color:${C.soft};">
           Great work in the lesson! Your personal session report is attached as a PDF,
-          with everything you covered together in one place.
+          with everything we covered in one place.
         </p>
         <p style="margin:0 0 16px;color:${C.soft};">
           Take a few minutes to open it while the lesson is still fresh — it's the
           easiest way to lock in what you learned and keep your progress going.
         </p>
         ${attachmentsLine}
-        <p style="margin:24px 0 0;color:${C.soft};">See you next time,<br/><span style="font-family:${SERIF};font-size:20px;color:${C.cocoa};">${escapeHtml(tutorName)}</span></p>`,
-    footer: `
-        Sent with BumbleNote. ${escapeHtml(tutorName)} recorded your lesson with your
-        agreement to write this report, and the recording has since been deleted.
-        <a href="${PUBLIC_ORIGIN}/privacy#students" style="color:${C.soft};">How your data is handled</a>
-        &middot; questions go to ${escapeHtml(tutorName)} &mdash; just reply to this email.`,
+        <p style="margin:24px 0 0;color:${C.soft};">See you next time,<br/><span style="font-family:${SERIF};font-size:20px;color:${C.cocoa};">${escapeHtml(tutorName)}</span></p>
+        ${trustpilotInvite(
+          "Happy with your lesson notes, or think they could be better? Tell us on Trustpilot. Every review helps us make them more useful.",
+        )}`,
+    footer: "Sent with BumbleNote",
   });
 
   const { error } = await send("lesson-report", {
@@ -441,6 +464,7 @@ export async function sendWaitlistWelcomeEmail(args: {
       <p style="margin:0 0 24px;">We're opening the doors on <b>Sunday 4 October at 9am (UK time)</b>. You'll get an email from us the moment we're live, and you can try it on two real lessons for free.</p>
       <p style="margin:0;font-family:${serif};font-style:italic;font-size:20px;line-height:1.3;">Millie &amp; Jani</p>
       <p style="margin:0;color:#6b5245;">Co-founders, BumbleNote</p>
+      ${trustpilotInvite(TUTOR_REVIEW_LINE)}
       ${socials}
     </td></tr>
     <tr><td style="background:#fbf8f1;padding:18px 36px;font-family:${sans};font-size:12px;line-height:1.5;color:#8a7466;">
@@ -455,6 +479,7 @@ export async function sendWaitlistWelcomeEmail(args: {
     "Thank you for putting your name down for BumbleNote. We're building it for tutors who love teaching, but not the admin that comes after it: the recap, the homework message, the note to yourself about what to cover next time.",
     "We're opening the doors on Sunday 4 October at 9am (UK time). You'll get an email from us the moment we're live, and you can try it on two real lessons for free.",
     "Millie & Jani\nCo-founders, BumbleNote",
+    `${TUTOR_REVIEW_LINE} Leave a review on Trustpilot: ${TRUSTPILOT_REVIEW_URL}`,
     ...(SOCIAL_LINKS.length
       ? [`Follow along while we get ready:\n${SOCIAL_LINKS.map((s) => `${s.name}: ${s.url}`).join("\n")}`]
       : []),
