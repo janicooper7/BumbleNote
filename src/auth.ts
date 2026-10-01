@@ -164,7 +164,7 @@ export const currentTutorId = cache(async (): Promise<string> => {
  * The welcome email (src/lib/lifecycle-emails.ts) for a brand-new account, sent
  * once the sign-in response is out so it never slows sign-in down. Called on
  * every sign-in: for anyone who's had it, the claim finds nothing to do. If
- * this send is lost, the lifecycle-emails sweep sends it within five minutes.
+ * this send is lost, the lifecycle-emails sweep sends it within the hour.
  */
 function welcomeAfterResponse(tutorId: string): void {
   try {

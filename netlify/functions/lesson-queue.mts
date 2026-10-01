@@ -7,10 +7,19 @@
 //
 // Also the queue's alarm: a lesson waiting this long means slots aren't being
 // given back, or Deepgram is refusing everything.
+//
+// It only touches the database while the queue flag is up, plus once an hour as
+// a backstop, so Neon can scale to zero when nobody is teaching.
 
 import type { Config } from "@netlify/functions";
 import { alertOperator } from "@/lib/alerts";
-import { oldestWaitMinutes, startWorker, takeOrphans } from "@/lib/lesson-queue";
+import {
+  oldestWaitMinutes,
+  queueFlagRaised,
+  settleQueueFlag,
+  startWorker,
+  takeOrphans,
+} from "@/lib/lesson-queue";
 
 export const config: Config = {
   schedule: "* * * * *",
@@ -25,6 +34,9 @@ export default async function handler(): Promise<Response> {
     .trim()
     .replace(/\/+$/, "");
   try {
+    const backstop = new Date().getUTCMinutes() === 0;
+    if (!backstop && !(await queueFlagRaised())) return new Response(null, { status: 200 });
+
     const orphans = await takeOrphans();
     for (const { uploadId } of orphans) {
       try {
@@ -48,6 +60,8 @@ export default async function handler(): Promise<Response> {
         fields: { "Longest wait (min)": Math.round(waited) },
       });
     }
+
+    await settleQueueFlag();
   } catch (err) {
     // Never throw: Netlify would retry, and next minute's run is the retry.
     console.error("[lesson-queue] FAILED:", err);

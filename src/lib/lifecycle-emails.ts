@@ -7,8 +7,8 @@
 //   4  Welcome          every new account       on first sign-in
 //   5  Trial finished   free plan, trial used   1 hour after the 2nd lesson
 //
-// netlify/functions/lifecycle-emails.mts runs runLifecycleEmails() every five
-// minutes; email 4 is also sent straight from sign-in (src/auth.ts), and the
+// netlify/functions/lifecycle-emails.mts runs runLifecycleEmails() every hour,
+// on the hour; email 4 is also sent straight from sign-in (src/auth.ts), and the
 // sweep only catches any that send missed. scripts/send-lifecycle-email.ts is
 // the manual fallback and preview tool.
 //

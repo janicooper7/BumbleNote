@@ -6,12 +6,24 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@neondatabase/serverless", () => import("@/test/pglite-neon"));
 
+// An in-memory stand-in for the queue flag's blob store.
+const blobs = vi.hoisted(() => new Map<string, string>());
+vi.mock("@netlify/blobs", () => ({
+  getStore: () => ({
+    get: async (key: string) => blobs.get(key) ?? null,
+    set: async (key: string, value: string) => void blobs.set(key, value),
+    delete: async (key: string) => void blobs.delete(key),
+  }),
+}));
+
 import { migrate, pg } from "@/test/pglite-neon";
 import {
   claimSlot,
   enterQueue,
   lessonJobsFor,
+  queueFlagRaised,
   releaseSlot,
+  settleQueueFlag,
   takeOrphans,
   TRANSCRIBE_SLOTS,
   waitForSlot,
@@ -42,6 +54,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await pg.query("delete from lesson_jobs");
+  blobs.clear();
 });
 
 describe("transcription slots", () => {
@@ -133,5 +146,44 @@ describe("waiting lessons", () => {
     expect(list.at(-1)).toMatchObject({ uploadId: waiting, state: "waiting", position: 2 });
     expect(list[0]).toMatchObject({ state: "transcribing", position: null });
     expect(await lessonJobsFor(T2)).toHaveLength(1);
+  });
+});
+
+describe("queue flag (lets the database sleep)", () => {
+  it("is raised by a waiting lesson, not by one going straight to drafting", async () => {
+    await enterQueue({ uploadId: "d1", tutorId: T, studentId: "maria", durationMin: 45 }, "drafting");
+    expect(await queueFlagRaised()).toBe(false);
+    await queue(1);
+    expect(await queueFlagRaised()).toBe(true);
+  });
+
+  it("stays up while anything is waiting, and comes down once nothing is", async () => {
+    const [id] = await queue(1);
+    await settleQueueFlag();
+    expect(await queueFlagRaised()).toBe(true);
+
+    expect((await claimSlot(id)).ok).toBe(true);
+    await settleQueueFlag();
+    expect(await queueFlagRaised()).toBe(false);
+  });
+
+  it("is put back if a lesson queues between the check and the delete", async () => {
+    // The delete lands after a new lesson wrote its row: the second look must catch it.
+    const realDelete = blobs.delete.bind(blobs);
+    blobs.delete = (key: string) => {
+      const out = realDelete(key);
+      void pg.query(
+        `insert into lesson_jobs (upload_id, tutor_id, student_id, duration_min, state)
+         values ('late', '${T}', 'maria', 45, 'waiting')`,
+      );
+      return out;
+    };
+    try {
+      blobs.set("pending", "1");
+      await settleQueueFlag();
+    } finally {
+      blobs.delete = realDelete;
+    }
+    expect(await queueFlagRaised()).toBe(true);
   });
 });

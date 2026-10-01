@@ -12,7 +12,13 @@
 // (netlify/functions/process) waits for a slot for up to IN_WORKER_WAIT_MS, then
 // exits and leaves the lesson waiting; the lesson-queue sweep re-kicks it. That
 // keeps a long queue from eating the worker's 15-minute budget.
+//
+// The sweep runs every minute, but a query every minute would keep Neon from
+// ever scaling to zero. So a lesson entering the queue also sets a flag in
+// Netlify Blobs, and the sweep only goes to the database while that flag is up
+// (or once an hour, as a backstop in case setting it failed).
 
+import { getStore } from "@netlify/blobs";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { lessonJobs, lessonReservations } from "@/db/schema";
@@ -81,6 +87,69 @@ export async function enterQueue(
       target: lessonJobs.uploadId,
       set: { state, claimedAt: null, touchedAt: sql`now()` },
     });
+  // After the row, never before: settleQueueFlag relies on that order.
+  if (state === "waiting") await raiseQueueFlag();
+}
+
+const QUEUE_STORE = "lesson-queue";
+const PENDING_KEY = "pending";
+
+/**
+ * The flag's store, or null where blobs aren't available (plain `next dev`,
+ * tests). Strong consistency, so a flag set a moment ago is never read as missing.
+ */
+function flagStore(): ReturnType<typeof getStore> | null {
+  try {
+    return getStore({ name: QUEUE_STORE, consistency: "strong" });
+  } catch {
+    return null;
+  }
+}
+
+/** Tell the sweep a lesson may be waiting. Never throws: the hourly sweep is the backstop. */
+async function raiseQueueFlag(): Promise<void> {
+  try {
+    await flagStore()?.set(PENDING_KEY, String(Date.now()));
+  } catch (err) {
+    console.error("could not raise the lesson-queue flag:", err);
+  }
+}
+
+/**
+ * Whether the sweep should look at the database. True whenever it can't tell,
+ * so a blobs outage costs a database wake-up rather than a stranded lesson.
+ */
+export async function queueFlagRaised(): Promise<boolean> {
+  const store = flagStore();
+  if (!store) return true;
+  try {
+    return (await store.get(PENDING_KEY)) !== null;
+  } catch {
+    return true;
+  }
+}
+
+async function anyWaiting(): Promise<boolean> {
+  const res = await db.execute(sql`select 1 from ${lessonJobs} where state = 'waiting' limit 1`);
+  return res.rows.length > 0;
+}
+
+/**
+ * Lower the flag once nothing is waiting, so the sweep stops waking the
+ * database. A lesson queued meanwhile wrote its row before raising the flag, so
+ * if its raise landed before our delete, the second look finds the row and puts
+ * the flag back.
+ */
+export async function settleQueueFlag(): Promise<void> {
+  const store = flagStore();
+  if (!store || (await anyWaiting())) return;
+  try {
+    await store.delete(PENDING_KEY);
+  } catch (err) {
+    console.error("could not lower the lesson-queue flag:", err);
+    return;
+  }
+  if (await anyWaiting()) await raiseQueueFlag();
 }
 
 /**
