@@ -85,6 +85,9 @@ export default function SessionReview({
   // Bumped after each delivery: the server deletes sent attachments, so the
   // attachment list clears to match.
   const [deliveries, setDeliveries] = useState(0)
+  // Where the tutor was heading when the unsaved-changes dialog stopped them.
+  const [leaveTo, setLeaveTo] = useState<null | string>(null)
+  const [leaving, setLeaving] = useState(false)
   // Serialized copy of what's actually in the database, so we can tell whether
   // the tutor has edits they haven't saved yet.
   const [savedSnapshot, setSavedSnapshot] = useState(() =>
@@ -142,7 +145,32 @@ export default function SessionReview({
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [dirty])
 
-  async function save(target: SessionStatus) {
+  // beforeunload doesn't fire on client-side navigation, so also catch clicks
+  // on any in-app link (sidebar, student name, back link…) while there are
+  // unsaved edits. Capture phase on window runs before Next's <Link> handler,
+  // and stopping it there cancels the route change; the dialog below then
+  // lets the tutor save, discard or stay.
+  useEffect(() => {
+    if (!dirty) return
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0) return
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      const a = (e.target as Element | null)?.closest?.('a[href]')
+      if (!(a instanceof HTMLAnchorElement)) return
+      if (a.target === '_blank' || a.hasAttribute('download')) return
+      const url = new URL(a.href, window.location.href)
+      if (url.origin !== window.location.origin) return
+      if (url.pathname === window.location.pathname && url.search === window.location.search) return
+      e.preventDefault()
+      e.stopPropagation()
+      setLeaveTo(url.pathname + url.search + url.hash)
+    }
+    window.addEventListener('click', onClick, true)
+    return () => window.removeEventListener('click', onClick, true)
+  }, [dirty])
+
+  /** Resolves true once the edits are stored (and, for a send, delivered). */
+  async function save(target: SessionStatus): Promise<boolean> {
     const wasConfirmed = confirmed
     setSaving(true)
     setPending(target)
@@ -161,7 +189,7 @@ export default function SessionReview({
           `Changes saved — resend to share them with ${session.studentName.split(' ')[0]}.`,
         )
         router.refresh()
-        return
+        return true
       }
       if (target === 'sent') {
         const result = await sendLessonReport(session.id, payload, {
@@ -174,7 +202,7 @@ export default function SessionReview({
         setStatus('confirmed')
         if (!result.ok) {
           flash(result.error, 'err')
-          return
+          return false
         }
       } else {
         await saveSessionFeedback(session.id, payload, target)
@@ -191,9 +219,10 @@ export default function SessionReview({
           wasConfirmed ? 'Changes saved.' : 'Lesson confirmed — ready to send.',
         )
       } else {
-        flash('Draft saved.')
+        flash('Changes saved.')
       }
       router.refresh()
+      return true
     } catch (err) {
       flash(
         err instanceof Error && err.message
@@ -201,10 +230,22 @@ export default function SessionReview({
           : "Couldn't save — please try again.",
         'err',
       )
+      return false
     } finally {
       setSaving(false)
       setPending(null)
     }
+  }
+
+  /** The unsaved-changes dialog's "Save and leave". On failure the dialog
+   *  closes so the error flash next to the save button is visible. */
+  async function saveAndLeave() {
+    if (!leaveTo) return
+    setLeaving(true)
+    const ok = await save(sent ? 'sent' : confirmed ? 'confirmed' : 'draft')
+    setLeaving(false)
+    if (ok) router.push(leaveTo)
+    setLeaveTo(null)
   }
 
   async function resend() {
@@ -248,18 +289,63 @@ export default function SessionReview({
 
   return (
     <div className='px-6 py-8 lg:px-10'>
+      {leaveTo && (
+        <div
+          className='fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-4 backdrop-blur-sm'
+          onClick={(e) => e.target === e.currentTarget && !leaving && setLeaveTo(null)}
+          onKeyDown={(e) => e.key === 'Escape' && !leaving && setLeaveTo(null)}
+        >
+          <div
+            role='dialog'
+            aria-modal='true'
+            aria-labelledby='unsaved-title'
+            className='w-full max-w-md rounded-2xl border border-line bg-surface p-7 shadow-soft-md'
+          >
+            <div
+              id='unsaved-title'
+              className='mb-1 font-display text-lg uppercase tracking-[.03em] text-ink'
+            >
+              Unsaved changes
+            </div>
+            <p className='mb-5 text-sm text-ink-soft'>
+              You&apos;ve edited this lesson since it was last saved. Save your
+              changes before you go, or they&apos;ll be lost.
+            </p>
+            <div className='flex flex-col gap-2'>
+              <button
+                type='button'
+                autoFocus
+                onClick={saveAndLeave}
+                disabled={leaving}
+                className='w-full rounded-full bg-cocoa px-4 py-2.5 text-[.85rem] font-semibold uppercase tracking-[.1em] text-butter transition-colors hover:bg-cocoa-lift disabled:opacity-60'
+              >
+                {leaving ? <Busy>Saving…</Busy> : 'Save and leave'}
+              </button>
+              <div className='flex gap-2'>
+                <button
+                  type='button'
+                  onClick={() => setLeaveTo(null)}
+                  disabled={leaving}
+                  className='flex-1 rounded-full border border-line px-4 py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-50'
+                >
+                  Keep editing
+                </button>
+                <button
+                  type='button'
+                  onClick={() => router.push(leaveTo)}
+                  disabled={leaving}
+                  className='flex-1 rounded-full border border-line px-4 py-2.5 text-sm font-semibold text-danger-deep transition-colors hover:border-danger-deep disabled:opacity-50'
+                >
+                  Leave without saving
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Link
         href='/dashboard'
-        onClick={(e) => {
-          // beforeunload doesn't fire on client-side navigation, so guard the
-          // in-app route change too.
-          if (
-            dirty &&
-            !window.confirm('You have unsaved changes. Leave without saving?')
-          ) {
-            e.preventDefault()
-          }
-        }}
         className='text-sm font-medium text-brand-deep hover:underline'
       >
         ← Back to overview
@@ -577,9 +663,7 @@ export default function SessionReview({
               {saving &&
               (pending === 'draft' || (pending === 'confirmed' && confirmed))
                 ? <Busy>Saving…</Busy>
-                : confirmed
-                  ? 'Save changes'
-                  : 'Save draft'}
+                : 'Save changes'}
             </button>
           )}
           <button

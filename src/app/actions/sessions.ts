@@ -26,7 +26,7 @@ export type AttachmentResult =
 
 /**
  * Attach a file to a lesson report. Stored straight away (not held until send)
- * so it survives "Save draft" and a page reload like the rest of the edits.
+ * so it survives "Save changes" and a page reload like the rest of the edits.
  * Returns errors instead of throwing for the same reason sendLessonReport does:
  * production Next.js hides thrown messages, and "that file is too big" is
  * exactly what the tutor needs to read.

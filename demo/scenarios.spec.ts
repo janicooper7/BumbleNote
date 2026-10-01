@@ -167,7 +167,7 @@ test("review-lesson-notes", async ({ page, d }) => {
 
   await d.scroll(400);
   await d.beat(1200);
-  await d.click(button(page, "Save draft"));
+  await d.click(button(page, "Save changes"));
   await d.beat(1500);
   await d.click(button(page, "Confirm lesson"));
   await button(page, "Confirmed ✓").waitFor();
