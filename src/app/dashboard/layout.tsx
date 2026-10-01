@@ -38,7 +38,12 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [session, tutorId] = await Promise.all([auth(), currentTutorId()]);
+  // The proxy only sees that a session cookie exists; this is where a signed-out
+  // one (password reset elsewhere, account deleted) is caught. It can't clear
+  // the cookie from a render, but /login works with it present.
+  const session = await auth();
+  if (!session?.user?.tutorId) redirect("/login");
+  const tutorId = await currentTutorId();
   const [allStudents, usage, tutor, canCombineLessons] = await Promise.all([
     getStudents(),
     lessonUsage(tutorId),

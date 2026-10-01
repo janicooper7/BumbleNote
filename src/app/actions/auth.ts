@@ -333,9 +333,16 @@ export async function resetPassword(
     };
   }
 
+  // Clicking the emailed link proves the inbox, and bumping the session version
+  // signs out every other device — a reset is often how a tutor takes an
+  // account back, so whoever else was in it shouldn't stay in.
   const [tutor] = await db
     .update(tutors)
-    .set({ passwordHash: await hashPassword(password) })
+    .set({
+      passwordHash: await hashPassword(password),
+      emailVerifiedAt: sql`coalesce(${tutors.emailVerifiedAt}, now())`,
+      sessionVersion: sql`${tutors.sessionVersion} + 1`,
+    })
     .where(eq(tutors.id, tutorId))
     .returning({ email: tutors.email });
 

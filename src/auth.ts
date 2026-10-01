@@ -16,6 +16,7 @@ import { authConfig } from "./auth.config";
 import { db } from "@/db";
 import { tutors } from "@/db/schema";
 import { verifyPassword } from "@/lib/password";
+import { sessionVersionOf, tutorForSignIn } from "@/lib/session-identity";
 import { clientIp, rateLimitAll } from "@/lib/rate-limit";
 
 /**
@@ -104,26 +105,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   callbacks: {
     ...authConfig.callbacks,
-    async jwt({ token, user }) {
+    // Google sign-in is trusted to prove the email (see the jwt callback), so
+    // only take addresses Google has itself verified.
+    signIn({ account, profile }) {
+      if (account?.provider === "google") return profile?.email_verified === true;
+      return true;
+    },
+    async jwt({ token, user, account }) {
       // `user` is only present on initial sign-in. Upsert the tutor by email
       // and stash its id on the token for subsequent requests.
       if (user?.email) {
-        const email = user.email;
-        const [existing] = await db
-          .select({ id: tutors.id })
-          .from(tutors)
-          .where(eq(tutors.email, email))
-          .limit(1);
+        const signedIn = await tutorForSignIn(
+          user.email,
+          user.name ?? user.email,
+          account?.provider === "google",
+        );
+        token.tutorId = signedIn.id;
+        token.sessionVersion = signedIn.sessionVersion;
+        return token;
+      }
 
-        if (existing) {
-          token.tutorId = existing.id;
-        } else {
-          const [created] = await db
-            .insert(tutors)
-            .values({ email, name: user.name ?? email })
-            .returning({ id: tutors.id });
-          token.tutorId = created.id;
-        }
+      // Every later read: a session minted before the tutor's last password
+      // reset (or before an unproven password was cleared), or for a deleted
+      // account, is dead. Returning null signs it out. Tokens from before this
+      // check carry no version and match the column's default of 0.
+      if (typeof token.tutorId === "string") {
+        const current = await sessionVersionOf(token.tutorId);
+        if (current === null || current !== (token.sessionVersion ?? 0)) return null;
       }
       return token;
     },

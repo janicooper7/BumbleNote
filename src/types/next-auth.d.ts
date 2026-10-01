@@ -13,5 +13,7 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     tutorId?: string;
+    // See tutors.sessionVersion in src/db/schema.ts.
+    sessionVersion?: number;
   }
 }

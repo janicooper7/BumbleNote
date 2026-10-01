@@ -46,6 +46,16 @@ export const tutors = pgTable("tutors", {
   lastName: text("last_name"),
   // Null for Google-only accounts. Format is owned by src/lib/password.ts.
   passwordHash: text("password_hash"),
+  // When the tutor proved they own `email`: a Google sign-in (Google verifies it)
+  // or a completed password reset (they clicked the emailed link). Password
+  // signup alone doesn't set it — anyone can type anyone's address. A Google
+  // sign-in into a row with a password but no proof clears that password (see
+  // the jwt callback in src/auth.ts), so a squatted signup can't keep access.
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  // Copied into the session JWT at sign-in and re-checked on every server-side
+  // session read. Bumping it signs the tutor out everywhere — done on password
+  // reset and when an unproven password is cleared.
+  sessionVersion: integer("session_version").notNull().default(0),
   // Subscription tier. Governs the monthly lesson quota and student cap enforced
   // in src/lib/quota.ts. New tutors start on `free`; Stripe will own this column
   // once billing lands. Tutors that predate the column were grandfathered to
