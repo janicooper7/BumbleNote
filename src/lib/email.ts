@@ -2,6 +2,8 @@
 
 import { Resend } from "resend";
 import { env } from "./env";
+import { PLANS } from "./plans";
+import { formatUsd, PAID_PLAN_IDS, PLAN_PRICES_USD } from "./pricing";
 import type { Session } from "./mock";
 import { SOCIAL_LINKS } from "./socials";
 import { TRUSTPILOT_PAGE_URL, TRUSTPILOT_REVIEW_URL } from "./trustpilot";
@@ -411,93 +413,353 @@ export async function sendFeedbackEmail(args: {
 }
 
 /**
- * The waitlist welcome email (launch sequence, email 1). Callers go through
- * sendWaitlistWelcome in src/lib/waitlist-welcome.ts, which makes sure each
- * address gets it once.
+ * The launch-sequence emails, 1–5 (the drafts in the "BumbleNote Launch Emails"
+ * artifact). Who gets each one, and when, lives in src/lib/waitlist-welcome.ts
+ * (email 1) and src/lib/lifecycle-emails.ts (2–5); these only build them.
  *
- * Styled after the launch-email drafts rather than the product shell above:
- * brown on white, the logo lockup, Fraunces where the client loads web fonts
- * (Apple Mail does, Gmail falls back to Georgia). Table layout and inline
- * styles because that's what email clients reliably render.
+ * Every one goes through sequenceEmail below, so they share one signature
+ * (sign-off, Trustpilot line, socials) and one footer with an unsubscribe link,
+ * and a change to either lands in all five at once.
+ *
+ * Styled after the drafts rather than the product shell above: brown on white,
+ * the logo lockup, Fraunces where the client loads web fonts (Apple Mail does,
+ * Gmail falls back to Georgia). Table layout and inline styles because that's
+ * what email clients reliably render.
  */
-export async function sendWaitlistWelcomeEmail(args: {
+export type LifecycleEmail = {
+  from: string;
   to: string;
-  unsubscribeUrl: string;
-}): Promise<void> {
-  const { to, unsubscribeUrl } = args;
-  const serif = `'Fraunces', Georgia, 'Times New Roman', serif`;
-  const sans = `'Hanken Grotesk', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif`;
-  const safeUnsub = escapeHtml(unsubscribeUrl);
+  subject: string;
+  html: string;
+  text: string;
+  headers?: Record<string, string>;
+};
 
+/** Who an email goes to, which decides the footer's "why you're getting this". */
+export type Audience = { kind: "waitlist" | "account"; unsubscribeUrl: string };
+
+const AUDIENCE_REASON: Record<Audience["kind"], string> = {
+  waitlist: "You're getting this because you joined the BumbleNote waitlist.",
+  account: "You're getting this because you have a BumbleNote account.",
+};
+
+const L_SERIF = `'Fraunces', Georgia, 'Times New Roman', serif`;
+const L_SANS = `'Hanken Grotesk', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif`;
+
+function para(text: string, extra = ""): string {
+  return `<p style="margin:0 0 16px;${extra}">${escapeHtml(text)}</p>`;
+}
+
+/** "Hey Anna," from the account, or the waitlist's "Hey busy-bee,". */
+function greeting(firstName: string | null): string {
+  return `Hey ${firstName?.trim() || "busy-bee"},`;
+}
+
+/** The signature every sequence email ends with: sign-off, Trustpilot, socials. */
+function signatureHtml(): string {
   const socials = SOCIAL_LINKS.length
     ? `<p style="margin:24px 0 0;padding-top:18px;border-top:1px solid #eadfce;color:#6b5245;">
-         Follow along while we get ready:
-         ${SOCIAL_LINKS.map(
-           (s) =>
-             `<a href="${escapeHtml(s.url)}" style="color:#412e28;font-weight:700;">${escapeHtml(s.name)}</a>`,
-         ).join(" &middot; ")}
-       </p>`
+        Follow along:
+        ${SOCIAL_LINKS.map(
+          (s) => `<a href="${escapeHtml(s.url)}" style="color:#412e28;font-weight:700;">${escapeHtml(s.name)}</a>`,
+        ).join(" &middot; ")}
+      </p>`
     : "";
+  return `<p style="margin:0;font-family:${L_SERIF};font-style:italic;font-size:20px;line-height:1.3;">Millie &amp; Jani</p>
+      <p style="margin:0;color:#6b5245;">Co-founders, BumbleNote</p>
+      ${trustpilotInvite(TUTOR_REVIEW_LINE)}
+      ${socials}`;
+}
 
+function signatureText(): string[] {
+  return [
+    "Millie & Jani\nCo-founders, BumbleNote",
+    `${TUTOR_REVIEW_LINE} Leave a review on Trustpilot: ${TRUSTPILOT_REVIEW_URL}`,
+    ...(SOCIAL_LINKS.length ? [`Follow along:\n${SOCIAL_LINKS.map((s) => `${s.name}: ${s.url}`).join("\n")}`] : []),
+  ];
+}
+
+function sequenceEmail(o: {
+  to: string;
+  subject: string;
+  preheader: string;
+  /** Trusted HTML: the two-part headline, second part in italics. */
+  headline: string;
+  /** Trusted HTML: everything between the headline and the signature. */
+  body: string;
+  /** The plain-text version of `body`, one entry per paragraph. */
+  text: string[];
+  audience: Audience;
+}): LifecycleEmail {
+  const reason = AUDIENCE_REASON[o.audience.kind];
+  const unsub = o.audience.unsubscribeUrl;
   const html = `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;1,9..144,400&family=Hanken+Grotesk:wght@400;700&display=swap" rel="stylesheet">
-<title>You're on the BumbleNote list</title></head>
+<title>${escapeHtml(o.subject)}</title></head>
 <body style="margin:0;padding:0;background:#fbf8f1;">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Thanks for joining. Here's what's coming, and when.</div>
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(o.preheader)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fbf8f1;">
 <tr><td align="center" style="padding:28px 12px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;">
     <tr><td style="padding:32px 36px 8px;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
         <td valign="middle" style="padding-right:28px;"><img src="${PUBLIC_ORIGIN}/logo-lockup.png" width="112" height="64" alt="BumbleNote" style="display:block;border:0;width:112px;height:64px;"></td>
-        <td valign="middle" style="font-family:${serif};font-size:28px;line-height:1.15;color:#412e28;">Thanks for joining. <em>You're one of the first.</em></td>
+        <td valign="middle" style="font-family:${L_SERIF};font-size:28px;line-height:1.15;color:#412e28;">${o.headline}</td>
       </tr></table>
     </td></tr>
-    <tr><td style="padding:16px 36px 32px;font-family:${sans};font-size:16px;line-height:1.6;color:#412e28;">
-      <p style="margin:0 0 16px;">Hey busy-bee,</p>
-      <p style="margin:0 0 16px;">Thank you for putting your name down for BumbleNote. We're building it for tutors who love teaching, but not the admin that comes after it: the recap, the homework message, the note to yourself about what to cover next time.</p>
-      <p style="margin:0 0 24px;">We're opening the doors on <b>Sunday 4 October at 9am (UK time)</b>. You'll get an email from us the moment we're live, and you can try it on two real lessons for free.</p>
-      <p style="margin:0;font-family:${serif};font-style:italic;font-size:20px;line-height:1.3;">Millie &amp; Jani</p>
-      <p style="margin:0;color:#6b5245;">Co-founders, BumbleNote</p>
-      ${trustpilotInvite(TUTOR_REVIEW_LINE)}
-      ${socials}
+    <tr><td style="padding:16px 36px 32px;font-family:${L_SANS};font-size:16px;line-height:1.6;color:#412e28;">
+      ${o.body}
+      ${signatureHtml()}
     </td></tr>
-    <tr><td style="background:#fbf8f1;padding:18px 36px;font-family:${sans};font-size:12px;line-height:1.5;color:#8a7466;">
-      You're getting this because you joined the BumbleNote waitlist. <a href="${safeUnsub}" style="color:#6b5245;">Unsubscribe</a>
+    <tr><td style="background:#fbf8f1;padding:18px 36px;font-family:${L_SANS};font-size:12px;line-height:1.5;color:#8a7466;">
+      ${escapeHtml(reason)} <a href="${escapeHtml(unsub)}" style="color:#6b5245;">Unsubscribe</a>
     </td></tr>
   </table>
 </td></tr></table>
 </body></html>`;
 
-  const text = [
-    "Hey busy-bee,",
-    "Thank you for putting your name down for BumbleNote. We're building it for tutors who love teaching, but not the admin that comes after it: the recap, the homework message, the note to yourself about what to cover next time.",
-    "We're opening the doors on Sunday 4 October at 9am (UK time). You'll get an email from us the moment we're live, and you can try it on two real lessons for free.",
-    "Millie & Jani\nCo-founders, BumbleNote",
-    `${TUTOR_REVIEW_LINE} Leave a review on Trustpilot: ${TRUSTPILOT_REVIEW_URL}`,
-    ...(SOCIAL_LINKS.length
-      ? [`Follow along while we get ready:\n${SOCIAL_LINKS.map((s) => `${s.name}: ${s.url}`).join("\n")}`]
-      : []),
-    `You're getting this because you joined the BumbleNote waitlist. Unsubscribe: ${unsubscribeUrl}`,
-  ].join("\n\n");
-
-  const { error } = await send("waitlist-welcome", {
+  return {
     from: env.MARKETING_EMAIL_FROM,
-    to,
-    subject: "You're on the BumbleNote list",
+    to: o.to,
+    subject: o.subject,
     html,
-    text,
+    text: [...o.text, ...signatureText(), `${reason} Unsubscribe: ${unsub}`].join("\n\n"),
     // One-click unsubscribe (RFC 8058). Gmail and Yahoo expect it on bulk mail
     // and show their own "Unsubscribe" button next to the sender.
-    headers: {
-      "List-Unsubscribe": `<${unsubscribeUrl}>`,
-      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-    },
-  });
+    headers: { "List-Unsubscribe": `<${unsub}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
+  };
+}
 
+/** Email 1 — the waitlist welcome, on joining the waitlist. */
+export function waitlistWelcomeEmail(to: string, unsubscribeUrl: string): LifecycleEmail {
+  const paragraphs = [
+    "Thank you for putting your name down for BumbleNote. We're building it for tutors who love teaching, but not the admin that comes after it: the recap, the homework message, the note to yourself about what to cover next time.",
+  ];
+  const launch = "You'll get an email from us the moment we're live, and you can try it on two real lessons for free.";
+  return sequenceEmail({
+    to,
+    subject: "You're on the BumbleNote list",
+    preheader: "Thanks for joining. Here's what's coming, and when.",
+    headline: "Thanks for joining. <em>You're one of the first.</em>",
+    body: `${para(greeting(null))}
+      ${paragraphs.map((p) => para(p)).join("")}
+      <p style="margin:0 0 24px;">We're opening the doors on <b>Sunday 4 October at 9am (UK time)</b>. ${escapeHtml(launch)}</p>`,
+    text: [greeting(null), ...paragraphs, `We're opening the doors on Sunday 4 October at 9am (UK time). ${launch}`],
+    audience: { kind: "waitlist", unsubscribeUrl },
+  });
+}
+
+/**
+ * Send the waitlist welcome to one address. Callers go through
+ * sendWaitlistWelcome in src/lib/waitlist-welcome.ts, which makes sure each
+ * address gets it once.
+ */
+export async function sendWaitlistWelcomeEmail(args: { to: string; unsubscribeUrl: string }): Promise<void> {
+  const { error } = await send("waitlist-welcome", waitlistWelcomeEmail(args.to, args.unsubscribeUrl));
   if (error) throw new Error(explainSendError(error.message));
+}
+
+/** Email 2 — "We're live", to the waitlist at launch. */
+export function launchLiveEmail(to: string, unsubscribeUrl: string): LifecycleEmail {
+  const signupUrl = `${PUBLIC_ORIGIN}/signup`;
+  const paragraphs = [
+    "Today's the day we've been working towards. After countless hours of building, BumbleNote is open, and you're one of the very first tutors to have it.",
+    "We've dreamed about this moment since the very first idea. The first time BumbleNote turned a real lesson into notes we'd be proud to send, we couldn't stop smiling. Now we finally get to share it with you, and honestly? We're proud, a little nervous, and more excited than we can put into words.",
+    "Thank you for waiting with us, and for believing in BumbleNote before it even existed. This is only the beginning, and we're so glad you're here for it.",
+  ];
+  return sequenceEmail({
+    to,
+    subject: "BumbleNote is LIVE!",
+    preheader: "The doors are open. Come on in!",
+    headline: "The wait is over. <em>BumbleNote is LIVE!</em>",
+    body: `${para(greeting(null))}
+      ${paragraphs.map((p) => para(p)).join("\n      ")}
+      <p style="margin:8px 0 24px;">${button(signupUrl, "Create your account")}</p>`,
+    text: [greeting(null), ...paragraphs, `Create your account: ${signupUrl}`],
+    audience: { kind: "waitlist", unsubscribeUrl },
+  });
+}
+
+/** Email 3 — the benefits, to waitlist addresses that haven't signed up. */
+export function launchBenefitsEmail(to: string, unsubscribeUrl: string): LifecycleEmail {
+  const signupUrl = `${PUBLIC_ORIGIN}/signup`;
+  const intro =
+    "You know the moment. The call ends, and there's still the recap to write, the homework to send, and a note to yourself about what to cover next time. Then the next lesson starts.";
+  const ticks: [string, string][] = [
+    ["Your student gets a recap", "of what you covered, their corrections and their homework, so the lesson sticks after the call."],
+    ["You get private notes", "on each student: the mistakes they keep making and where you left off."],
+    ["It works where you already teach.", "It runs in your browser tab, with nothing to install."],
+    ["You stay in charge.", "Check and edit every recap before it goes to your student."],
+  ];
+  const outro = "The best way to judge it is to try it on two of your own lessons. It's free, and there's no card to enter.";
+
+  const tickRows = ticks
+    .map(
+      ([lead, rest]) => `<tr>
+        <td valign="top" style="padding:7px 10px 0 0;"><div style="width:8px;height:8px;border-radius:50%;background:#412e28;border:3px solid #c1d9e6;"></div></td>
+        <td style="padding:0 0 10px;"><b>${escapeHtml(lead)}</b> ${escapeHtml(rest)}</td>
+      </tr>`,
+    )
+    .join("");
+
+  return sequenceEmail({
+    to,
+    subject: "What happens after your lesson ends",
+    preheader: `The notes, the homework, the "what did we cover last time?"`,
+    headline: "The lesson ends. <em>The work usually doesn't.</em>",
+    body: `${para(greeting(null))}
+      ${para(intro)}
+      ${para("BumbleNote takes that part off your plate:")}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fff7d9;border-radius:10px;margin:0 0 16px;">
+        <tr><td style="padding:18px 20px 8px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="font-family:${L_SANS};font-size:16px;line-height:1.5;color:#412e28;">${tickRows}</table></td></tr>
+      </table>
+      ${para(outro)}
+      <p style="margin:8px 0 24px;">${button(signupUrl, "Create your account now")}</p>`,
+    text: [
+      greeting(null),
+      intro,
+      "BumbleNote takes that part off your plate:",
+      ticks.map(([lead, rest]) => `- ${lead} ${rest}`).join("\n"),
+      outro,
+      `Create your account now: ${signupUrl}`,
+    ],
+    audience: { kind: "waitlist", unsubscribeUrl },
+  });
+}
+
+/** Email 4 — welcome, on creating an account. */
+export function accountWelcomeEmail(to: string, firstName: string | null, unsubscribeUrl: string): LifecycleEmail {
+  const guide = (slug: string) => `${PUBLIC_ORIGIN}/dashboard/guides/${slug}`;
+  const steps: { lead: string; rest: string; watch: string; slug: string }[] = [
+    { lead: "Add your first student.", rest: "Their level, goals and interests, so the notes fit them.", watch: "Add a student", slug: "add-a-student" },
+    { lead: "Record a lesson", rest: "straight from your browser tab, with nothing to install.", watch: "Record a lesson", slug: "record-a-lesson" },
+    {
+      lead: "Review and send the notes.",
+      rest: "Check the recap, vocabulary and homework, make it your own, then send it to your student.",
+      watch: "Review and edit lesson notes",
+      slug: "review-lesson-notes",
+    },
+  ];
+  const intro =
+    "Thanks for creating your account. BumbleNote is for tutors who love teaching, but not the admin that comes after it: the recap, the homework message, the note to yourself about what to cover next time. You teach, and we write it up.";
+  const free = "Your first two lessons are free, so try it on a real one.";
+  const thanks = "Thanks for giving it a try.";
+  const startUrl = `${PUBLIC_ORIGIN}/dashboard/students/new`;
+
+  const stepRows = steps
+    .map(
+      (s, i) => `<tr>
+        <td valign="top" style="padding:1px 10px 14px 0;"><div style="width:24px;height:24px;line-height:24px;border-radius:50%;background:#412e28;color:#fff0b5;font-size:13px;font-weight:700;text-align:center;">${i + 1}</div></td>
+        <td style="padding:0 0 14px;"><b>${escapeHtml(s.lead)}</b> ${escapeHtml(s.rest)}<br>
+          <a href="${guide(s.slug)}" style="display:inline-block;margin-top:4px;font-size:14px;font-weight:700;color:#2f5d7c;text-decoration:none;">&#9654;&nbsp;Watch: ${escapeHtml(s.watch)}</a></td>
+      </tr>`,
+    )
+    .join("");
+
+  return sequenceEmail({
+    to,
+    subject: "Welcome to BumbleNote",
+    preheader: "Three short videos to get you from sign-up to your first lesson.",
+    headline: "Welcome to BumbleNote. <em>We're so glad you're here.</em>",
+    body: `${para(greeting(firstName))}
+      ${para(intro)}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#e4eff5;border-radius:10px;margin:0 0 16px;">
+        <tr><td style="padding:18px 20px 4px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#6b5245;margin-bottom:12px;">Get started in 3 steps</div>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="font-family:${L_SANS};font-size:16px;line-height:1.5;color:#412e28;">${stepRows}</table>
+        </td></tr>
+      </table>
+      ${para(free)}
+      <p style="margin:8px 0 24px;">${button(startUrl, "Add your first student")}</p>
+      ${para(thanks, "color:#6b5245;")}`,
+    text: [
+      greeting(firstName),
+      intro,
+      "Get started in 3 steps:\n" +
+        steps.map((s, i) => `${i + 1}. ${s.lead} ${s.rest}\n   Watch: ${s.watch} - ${guide(s.slug)}`).join("\n"),
+      free,
+      `Add your first student: ${startUrl}`,
+      thanks,
+    ],
+    audience: { kind: "account", unsubscribeUrl },
+  });
+}
+
+/** Email 5 — trial finished, an hour after the second free lesson. */
+export function trialEndedEmail(to: string, firstName: string | null, unsubscribeUrl: string): LifecycleEmail {
+  const plansUrl = `${PUBLIC_ORIGIN}/dashboard/settings`;
+  const paragraphs = [
+    "You've used both of your free lessons. We hope it was nice to finish a lesson and find the recap already waiting.",
+    "Your lessons, recaps and notes stay in your dashboard. To keep recording new lessons, choose the plan that fits how much you teach:",
+  ];
+  const yearly = "Pay yearly and you get two months free.";
+  const yearlyRest = "That is 12 months of lessons for the price of 10, on any plan.";
+  const closing = "Whatever you decide, thanks for trying BumbleNote with your students.";
+
+  const plans = PAID_PLAN_IDS.map((id) => ({
+    name: PLANS[id].name,
+    price: `$${formatUsd(PLAN_PRICES_USD[id].month)}`,
+    lessons: `${PLANS[id].lessons} lessons a month`,
+    pick: id === "starter",
+  }));
+  const planCells = plans
+    .map(
+      (p) => `<td width="33%" valign="top" style="padding:0 4px;">
+        <div style="border:1px solid ${p.pick ? "#412e28" : "#eadfce"};background:${p.pick ? "#fff7d9" : "#ffffff"};border-radius:10px;padding:12px 10px;">
+          <div style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">${escapeHtml(p.name)}</div>
+          <div style="font-family:${L_SERIF};font-size:20px;line-height:1.3;">${p.price}<span style="font-family:${L_SANS};font-size:12px;color:#6b5245;">/mo</span></div>
+          <div style="font-size:13px;line-height:1.4;color:#6b5245;">${escapeHtml(p.lessons)}</div>
+        </div>
+      </td>`,
+    )
+    .join("");
+
+  return sequenceEmail({
+    to,
+    subject: "Your two free lessons are done",
+    preheader: "Your recaps are safe in your dashboard. Here's how to keep going.",
+    headline: "Two lessons, <em>written up for you.</em>",
+    body: `${para(greeting(firstName))}
+      ${paragraphs.map((p) => para(p)).join("")}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 -4px 16px;font-family:${L_SANS};color:#412e28;"><tr>${planCells}</tr></table>
+      <p style="margin:0 0 16px;"><b>${escapeHtml(yearly)}</b> ${escapeHtml(yearlyRest)}</p>
+      <p style="margin:8px 0 24px;">${button(plansUrl, "Choose my plan")}</p>
+      ${para(closing, "color:#6b5245;")}`,
+    text: [
+      greeting(firstName),
+      ...paragraphs,
+      plans.map((p) => `- ${p.name}: ${p.price}/mo, ${p.lessons}`).join("\n"),
+      `${yearly} ${yearlyRest}`,
+      `Choose my plan: ${plansUrl}`,
+      closing,
+    ],
+    audience: { kind: "account", unsubscribeUrl },
+  });
+}
+
+/**
+ * Send up to 100 lifecycle emails in one request (Resend's batch limit). One
+ * request rather than one per address, so a whole list goes out at once and a
+ * scheduled run stays well inside its 30 seconds.
+ *
+ * Throws if the request itself fails (nothing was sent; safe to retry). In
+ * permissive mode Resend sends the valid emails and reports the ones it refused
+ * (a malformed address, say) by index; those are returned rather than thrown,
+ * because retrying them can't help.
+ */
+export async function sendLifecycleBatch(
+  kind: string,
+  emails: LifecycleEmail[],
+): Promise<{ rejected: { index: number; message: string }[] }> {
+  if (!emails.length) return { rejected: [] };
+  if (emails.length > 100) throw new Error("Resend batches hold at most 100 emails.");
+  const { data, error } = await getClient().batch.send(emails, { batchValidation: "permissive" });
+  if (error || !data) throw new Error(explainSendError(error?.message));
+  const rejected = data.errors ?? [];
+  for (let i = 0; i < emails.length - rejected.length; i++) await recordEmailSent(kind);
+  return { rejected };
 }
 
 /**

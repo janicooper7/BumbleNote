@@ -9,12 +9,14 @@
 // know this provider exists.
 
 import { cache } from "react";
+import { after } from "next/server";
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { eq } from "drizzle-orm";
 import { authConfig } from "./auth.config";
 import { db } from "@/db";
 import { tutors } from "@/db/schema";
+import { sendAccountWelcome } from "@/lib/lifecycle-emails";
 import { verifyPassword } from "@/lib/password";
 import { sessionVersionOf, tutorForSignIn } from "@/lib/session-identity";
 import { clientIp, rateLimitAll } from "@/lib/rate-limit";
@@ -122,6 +124,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         );
         token.tutorId = signedIn.id;
         token.sessionVersion = signedIn.sessionVersion;
+        welcomeAfterResponse(signedIn.id);
         return token;
       }
 
@@ -156,3 +159,25 @@ export const currentTutorId = cache(async (): Promise<string> => {
   }
   return session.user.tutorId;
 });
+
+/**
+ * The welcome email (src/lib/lifecycle-emails.ts) for a brand-new account, sent
+ * once the sign-in response is out so it never slows sign-in down. Called on
+ * every sign-in: for anyone who's had it, the claim finds nothing to do. If
+ * this send is lost, the lifecycle-emails sweep sends it within five minutes.
+ */
+function welcomeAfterResponse(tutorId: string): void {
+  try {
+    after(async () => {
+      try {
+        const o = await sendAccountWelcome(tutorId);
+        if (o.failed) console.error("[auth] welcome email failed; the sweep will retry:", o.failed);
+      } catch (err) {
+        console.error("[auth] welcome email failed; the sweep will retry:", err);
+      }
+    });
+  } catch (err) {
+    // Outside a request (after() needs one); the sweep covers it.
+    console.error("[auth] couldn't schedule the welcome email:", err);
+  }
+}

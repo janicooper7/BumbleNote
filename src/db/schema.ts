@@ -97,6 +97,14 @@ export const tutors = pgTable("tutors", {
   // SHA-256 of the bearer token the capture extension uploads with — never the
   // token itself (src/lib/capture-auth.ts).
   captureToken: text("capture_token").unique(),
+  // Lifecycle emails (src/lib/lifecycle-emails.ts). Each *SentAt is set when that
+  // email is claimed for sending, so it goes out once. `emailToken` keys the
+  // unsubscribe link in those emails: random, and in nothing but those emails,
+  // so it can't be guessed (same reasoning as the waitlist's unsubscribeUrl).
+  welcomeSentAt: timestamp("welcome_sent_at", { withTimezone: true }),
+  trialEndedSentAt: timestamp("trial_ended_sent_at", { withTimezone: true }),
+  marketingOptOutAt: timestamp("marketing_opt_out_at", { withTimezone: true }),
+  emailToken: uuid("email_token").notNull().unique().defaultRandom(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -322,13 +330,16 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
  *
  * `welcomeSentAt` is set when the welcome email is claimed for sending (see
  * src/lib/waitlist-welcome.ts), so a signup and the backfill script can't both
- * send it. Unsubscribing deletes the row outright.
+ * send it. `liveSentAt` and `benefitsSentAt` do the same for launch emails 2
+ * and 3 (src/lib/lifecycle-emails.ts). Unsubscribing deletes the row outright.
  */
 export const waitlist = pgTable("waitlist", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: text("email").notNull().unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   welcomeSentAt: timestamp("welcome_sent_at", { withTimezone: true }),
+  liveSentAt: timestamp("live_sent_at", { withTimezone: true }),
+  benefitsSentAt: timestamp("benefits_sent_at", { withTimezone: true }),
 });
 
 /**
