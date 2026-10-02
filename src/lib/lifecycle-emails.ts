@@ -28,13 +28,13 @@ import {
   trialEndedEmail,
   type LifecycleEmail,
 } from "./email";
+import { LAUNCH_AT } from "./launch";
 import { MIN_COUNTED_LESSON_MIN, PLANS } from "./plans";
 import { unsubscribeUrl as waitlistUnsubscribeUrl } from "./waitlist-welcome";
 
 const { waitlist, tutors, sessions } = schema;
 
-/** Sunday 4 October 2026, 9:00am BST. */
-export const LAUNCH_AT = new Date("2026-10-04T08:00:00Z");
+export { LAUNCH_AT };
 /** Friday 9 October 2026, 9:00am BST. */
 export const BENEFITS_AT = new Date("2026-10-09T08:00:00Z");
 /**

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import SubmitButton from "@/components/SubmitButton";
 import { enterSite } from "@/app/actions/gate";
 import BeeFlight from "@/components/BeeFlight";
+import LaunchCountdown from "@/components/LaunchCountdown";
 import Logo from "@/components/Logo";
 import WaitlistForm from "@/components/auth/WaitlistForm";
 import { Asterisk, Display, Eyebrow, Script, Sparkle } from "@/components/bn/Bn";
@@ -44,6 +45,10 @@ export default async function EnterPage({
 }) {
   const { from, error } = await searchParams;
   const target = safeReturnPath(from);
+  // The countdown's first frame. A server component renders once per request
+  // (this one is dynamic via searchParams), so reading the clock here is safe.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
 
   return (
     <div className={`theme-bn ${bnFontVars} min-h-screen bg-white`}>
@@ -60,7 +65,7 @@ export default async function EnterPage({
         </div>
 
         <div className="mx-auto mt-16 flex max-w-[880px] flex-col items-center text-center md:mt-20">
-          <Eyebrow className="ct-rise text-ink-soft">Stay tuned · something new for tutors</Eyebrow>
+          <Eyebrow className="ct-rise text-ink-soft">Stay tuned · doors open Sunday 4 October, 9am UK</Eyebrow>
           <Display
             as="h1"
             className="ct-rise mt-6 whitespace-nowrap text-[clamp(2.4rem,8vw,6.5rem)] text-cocoa"
@@ -68,13 +73,16 @@ export default async function EnterPage({
           >
             Coming <Script className="text-sky-deep">soon</Script>
           </Display>
+          <div className="ct-rise mt-12 w-full max-w-[640px]" style={{ animationDelay: "120ms" }}>
+            <LaunchCountdown serverNow={now} />
+          </div>
           <p
-            className="ct-rise mt-8 max-w-[62ch] text-[clamp(1.15rem,2vw,1.4rem)] leading-relaxed text-ink-soft"
+            className="ct-rise mt-10 max-w-[62ch] text-[clamp(1.15rem,2vw,1.4rem)] leading-relaxed text-ink-soft"
             style={{ animationDelay: "160ms" }}
           >
             BumbleNote turns your 1-to-1 English lessons into finished, personal
             feedback for every student. We&apos;re putting on the final touches — leave
-            your email and you&apos;ll be the first to know when the doors open.
+            your email and we&apos;ll tell you the moment the doors open.
           </p>
           <div className="ct-rise mt-10 w-full max-w-[560px]" style={{ animationDelay: "240ms" }}>
             <WaitlistForm autoFocus={!error} cta="Notify me" />
