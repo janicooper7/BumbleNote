@@ -1,13 +1,18 @@
 "use server";
 
+import { after } from "next/server";
 import { headers } from "next/headers";
 import { db, schema } from "@/db";
 import { clientIp, rateLimit, waitText } from "@/lib/rate-limit";
+import { META_SOURCE_ORIGIN, trackVisitorConversion } from "@/lib/meta-capi";
+import { metaEventId } from "@/lib/tracking";
+import { readRequestTracking } from "@/lib/tracking-server";
 import { sendWaitlistWelcome } from "@/lib/waitlist-welcome";
 
 export type WaitlistState =
   | { status: "idle" }
-  | { status: "joined"; email: string }
+  /** `leadEventId`: set when the Pixel should send its copy of the Lead event. */
+  | { status: "joined"; email: string; leadEventId?: string }
   | { status: "error"; message: string };
 
 // Deliberately loose — the only goal is to catch typos like a missing "@" or
@@ -72,7 +77,35 @@ export async function joinWaitlist(
     } catch (err) {
       console.error("[waitlist] welcome email failed", err);
     }
+    const leadEventId = await trackLead(inserted.id, email);
+    if (leadEventId) return { status: "joined", email, leadEventId };
   }
 
   return { status: "joined", email };
+}
+
+/**
+ * Meta's Lead for a new waitlist address (src/lib/meta-capi.ts): the server's
+ * copy goes once the response is out, and the event id comes back for the
+ * Pixel's copy, so Meta counts one. Only with marketing consent; a repeat
+ * signup never gets here. Never throws.
+ */
+async function trackLead(waitlistId: string, email: string): Promise<string | null> {
+  try {
+    const t = await readRequestTracking();
+    const eventId = metaEventId.lead(waitlistId);
+    const send = () =>
+      trackVisitorConversion({
+        eventId,
+        eventName: "Lead",
+        consented: t.consent === "marketing",
+        user: { email, ip: t.ip, userAgent: t.userAgent, fbp: t.fbp, fbc: t.fbc, country: t.country },
+        eventSourceUrl: `${META_SOURCE_ORIGIN}/enter`,
+      });
+    after(send);
+    return t.consent === "marketing" ? eventId : null;
+  } catch (err) {
+    console.error("[waitlist] couldn't track the lead:", err);
+    return null;
+  }
 }

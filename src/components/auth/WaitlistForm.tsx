@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useId } from "react";
+import { useActionState, useEffect, useId } from "react";
 import { joinWaitlist, type WaitlistState } from "@/app/actions/waitlist";
 import { Busy } from "../Spinner";
+import { track } from "../tracking/pixel";
 
 const initial: WaitlistState = { status: "idle" };
 
@@ -24,6 +25,12 @@ export default function WaitlistForm({
   // The page carries the form twice, so ids can't be hard-coded.
   const errorId = useId();
   const dark = tone === "onDark";
+
+  // The Pixel's copy of the server's Lead, under the same event id.
+  const leadEventId = state.status === "joined" ? state.leadEventId : undefined;
+  useEffect(() => {
+    if (leadEventId) track("Lead", {}, leadEventId);
+  }, [leadEventId]);
 
   if (state.status === "joined") {
     return (

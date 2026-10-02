@@ -335,7 +335,7 @@ export default function PrivacyPage() {
         </p>
         <Points
           items={[
-            <>You viewed our home page, or created an account.</>,
+            <>You viewed our home page, joined the waitlist, or created an account.</>,
             <>Your first lesson notes were created. We do not send anything about the lesson itself.</>,
             <>You started a paid plan or bought extra lessons, with the amount paid.</>,
           ]}

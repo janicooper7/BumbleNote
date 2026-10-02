@@ -37,7 +37,7 @@ export type MetaUser = {
   country?: string | null;
 };
 
-export type MetaEventName = "CompleteRegistration" | "ActivatedTrial" | "Subscribe" | "Purchase";
+export type MetaEventName = "Lead" | "CompleteRegistration" | "ActivatedTrial" | "Subscribe" | "Purchase";
 
 export type SendResult = { status: "sent" } | { status: "skipped"; reason: string } | { status: "failed"; error: string };
 
@@ -126,13 +126,57 @@ export async function sendMetaEvent(
 }
 
 /**
+ * Run `send` at most once per event id, recording the outcome in meta_events.
+ * The insert is the claim: a retry (a Stripe webhook resent, a second lesson)
+ * finds the id taken and sends nothing. Never throws.
+ */
+async function sendOnce(
+  event: { eventId: string; eventName: MetaEventName; tutorId?: string; value?: number; currency?: string },
+  send: () => Promise<SendResult>,
+): Promise<SendResult | { status: "duplicate" }> {
+  try {
+    const claimed = await db
+      .insert(metaEvents)
+      .values({
+        eventId: event.eventId,
+        tutorId: event.tutorId ?? null,
+        eventName: event.eventName,
+        value: event.value ?? null,
+        currency: event.currency ?? null,
+      })
+      .onConflictDoNothing({ target: metaEvents.eventId })
+      .returning({ eventId: metaEvents.eventId });
+    if (!claimed.length) return { status: "duplicate" };
+
+    const result = await send();
+    await db
+      .update(metaEvents)
+      .set({
+        status: result.status,
+        error: result.status === "failed" ? result.error : result.status === "skipped" ? result.reason : null,
+      })
+      .where(eq(metaEvents.eventId, event.eventId));
+    return result;
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    console.error(`[meta] ${event.eventName} ${event.eventId} couldn't be tracked: ${error}`);
+    return { status: "failed", error };
+  }
+}
+
+function withValue(customData: Record<string, unknown> | undefined, value?: number, currency?: string) {
+  const d = { ...customData, ...(value !== undefined ? { value, currency: currency ?? "USD" } : {}) };
+  return Object.keys(d).length ? d : undefined;
+}
+
+/**
  * Send a conversion for a tutor, at most once per event id, and only if they
  * accepted marketing cookies. User details come from the tutor row (email,
  * plus the fbp/fbc/IP/user agent stored with their consent), so this works
  * from the Stripe webhook and the lesson worker, where there's no browser
  * request to read them from. Never throws.
  */
-export async function trackConversion(opts: {
+export function trackConversion(opts: {
   eventId: string;
   eventName: MetaEventName;
   tutorId: string;
@@ -141,20 +185,7 @@ export async function trackConversion(opts: {
   currency?: string;
   customData?: Record<string, unknown>;
 }): Promise<SendResult | { status: "duplicate" }> {
-  try {
-    const claimed = await db
-      .insert(metaEvents)
-      .values({
-        eventId: opts.eventId,
-        tutorId: opts.tutorId,
-        eventName: opts.eventName,
-        value: opts.value ?? null,
-        currency: opts.currency ?? null,
-      })
-      .onConflictDoNothing({ target: metaEvents.eventId })
-      .returning({ eventId: metaEvents.eventId });
-    if (!claimed.length) return { status: "duplicate" };
-
+  return sendOnce(opts, async () => {
     const [t] = await db
       .select({
         email: tutors.email,
@@ -168,44 +199,33 @@ export async function trackConversion(opts: {
       .from(tutors)
       .where(eq(tutors.id, opts.tutorId))
       .limit(1);
+    if (!t) return { status: "skipped", reason: "no such tutor" };
+    if (t.adConsent !== true) return { status: "skipped", reason: "no marketing consent" };
+    return sendMetaEvent(opts.eventName, {
+      user: { email: t.email, externalId: opts.tutorId, ip: t.ip, userAgent: t.ua, fbp: t.fbp, fbc: t.fbc, country: t.country },
+      customData: withValue(opts.customData, opts.value, opts.currency),
+      eventId: opts.eventId,
+      eventSourceUrl: opts.eventSourceUrl,
+    });
+  });
+}
 
-    let result: SendResult;
-    if (!t) result = { status: "skipped", reason: "no such tutor" };
-    else if (t.adConsent !== true) result = { status: "skipped", reason: "no marketing consent" };
-    else {
-      const customData = {
-        ...opts.customData,
-        ...(opts.value !== undefined ? { value: opts.value, currency: opts.currency ?? "USD" } : {}),
-      };
-      result = await sendMetaEvent(opts.eventName, {
-        user: {
-          email: t.email,
-          externalId: opts.tutorId,
-          ip: t.ip,
-          userAgent: t.ua,
-          fbp: t.fbp,
-          fbc: t.fbc,
-          country: t.country,
-        },
-        customData: Object.keys(customData).length ? customData : undefined,
-        eventId: opts.eventId,
-        eventSourceUrl: opts.eventSourceUrl,
-      });
-    }
-
-    await db
-      .update(metaEvents)
-      .set({
-        status: result.status,
-        error: result.status === "failed" ? result.error : result.status === "skipped" ? result.reason : null,
-      })
-      .where(eq(metaEvents.eventId, opts.eventId));
-    return result;
-  } catch (err) {
-    const error = err instanceof Error ? err.message : String(err);
-    console.error(`[meta] ${opts.eventName} ${opts.eventId} couldn't be tracked: ${error}`);
-    return { status: "failed", error };
-  }
+/**
+ * Send a conversion for someone with no account (a waitlist sign-up), at most
+ * once per event id. The caller passes the user details and their consent,
+ * read from the request they made. Never throws.
+ */
+export function trackVisitorConversion(opts: {
+  eventId: string;
+  eventName: MetaEventName;
+  consented: boolean;
+  user: MetaUser;
+  eventSourceUrl: string;
+}): Promise<SendResult | { status: "duplicate" }> {
+  return sendOnce(opts, async () => {
+    if (!opts.consented) return { status: "skipped", reason: "no marketing consent" };
+    return sendMetaEvent(opts.eventName, { user: opts.user, eventId: opts.eventId, eventSourceUrl: opts.eventSourceUrl });
+  });
 }
 
 /** Public origin for event_source_url, as in src/lib/email.ts. */

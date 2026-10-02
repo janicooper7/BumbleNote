@@ -7,7 +7,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 vi.mock("@neondatabase/serverless", () => import("@/test/pglite-neon"));
 
 import { migrate, pg } from "@/test/pglite-neon";
-import { hashForMeta, trackActivation, trackConversion } from "./meta-capi";
+import { hashForMeta, trackActivation, trackConversion, trackVisitorConversion } from "./meta-capi";
 
 const A = "11111111-1111-4111-8111-111111111111";
 
@@ -115,5 +115,23 @@ describe("trackConversion", () => {
     await trackActivation(A);
     await trackActivation(A);
     expect(calls.map((c) => c.body.data[0].event_name)).toEqual(["ActivatedTrial"]);
+  });
+
+  it("sends a waitlist Lead once, only with consent, with no tutor attached", async () => {
+    const lead = (consented: boolean, id = "lead-w1") =>
+      trackVisitorConversion({
+        eventId: id,
+        eventName: "Lead",
+        consented,
+        user: { email: "new@x.io", ip: "203.0.113.1", userAgent: "UA", fbp: "fb.1.1.1" },
+        eventSourceUrl: "https://bumblenote.com/enter",
+      });
+    expect(await lead(true)).toEqual({ status: "sent" });
+    expect(await lead(true)).toEqual({ status: "duplicate" });
+    expect(await lead(false, "lead-w2")).toEqual({ status: "skipped", reason: "no marketing consent" });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body.data[0]).toMatchObject({ event_name: "Lead", user_data: { em: [hashForMeta("new@x.io")] } });
+    const { rows } = await pg.query<{ tutor_id: string | null }>(`select tutor_id from meta_events where event_id = 'lead-w1'`);
+    expect(rows[0].tutor_id).toBeNull();
   });
 });

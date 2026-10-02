@@ -97,6 +97,7 @@ export function fbcFrom(fbcCookie: string | null | undefined, attribution: Attri
 
 /** Event ids, shared by the Pixel and the Conversions API so Meta de-duplicates them. */
 export const metaEventId = {
+  lead: (waitlistId: string) => `lead-${waitlistId}`,
   registration: (tutorId: string) => `reg-${tutorId}`,
   activation: (tutorId: string) => `activated-${tutorId}`,
   subscribe: (subscriptionId: string) => `subscribe-${subscriptionId}`,

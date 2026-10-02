@@ -65,6 +65,7 @@ Events (browser and server copies share an `event_id`, so Meta de-duplicates the
 | --- | --- | --- | --- |
 | `PageView` | ✓ | | every route change |
 | `ViewContent` | ✓ | | landing page view |
+| `Lead` | ✓ | ✓ | new address joins the waitlist on `/enter` |
 | `CompleteRegistration` | ✓ | ✓ | account created (Google or password) |
 | `ActivatedTrial` (custom) | | ✓ | first lesson written up, once per tutor |
 | `Subscribe` | | ✓ | Stripe `checkout.session.completed` for a plan, with value + currency |
@@ -72,7 +73,8 @@ Events (browser and server copies share an `event_id`, so Meta de-duplicates the
 
 Server events go only to tutors whose stored `ad_consent` is true, and each event id is
 recorded once in `meta_events` (status `sent`, `skipped` or `failed`), so Stripe retries
-don't double-send. First-touch UTMs, `fbclid` and the landing page are saved on the
+don't double-send. Waitlist Leads have no tutor, so their consent is read from the join
+request itself. First-touch UTMs, `fbclid` and the landing page are saved on the
 `tutors` row at sign-up.
 
 ### Testing each event

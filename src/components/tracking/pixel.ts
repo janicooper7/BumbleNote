@@ -58,6 +58,6 @@ function ensurePixel(): boolean {
  */
 export function track(name: string, params?: Record<string, unknown>, eventId?: string): void {
   if (!ensurePixel()) return;
-  const standard = ["PageView", "ViewContent", "CompleteRegistration", "Subscribe", "Purchase"].includes(name);
+  const standard = ["PageView", "ViewContent", "Lead", "CompleteRegistration", "Subscribe", "Purchase"].includes(name);
   window.fbq!(standard ? "track" : "trackCustom", name, params ?? {}, eventId ? { eventID: eventId } : undefined);
 }
