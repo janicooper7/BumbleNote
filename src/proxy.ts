@@ -13,6 +13,7 @@ import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/auth.config";
 import { GATE_COOKIE, GATE_PATH, gateEnabled, tokenIsValid } from "@/lib/site-gate";
+import { UTM_KEYS } from "@/lib/tracking";
 
 const { auth } = NextAuth(authConfig);
 
@@ -52,6 +53,13 @@ export default auth((request) => {
     // Remember where they were headed so the gate can send them back there.
     const from = pathname + search;
     if (from !== "/") url.searchParams.set("from", from);
+    // Ad parameters ride along at the top level too: first-touch attribution
+    // (src/components/tracking) reads the landing page's own URL, and would
+    // miss them inside `from`.
+    for (const key of [...UTM_KEYS, "fbclid"]) {
+      const value = request.nextUrl.searchParams.get(key);
+      if (value) url.searchParams.set(key, value);
+    }
     return NextResponse.redirect(url);
   }
 
