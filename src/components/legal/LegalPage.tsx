@@ -7,6 +7,7 @@
 // naming a legal concept.
 
 import Link from "next/link";
+import CookieSettingsLink from "@/components/tracking/CookieSettingsLink";
 import Logo from "@/components/Logo";
 import { LEGAL } from "@/lib/legal";
 
@@ -76,6 +77,7 @@ export function LegalShell({
             <Link href="/privacy" className="transition-colors hover:text-ink">
               Privacy
             </Link>
+            <CookieSettingsLink className="transition-colors hover:text-ink" />
           </div>
         </div>
       </footer>

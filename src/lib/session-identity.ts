@@ -9,7 +9,7 @@ import { tutors } from "@/db/schema";
 
 /**
  * Find or create the tutor for a sign-in, returning the session version to
- * stamp on the JWT.
+ * stamp on the JWT, and `created` when this sign-in made the account.
  *
  * Password signup never checks that the address belongs to whoever typed it, so
  * a stranger could register a tutor's email first and wait for them to arrive
@@ -21,7 +21,7 @@ export async function tutorForSignIn(
   email: string,
   name: string,
   viaGoogle: boolean,
-): Promise<{ id: string; sessionVersion: number }> {
+): Promise<{ id: string; sessionVersion: number; created?: true }> {
   const [existing] = await db
     .select({
       id: tutors.id,
@@ -38,7 +38,7 @@ export async function tutorForSignIn(
       .insert(tutors)
       .values({ email, name, emailVerifiedAt: viaGoogle ? new Date() : null })
       .returning({ id: tutors.id, sessionVersion: tutors.sessionVersion });
-    return created;
+    return { ...created, created: true };
   }
 
   if (!viaGoogle || existing.emailVerifiedAt) return existing;

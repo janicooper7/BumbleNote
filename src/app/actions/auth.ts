@@ -24,6 +24,7 @@ import {
   issueResetToken,
   RESET_TTL_MINUTES,
 } from "@/lib/reset-tokens";
+import { recordNewAccount } from "@/lib/tracking-server";
 
 /**
  * Where to land after signing in: Checkout for the plan picked on the pricing
@@ -156,16 +157,21 @@ export async function signUpWithPassword(
     };
   }
 
+  let tutorId: string;
   try {
-    await db.insert(tutors).values({
-      email,
-      name: `${firstName} ${lastName}`,
-      firstName,
-      lastName,
-      passwordHash: await hashPassword(password),
-      termsAcceptedAt: new Date(),
-      termsVersion: TERMS_VERSION,
-    });
+    const [created] = await db
+      .insert(tutors)
+      .values({
+        email,
+        name: `${firstName} ${lastName}`,
+        firstName,
+        lastName,
+        passwordHash: await hashPassword(password),
+        termsAcceptedAt: new Date(),
+        termsVersion: TERMS_VERSION,
+      })
+      .returning({ id: tutors.id });
+    tutorId = created.id;
   } catch {
     // Almost certainly the unique index on email losing a race with a parallel
     // signup; anything else here is a DB fault we can't usefully explain.
@@ -174,6 +180,8 @@ export async function signUpWithPassword(
       errors: { email: "We couldn't create that account. Try logging in instead." },
     };
   }
+
+  await recordNewAccount(tutorId);
 
   try {
     await signIn("credentials", { email, password, redirectTo: afterAuth(formData) });

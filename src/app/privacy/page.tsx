@@ -9,8 +9,10 @@
 //   - the audio retention window — enforced by the daily sweep in
 //     netlify/functions/purge-uploads.mts. LEGAL.audioRetentionDays must stay in
 //     step with AUDIO_RETENTION_MS.
-//   - "strictly necessary cookies only" — true because the project has no
-//     analytics, tag manager, or advertising code of any kind.
+//   - the #cookies and #advertising clauses — the Meta Pixel loads only after
+//     "Accept marketing cookies" (src/components/tracking), and server-side Meta
+//     events go only to tutors with tutors.ad_consent = true (src/lib/meta-capi.ts).
+//     Add any other tracker and these clauses must change with it.
 //   - "not used to train their models" (Deepgram) — true because of
 //     mip_opt_out in src/lib/stt.ts. Remove that flag and this page lies.
 //   - the #students section is what tutors link students to before recording
@@ -90,7 +92,13 @@ export default function PrivacyPage() {
           receive your name and email address from Google, and never your password.
           Google&apos;s sign-in also passes along your profile picture and an account
           identifier; we don&apos;t store either. We also store which plan you are on,
-          when you signed up, and when you accepted our terms.
+          when you signed up, and when you accepted our terms. We note the country
+          you signed up from, from your connection, and, if you accepted marketing
+          cookies, which link or ad brought you to us (see{" "}
+          <Link href="#advertising" className="font-semibold text-ink underline underline-offset-2">
+            Advertising
+          </Link>
+          ).
         </p>
         <p>
           <strong>When you pay.</strong> Paid plans are processed by Stripe. Stripe
@@ -193,6 +201,11 @@ export default function PrivacyPage() {
               rights and kept the processing to what the feature needs.
             </>,
             <>
+              <strong>Consent</strong> — for marketing cookies and the advertising
+              measurement described below, which you can withdraw at any time from
+              &ldquo;Cookie settings&rdquo; at the bottom of our pages.
+            </>,
+            <>
               <strong>Consent</strong> — for the recording itself, which is obtained by
               the tutor from the student, as described above — and for the launch
               waitlist, which you join by choosing to submit your email. You can
@@ -289,15 +302,65 @@ export default function PrivacyPage() {
 
       <Clause id="cookies" heading="Cookies">
         <p>
-          BumbleNote sets <strong>only strictly necessary cookies</strong>: one to keep
-          you signed in, and — while the site is in private pre-launch — one to
-          remember that you have entered the access password.
+          Some cookies are <strong>strictly necessary</strong> and always on: one to
+          keep you signed in, one to remember your cookie choice, and, while the site
+          is in private pre-launch, one to remember that you have entered the access
+          password.
         </p>
         <p>
-          There is no analytics, no tag manager, no advertising network, and no
-          third-party tracker anywhere on this site. That is why the privacy notice
-          you see on your first visit only informs you — there is nothing to accept or
-          reject. Your browser remembers that you dismissed it, on your device only.
+          <strong>Marketing cookies</strong> are off unless you choose &ldquo;Accept
+          marketing cookies&rdquo;. If you do, we load the Meta Pixel, which sets
+          Meta&apos;s own cookies (<code>_fbp</code>, and <code>_fbc</code> if you
+          arrived from a Meta ad), and we set one cookie of our own,{" "}
+          <code>bn_attr</code>, which remembers the link that first brought you here
+          for 90 days. If you choose &ldquo;Essential only&rdquo;, none of these are
+          set. We ask again after six months.
+        </p>
+        <p>
+          You can change your choice at any time from &ldquo;Cookie settings&rdquo; at
+          the bottom of our pages. Withdrawing removes these cookies from your browser
+          and stops us sending anything further about you to Meta.
+        </p>
+        <p>
+          There is no analytics service or tag manager on this site.
+        </p>
+      </Clause>
+
+      <Clause id="advertising" heading="Advertising">
+        <p>
+          We advertise BumbleNote on Facebook and Instagram. To learn which ads bring
+          tutors who find BumbleNote useful, and so Meta shows our ads to similar
+          people, we tell Meta when certain things happen, but only if you accepted
+          marketing cookies:
+        </p>
+        <Points
+          items={[
+            <>You viewed our home page, or created an account.</>,
+            <>Your first lesson notes were created. We do not send anything about the lesson itself.</>,
+            <>You started a paid plan or bought extra lessons, with the amount paid.</>,
+          ]}
+        />
+        <p>
+          Each event is sent from your browser by the Meta Pixel and also from our
+          server, so it still counts if your browser blocks the Pixel. The server
+          copy includes your email address in hashed (scrambled) form, your IP
+          address, your browser&apos;s user agent, your country and Meta&apos;s
+          cookie values, which Meta uses to match the event to its own records.
+          Nothing about your students or lessons is ever sent to Meta.
+        </p>
+        <p>
+          For this measurement, Meta Platforms Ireland Ltd and BumbleNote are joint
+          controllers of the data collected by the Pixel. Meta&apos;s own use of it
+          is covered by the{" "}
+          <a
+            href="https://www.facebook.com/privacy/policy/"
+            className="font-semibold text-ink underline underline-offset-2"
+            target="_blank"
+            rel="noopener"
+          >
+            Meta Privacy Policy
+          </a>
+          .
         </p>
       </Clause>
 

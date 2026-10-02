@@ -20,6 +20,7 @@ import { sendAccountWelcome } from "@/lib/lifecycle-emails";
 import { verifyPassword } from "@/lib/password";
 import { sessionVersionOf, tutorForSignIn } from "@/lib/session-identity";
 import { clientIp, rateLimitAll } from "@/lib/rate-limit";
+import { recordNewAccount } from "@/lib/tracking-server";
 
 /**
  * Thrown for every failed password sign-in, whatever the actual cause — wrong
@@ -124,6 +125,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         );
         token.tutorId = signedIn.id;
         token.sessionVersion = signedIn.sessionVersion;
+        // A Google sign-up (password accounts are created, and tracked, in
+        // signUpWithPassword). Inside the request: it sets the Pixel's cookie.
+        if (signedIn.created) await recordNewAccount(signedIn.id);
         welcomeAfterResponse(signedIn.id);
         return token;
       }

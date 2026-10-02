@@ -15,6 +15,7 @@ import CtaBand from "@/components/sections/CtaBand";
 import SiteFooter from "@/components/sections/SiteFooter";
 import { bnFontVars } from "@/components/bn/fonts";
 import JsonLd from "@/components/JsonLd";
+import ViewContent from "@/components/tracking/ViewContent";
 import { SignedInProvider } from "@/components/SignedIn";
 import { faqStructuredData, homepageStructuredData } from "@/lib/structured-data";
 
@@ -37,6 +38,7 @@ export default function Home() {
       <div className={`theme-bn ${bnFontVars}`}>
         <JsonLd data={homepageStructuredData} />
         <JsonLd data={faqStructuredData} />
+        <ViewContent name="landing" />
         {/* Scroll-reveal starts sections at opacity 0 and needs JS to lift it; with
             scripts off, show everything rather than a blank page. */}
         <noscript>

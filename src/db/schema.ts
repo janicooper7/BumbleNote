@@ -111,6 +111,30 @@ export const tutors = pgTable("tutors", {
   stuckReason: text("stuck_reason"),
   stuckReasonAt: timestamp("stuck_reason_at", { withTimezone: true }),
   marketingOptOutAt: timestamp("marketing_opt_out_at", { withTimezone: true }),
+  // First-touch ad attribution (src/lib/attribution.ts), copied from the bn_attr
+  // cookie when the account is created and never overwritten. Null when the
+  // visitor didn't accept marketing cookies, or arrived with no cookie.
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  utmContent: text("utm_content"),
+  utmTerm: text("utm_term"),
+  fbclid: text("fbclid"),
+  landingPage: text("landing_page"),
+  firstTouchAt: timestamp("first_touch_at", { withTimezone: true }),
+  // Two-letter country from the request at sign-up (Netlify's geo header).
+  signupCountry: text("signup_country"),
+  // Marketing-cookie consent as last seen on a request we could read it from
+  // (sign-up, starting Checkout). Server-side Meta events (src/lib/meta-capi.ts)
+  // go only to tutors where this is true; null means we never saw a choice.
+  adConsent: boolean("ad_consent"),
+  adConsentAt: timestamp("ad_consent_at", { withTimezone: true }),
+  // What Meta needs to match a server event to an ad click, kept only while
+  // adConsent is true (cleared when it's withdrawn).
+  metaFbp: text("meta_fbp"),
+  metaFbc: text("meta_fbc"),
+  metaClientIp: text("meta_client_ip"),
+  metaClientUa: text("meta_client_ua"),
   emailToken: uuid("email_token").notNull().unique().defaultRandom(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -423,6 +447,28 @@ export const usageEvents = pgTable(
     meta: jsonb("meta").$type<Record<string, string | number>>(),
   },
   (t) => [index("usage_events_occurred_at_idx").on(t.occurredAt)],
+);
+
+/**
+ * Every conversion event we've decided on for Meta (src/lib/meta-capi.ts), one
+ * row per event id. The primary key is the once-only guard: a retried Stripe
+ * webhook or a second lesson tries the same id and finds it taken. `status`
+ * records what happened: sent, skipped (no consent, or Meta not configured)
+ * or failed.
+ */
+export const metaEvents = pgTable(
+  "meta_events",
+  {
+    eventId: text("event_id").primaryKey(),
+    tutorId: uuid("tutor_id").references(() => tutors.id, { onDelete: "set null" }),
+    eventName: text("event_name").notNull(),
+    value: numeric("value", { precision: 10, scale: 2, mode: "number" }),
+    currency: text("currency"),
+    status: text("status").notNull().default("pending"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("meta_events_tutor_idx").on(t.tutorId, t.eventName)],
 );
 
 export const tutorsRelations = relations(tutors, ({ many }) => ({

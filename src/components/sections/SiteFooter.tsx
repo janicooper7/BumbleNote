@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CookieSettingsLink from "@/components/tracking/CookieSettingsLink";
 import Logo from "../Logo";
 import { LEGAL } from "@/lib/legal";
 import { SOCIAL_LINKS, type Social } from "@/lib/socials";
@@ -30,6 +31,7 @@ export default function SiteFooter() {
           <Link href="/login" className={LINK}>Log in</Link>
           <Link href="/terms" className={LINK}>Terms</Link>
           <Link href="/privacy" className={LINK}>Privacy</Link>
+          <CookieSettingsLink className={LINK} />
           <a href={`mailto:${LEGAL.contactEmail}`} className={LINK}>
             Contact
           </a>

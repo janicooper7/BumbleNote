@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Hanken_Grotesk } from "next/font/google";
 import { Suspense } from "react";
 import NavProgress from "@/components/NavProgress";
-import PrivacyNotice from "@/components/PrivacyNotice";
+import Tracking from "@/components/tracking/Tracking";
 import { SITE_URL } from "@/lib/app-url";
 import { gateEnabled } from "@/lib/site-gate";
 import { SITE_DESCRIPTION as DESCRIPTION, SITE_TITLE as TITLE } from "@/lib/site-meta";
@@ -76,7 +76,11 @@ export default function RootLayout({
           <NavProgress />
         </Suspense>
         {children}
-        <PrivacyNotice />
+        {/* Consent banner, Pixel and attribution. Suspense for the same reason
+            as NavProgress: it reads the route. */}
+        <Suspense fallback={null}>
+          <Tracking />
+        </Suspense>
       </body>
     </html>
   );

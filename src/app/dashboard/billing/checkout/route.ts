@@ -12,6 +12,7 @@ import type { NextRequest } from "next/server";
 import { redirect } from "next/navigation";
 import { currentTutorId } from "@/auth";
 import { appOrigin } from "@/lib/app-url";
+import { refreshAdConsent } from "@/lib/tracking-server";
 import { checkoutUrl, isPaidPlanId } from "@/lib/billing";
 
 export async function GET(req: NextRequest): Promise<never> {
@@ -20,6 +21,9 @@ export async function GET(req: NextRequest): Promise<never> {
   const interval = req.nextUrl.searchParams.get("interval") === "year" ? "year" : "month";
 
   if (!isPaidPlanId(plan)) redirect("/dashboard/settings");
+
+  // The Subscribe/Purchase event the webhook sends uses the consent seen here.
+  await refreshAdConsent(tutorId);
 
   let url: string;
   try {

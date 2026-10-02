@@ -27,10 +27,23 @@ const { auth } = NextAuth(authConfig);
  */
 const PUBLIC_PATHS = ["/terms", "/privacy"];
 
+/**
+ * Marketing pages opened up ahead of launch when PUBLIC_MARKETING_PAGES=true, so
+ * Meta's ad review (and anyone clicking an ad) can load them. The app itself
+ * stays behind the gate: signing up from /signup still lands on /dashboard,
+ * which asks for the password until the gate comes down at launch.
+ */
+const MARKETING_PATHS = ["/", "/signup", "/opengraph-image"];
+
+function marketingPagesOpen(): boolean {
+  return process.env.PUBLIC_MARKETING_PAGES === "true";
+}
+
 export default auth((request) => {
   const { pathname, search } = request.nextUrl;
 
   if (PUBLIC_PATHS.includes(pathname)) return NextResponse.next();
+  if (marketingPagesOpen() && MARKETING_PATHS.includes(pathname)) return NextResponse.next();
 
   if (gateEnabled() && !tokenIsValid(request.cookies.get(GATE_COOKIE)?.value)) {
     const url = request.nextUrl.clone();

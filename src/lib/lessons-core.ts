@@ -11,6 +11,7 @@ import { db } from "@/db";
 import { lessonReservations, sessions, students, tutors } from "@/db/schema";
 import { generateLessonFeedback } from "@/lib/ai";
 import { buildJourney, journeyPromptBlock } from "@/lib/journey";
+import { trackActivation } from "@/lib/meta-capi";
 import { countsAsLesson } from "@/lib/plans";
 import { insertWithUniqueId } from "@/lib/unique-id";
 
@@ -198,6 +199,11 @@ export async function createDraftLessonCore(
     if (!winner) throw new Error("Lesson insert was skipped but no lesson exists for this upload.");
     return winner;
   }
+
+  // ActivatedTrial for Meta: only the tutor's first lesson sends it (the event id
+  // is per tutor). Awaited, because the worker may stop once this returns; it
+  // never throws and gives up after a few seconds.
+  await trackActivation(tutorId);
 
   // A trial lesson's transcript often has the student introducing themselves —
   // interests, why they're learning, background. Fold that into the profile, but
