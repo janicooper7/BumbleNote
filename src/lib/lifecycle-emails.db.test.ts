@@ -1,4 +1,4 @@
-// Launch-sequence emails 2–5: the right people get each one, once, at the right
+// Launch-sequence emails 2–8: the right people get each one, once, at the right
 // time. Run against real Postgres (PGlite), since who's due is the SQL itself.
 
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -33,6 +33,7 @@ import {
   BENEFITS_AT,
   LAUNCH_AT,
   optOutTutor,
+  recordStuckReason,
   runLifecycleEmails,
   sendAccountWelcome,
   sendLaunchLive,
@@ -42,6 +43,8 @@ const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
 const subjects = () => resend.sent.map((m) => `${m.subject} -> ${m.to}`).sort();
 const at = (d: Date, mins: number) => new Date(d.getTime() + mins * 60_000);
+const sentTo = (subject: string) => resend.sent.filter((m) => m.subject === subject).map((m) => m.to);
+const TRIAL_ENDED = "Your two free lessons are done";
 const kinds = (outcomes: Awaited<ReturnType<typeof runLifecycleEmails>>) =>
   Object.fromEntries(outcomes.map((o) => [o.kind, o.sent]));
 
@@ -69,7 +72,7 @@ beforeEach(async () => {
   resend.sent = [];
   resend.fail = false;
   resend.refuse = new Set();
-  await pg.exec("delete from waitlist; delete from sessions; delete from students; delete from tutors;");
+  await pg.exec("delete from waitlist; delete from lesson_jobs; delete from sessions; delete from students; delete from tutors;");
 });
 
 describe("waitlist emails", () => {
@@ -154,7 +157,7 @@ describe("account welcome", () => {
   it("leaves accounts the sweep missed for more than two days alone", async () => {
     await pg.query(`insert into tutors (email, name, created_at) values ('old@x.io', 'Old', now() - interval '3 days')`);
     await runLifecycleEmails();
-    expect(resend.sent).toHaveLength(0);
+    expect(sentTo("Welcome to BumbleNote")).toEqual([]);
   });
 });
 
@@ -179,13 +182,107 @@ describe("trial finished", () => {
     const [{ t }] = (await pg.query<{ t: string }>(`select email_token t from tutors where id = '${B}'`)).rows;
     await optOutTutor(t);
     await runLifecycleEmails();
-    expect(resend.sent).toHaveLength(0);
+    expect(sentTo(TRIAL_ENDED)).toEqual([]);
   });
 
   it("skips tutors with a trial lesson left", async () => {
     await trialUsedUp(A, "a@x.io", 90);
     await pg.query(`update tutors set lessons_created = 1 where id = '${A}'`);
     await runLifecycleEmails();
+    expect(sentTo(TRIAL_ENDED)).toEqual([]);
+  });
+});
+
+/** A tutor who signed up `hoursAgo` hours ago, with the welcome already sent. */
+async function signedUp(id: string, email: string, hoursAgo: number) {
+  await pg.exec(`
+    insert into tutors (id, email, name, first_name, welcome_sent_at, created_at)
+    values ('${id}', '${email}', 'Anna Smith', 'Anna', now(), now() - interval '${hoursAgo} hours');
+    insert into students (id, tutor_id, name, initial, level, goal, native, last_seen)
+    values ('st-${id}', '${id}', 'S', 'S', 'B1', 'g', 'es', 'today');`);
+}
+
+async function lesson(id: string, minsAgo: number, n = 1) {
+  await pg.exec(`
+    insert into sessions (id, tutor_id, student_id, student_name, student_initial, title, date, iso_date,
+      duration_min, level_from, level_to, observed_level, talk_time, created_at)
+    values ('l${n}-${id}', '${id}', 'st-${id}', 'S', 'S', 't', 'd', '2026-10-05', 45, 'B1', 'B2', 'B1',
+      '{"tutor":50,"student":50}', now() - interval '${minsAgo} minutes');
+    update tutors set lessons_created = ${n} where id = '${id}';`);
+}
+
+const NUDGE = "Your first lesson, in four steps";
+const CHECK_IN = "Is anything in the way?";
+const RECAP = "Here's what your student gets";
+
+describe("first-lesson nudge and check-in", () => {
+  it("nudges a day after sign-up, once, if nothing's been recorded", async () => {
+    await signedUp(A, "a@x.io", 23);
+    await runLifecycleEmails();
+    expect(sentTo(NUDGE)).toEqual([]);
+    await pg.query(`update tutors set created_at = now() - interval '25 hours' where id = '${A}'`);
+    await runLifecycleEmails();
+    await runLifecycleEmails();
+    expect(subjects()).toEqual([`${NUDGE} -> a@x.io`]);
+  });
+
+  it("checks in at three days, signed by Millie, with answer links", async () => {
+    await signedUp(A, "a@x.io", 73);
+    await runLifecycleEmails();
+    expect(sentTo(CHECK_IN)).toEqual(["a@x.io"]);
+    const [{ t }] = (await pg.query<{ t: string }>(`select email_token t from tutors where id = '${A}'`)).rows;
+    const mail = resend.sent.find((m) => m.subject === CHECK_IN)!;
+    expect(mail.text).toContain(`/api/email/check-in?token=${t}&answer=device`);
+    expect(mail.text).toContain("Millie\nCo-founder, BumbleNote");
+  });
+
+  it("skips tutors who've recorded, have a lesson queued, or unsubscribed", async () => {
+    await signedUp(A, "a@x.io", 73);
+    await lesson(A, 60 * 48);
+    await signedUp(B, "b@x.io", 25);
+    await pg.query(`insert into lesson_jobs (upload_id, tutor_id, student_id, duration_min) values ('u1', '${B}', 'st-${B}', 45)`);
+    const C = "33333333-3333-4333-8333-333333333333";
+    await signedUp(C, "c@x.io", 25);
+    const [{ t }] = (await pg.query<{ t: string }>(`select email_token t from tutors where id = '${C}'`)).rows;
+    await optOutTutor(t);
+    await runLifecycleEmails();
+    expect(sentTo(NUDGE)).toEqual([]);
+    expect(sentTo(CHECK_IN)).toEqual([]);
+  });
+
+  it("leaves accounts more than two days past the send time alone", async () => {
+    await signedUp(A, "a@x.io", 24 * 6);
+    await runLifecycleEmails();
     expect(resend.sent).toHaveLength(0);
+  });
+
+  it("records the latest one-click answer", async () => {
+    await signedUp(A, "a@x.io", 73);
+    const [{ t }] = (await pg.query<{ t: string }>(`select email_token t from tutors where id = '${A}'`)).rows;
+    await recordStuckReason(t, "how-to");
+    await recordStuckReason(t, "device");
+    const [{ r }] = (await pg.query<{ r: string }>(`select stuck_reason r from tutors where id = '${A}'`)).rows;
+    expect(r).toBe("device");
+  });
+});
+
+describe("first recap", () => {
+  it("sends an hour after the first lesson, once", async () => {
+    await signedUp(A, "a@x.io", 5);
+    await lesson(A, 30);
+    await runLifecycleEmails();
+    expect(sentTo(RECAP)).toEqual([]);
+    await pg.query(`update sessions set created_at = now() - interval '61 minutes'`);
+    await runLifecycleEmails();
+    await runLifecycleEmails();
+    expect(sentTo(RECAP)).toEqual(["a@x.io"]);
+  });
+
+  it("gives way to 'trial finished' when both free lessons are already used", async () => {
+    await signedUp(A, "a@x.io", 5);
+    await lesson(A, 120, 1);
+    await lesson(A, 90, 2);
+    await runLifecycleEmails();
+    expect(subjects()).toEqual(["Your two free lessons are done -> a@x.io"]);
   });
 });

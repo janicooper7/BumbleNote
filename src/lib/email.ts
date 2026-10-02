@@ -2,6 +2,7 @@
 
 import { Resend } from "resend";
 import { env } from "./env";
+import { STUCK_LABEL, STUCK_REASONS, type StuckReason } from "./check-in";
 import { PLANS } from "./plans";
 import { formatUsd, PAID_PLAN_IDS, PLAN_PRICES_USD } from "./pricing";
 import type { Session } from "./mock";
@@ -455,8 +456,16 @@ function greeting(firstName: string | null): string {
   return `Hey ${firstName?.trim() || "busy-bee"},`;
 }
 
+/** Who signs a sequence email: both founders, or Millie alone for her check-in. */
+type Signer = "founders" | "millie";
+
+const SIGNER: Record<Signer, { name: string; role: string }> = {
+  founders: { name: "Millie & Jani", role: "Co-founders, BumbleNote" },
+  millie: { name: "Millie", role: "Co-founder, BumbleNote" },
+};
+
 /** The signature every sequence email ends with: sign-off, Trustpilot, socials. */
-function signatureHtml(): string {
+function signatureHtml(signer: Signer): string {
   const socials = SOCIAL_LINKS.length
     ? `<p style="margin:24px 0 0;padding-top:18px;border-top:1px solid #eadfce;color:#6b5245;">
         Follow along:
@@ -465,15 +474,15 @@ function signatureHtml(): string {
         ).join(" &middot; ")}
       </p>`
     : "";
-  return `<p style="margin:0;font-family:${L_SERIF};font-style:italic;font-size:20px;line-height:1.3;">Millie &amp; Jani</p>
-      <p style="margin:0;color:#6b5245;">Co-founders, BumbleNote</p>
+  return `<p style="margin:0;font-family:${L_SERIF};font-style:italic;font-size:20px;line-height:1.3;">${escapeHtml(SIGNER[signer].name)}</p>
+      <p style="margin:0;color:#6b5245;">${SIGNER[signer].role}</p>
       ${trustpilotInvite(TUTOR_REVIEW_LINE)}
       ${socials}`;
 }
 
-function signatureText(): string[] {
+function signatureText(signer: Signer): string[] {
   return [
-    "Millie & Jani\nCo-founders, BumbleNote",
+    `${SIGNER[signer].name}\n${SIGNER[signer].role}`,
     `${TUTOR_REVIEW_LINE} Leave a review on Trustpilot: ${TRUSTPILOT_REVIEW_URL}`,
     ...(SOCIAL_LINKS.length ? [`Follow along:\n${SOCIAL_LINKS.map((s) => `${s.name}: ${s.url}`).join("\n")}`] : []),
   ];
@@ -490,7 +499,9 @@ function sequenceEmail(o: {
   /** The plain-text version of `body`, one entry per paragraph. */
   text: string[];
   audience: Audience;
+  signer?: Signer;
 }): LifecycleEmail {
+  const signer = o.signer ?? "founders";
   const reason = AUDIENCE_REASON[o.audience.kind];
   const unsub = o.audience.unsubscribeUrl;
   const html = `<!doctype html>
@@ -511,7 +522,7 @@ function sequenceEmail(o: {
     </td></tr>
     <tr><td style="padding:16px 36px 32px;font-family:${L_SANS};font-size:16px;line-height:1.6;color:#412e28;">
       ${o.body}
-      ${signatureHtml()}
+      ${signatureHtml(signer)}
     </td></tr>
     <tr><td style="background:#fbf8f1;padding:18px 36px;font-family:${L_SANS};font-size:12px;line-height:1.5;color:#8a7466;">
       ${escapeHtml(reason)} <a href="${escapeHtml(unsub)}" style="color:#6b5245;">Unsubscribe</a>
@@ -525,7 +536,7 @@ function sequenceEmail(o: {
     to: o.to,
     subject: o.subject,
     html,
-    text: [...o.text, ...signatureText(), `${reason} Unsubscribe: ${unsub}`].join("\n\n"),
+    text: [...o.text, ...signatureText(signer), `${reason} Unsubscribe: ${unsub}`].join("\n\n"),
     // One-click unsubscribe (RFC 8058). Gmail and Yahoo expect it on bulk mail
     // and show their own "Unsubscribe" button next to the sender.
     headers: { "List-Unsubscribe": `<${unsub}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
@@ -734,6 +745,156 @@ export function trialEndedEmail(to: string, firstName: string | null, unsubscrib
       `${yearly} ${yearlyRest}`,
       `Choose my plan: ${plansUrl}`,
       closing,
+    ],
+    audience: { kind: "account", unsubscribeUrl },
+  });
+}
+
+/** Email 6 — the nudge, a day after sign-up with nothing recorded yet. */
+export function firstLessonNudgeEmail(to: string, firstName: string | null, unsubscribeUrl: string): LifecycleEmail {
+  const recordGuide = `${PUBLIC_ORIGIN}/dashboard/guides/record-a-lesson`;
+  const startUrl = `${PUBLIC_ORIGIN}/dashboard/students/new`;
+  const intro = "Your two free lessons are ready whenever you are. Here's everything it takes, start to finish:";
+  const steps: [string, string][] = [
+    ["Add your student.", "Their level, goals and interests, so the notes fit them."],
+    ["Open your lesson in desktop Chrome or Edge,", "in a browser tab, just as you normally would."],
+    ["Click “Record a lesson” in BumbleNote,", "pick your lesson tab and tick “Share tab audio”."],
+    ["Teach, then check your notes.", "When the lesson ends, the recap, vocabulary and homework are waiting for you to review and send."],
+  ];
+  const outro = "That's all there is to it. Nothing joins your call, and nothing goes to your student until you've checked it.";
+
+  const stepRows = steps
+    .map(
+      ([lead, rest], i) => `<tr>
+        <td valign="top" style="padding:1px 10px 14px 0;"><div style="width:24px;height:24px;line-height:24px;border-radius:50%;background:#412e28;color:#fff0b5;font-size:13px;font-weight:700;text-align:center;">${i + 1}</div></td>
+        <td style="padding:0 0 14px;"><b>${escapeHtml(lead)}</b> ${escapeHtml(rest)}</td>
+      </tr>`,
+    )
+    .join("");
+
+  return sequenceEmail({
+    to,
+    subject: "Your first lesson, in four steps",
+    preheader: "Everything it takes, start to finish. Your two free lessons are waiting.",
+    headline: "Ready when you are. <em>Here's how it goes.</em>",
+    body: `${para(greeting(firstName))}
+      ${para(intro)}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#e4eff5;border-radius:10px;margin:0 0 16px;">
+        <tr><td style="padding:18px 20px 4px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="font-family:${L_SANS};font-size:16px;line-height:1.5;color:#412e28;">${stepRows}</table>
+          <a href="${recordGuide}" style="display:inline-block;margin:0 0 16px;font-size:14px;font-weight:700;color:#2f5d7c;text-decoration:none;">&#9654;&nbsp;Watch: Record a lesson</a>
+        </td></tr>
+      </table>
+      ${para(outro)}
+      <p style="margin:8px 0 24px;">${button(startUrl, "Add your first student")}</p>`,
+    text: [
+      greeting(firstName),
+      intro,
+      steps.map(([lead, rest], i) => `${i + 1}. ${lead} ${rest}`).join("\n") + `\n\nWatch: Record a lesson - ${recordGuide}`,
+      outro,
+      `Add your first student: ${startUrl}`,
+    ],
+    audience: { kind: "account", unsubscribeUrl },
+  });
+}
+
+/**
+ * Email 7 — Millie's check-in, three days after sign-up with nothing recorded.
+ * We don't take replies, so "what's in the way?" is answered by clicking one of
+ * the links (src/lib/check-in.ts).
+ */
+export function checkInEmail(
+  to: string,
+  firstName: string | null,
+  unsubscribeUrl: string,
+  answerUrl: (reason: StuckReason) => string,
+): LifecycleEmail {
+  const paragraphs = [
+    "I'm Millie, one of the two people behind BumbleNote. I teach English online too, so I know how full a tutor's week can get.",
+    "You made your account a few days ago but haven't recorded a lesson yet. That's completely fine. But if something's in the way, I'd love to know, so we can make it easier.",
+  ];
+  const ask = "Which of these sounds most like you? One click is all it takes, and it'll take you to a quick answer.";
+  const thanks = "Thank you for giving BumbleNote a look.";
+
+  const options = STUCK_REASONS.map(
+    (r) => `<tr><td style="padding:0 0 8px;">
+        <a href="${escapeHtml(answerUrl(r))}" style="display:block;border:1px solid #eadfce;border-radius:10px;padding:12px 16px;color:#412e28;font-weight:700;text-decoration:none;background:#fff7d9;">${escapeHtml(STUCK_LABEL[r])}&nbsp;&rarr;</a>
+      </td></tr>`,
+  ).join("");
+
+  return sequenceEmail({
+    to,
+    subject: "Is anything in the way?",
+    preheader: "A quick note from Millie, and one click to tell us.",
+    headline: "A quick note <em>from Millie.</em>",
+    body: `${para(greeting(firstName))}
+      ${paragraphs.map((p) => para(p)).join("")}
+      ${para(ask)}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;font-family:${L_SANS};font-size:15px;line-height:1.4;">${options}</table>
+      ${para(thanks, "color:#6b5245;")}`,
+    text: [
+      greeting(firstName),
+      ...paragraphs,
+      ask,
+      STUCK_REASONS.map((r) => `- ${STUCK_LABEL[r]}: ${answerUrl(r)}`).join("\n"),
+      thanks,
+    ],
+    audience: { kind: "account", unsubscribeUrl },
+    signer: "millie",
+  });
+}
+
+/** Email 8 — what the student gets, an hour after the tutor's first lesson is written up. */
+export function firstRecapEmail(to: string, firstName: string | null, unsubscribeUrl: string): LifecycleEmail {
+  const lessonsUrl = `${PUBLIC_ORIGIN}/dashboard/lessons`;
+  const studentsUrl = `${PUBLIC_ORIGIN}/dashboard/students`;
+  const intro =
+    "Your first lesson is written up. When you send it, your student gets an email from you with their lesson report attached as a PDF. Here's what's inside:";
+  const ticks: [string, string][] = [
+    ["New vocabulary", "from the lesson, so the words they met don't slip away."],
+    ["What went well,", "so they can see their progress, not just their mistakes."],
+    ["Areas to improve,", "picked out from what they actually said."],
+    ["Homework,", "to keep them practising until you see them next."],
+    ["A note from you,", "in your own words, at the end."],
+  ];
+  const review = "Nothing reaches your student until you've checked it, and you can change anything first.";
+  const tipLead = "One tip:";
+  const tip =
+    "fill in your student's goals and interests on their profile. BumbleNote uses them to pitch the vocabulary and homework at what they care about, so the next report fits them even better.";
+
+  const tickRows = ticks
+    .map(
+      ([lead, rest]) => `<tr>
+        <td valign="top" style="padding:7px 10px 0 0;"><div style="width:8px;height:8px;border-radius:50%;background:#412e28;border:3px solid #c1d9e6;"></div></td>
+        <td style="padding:0 0 10px;"><b>${escapeHtml(lead)}</b> ${escapeHtml(rest)}</td>
+      </tr>`,
+    )
+    .join("");
+
+  return sequenceEmail({
+    to,
+    subject: "Here's what your student gets",
+    preheader: "Your first lesson is written up. Here's what's in the report.",
+    headline: "Your first lesson, <em>written up.</em>",
+    body: `${para(greeting(firstName))}
+      ${para(intro)}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fff7d9;border-radius:10px;margin:0 0 16px;">
+        <tr><td style="padding:18px 20px 8px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="font-family:${L_SANS};font-size:16px;line-height:1.5;color:#412e28;">${tickRows}</table></td></tr>
+      </table>
+      ${para(review)}
+      <p style="margin:8px 0 24px;">${button(lessonsUrl, "See my lesson")}</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#e4eff5;border-radius:10px;margin:0 0 24px;">
+        <tr><td style="padding:16px 20px;font-family:${L_SANS};font-size:15px;line-height:1.5;color:#412e28;">
+          <b>${escapeHtml(tipLead)}</b> ${escapeHtml(tip)} <a href="${studentsUrl}" style="color:#2f5d7c;font-weight:700;">Go to your students</a>
+        </td></tr>
+      </table>`,
+    text: [
+      greeting(firstName),
+      intro,
+      ticks.map(([lead, rest]) => `- ${lead} ${rest}`).join("\n"),
+      review,
+      `See my lesson: ${lessonsUrl}`,
+      `${tipLead} ${tip} Go to your students: ${studentsUrl}`,
     ],
     audience: { kind: "account", unsubscribeUrl },
   });

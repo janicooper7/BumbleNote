@@ -1,4 +1,4 @@
-// Launch-sequence emails 2–5: who gets each one, and when. Server-only (DB).
+// Launch-sequence emails 2–8: who gets each one, and when. Server-only (DB).
 // The messages themselves are built in src/lib/email.ts; email 1 (the waitlist
 // welcome) lives in src/lib/waitlist-welcome.ts.
 //
@@ -6,6 +6,13 @@
 //   3  Why tutors use it waitlist, no account   Fri 9 Oct 2026 9am UK
 //   4  Welcome          every new account       on first sign-in
 //   5  Trial finished   free plan, trial used   1 hour after the 2nd lesson
+//   6  First-lesson nudge  nothing recorded     1 day after sign-up
+//   7  Millie's check-in   nothing recorded     3 days after sign-up
+//   8  First recap      has a lesson, trial     1 hour after the 1st lesson
+//                       not used up yet
+//
+// 6-8 stop for anyone who unsubscribed; 6 and 7 stop once anything has been
+// recorded (a lesson, or one still in the queue).
 //
 // netlify/functions/lifecycle-emails.mts runs runLifecycleEmails() every hour,
 // on the hour; email 4 is also sent straight from sign-in (src/auth.ts), and the
@@ -24,15 +31,19 @@ import {
   accountWelcomeEmail,
   launchBenefitsEmail,
   launchLiveEmail,
+  checkInEmail,
+  firstLessonNudgeEmail,
+  firstRecapEmail,
   sendLifecycleBatch,
   trialEndedEmail,
   type LifecycleEmail,
 } from "./email";
+import type { StuckReason } from "./check-in";
 import { LAUNCH_AT } from "./launch";
 import { MIN_COUNTED_LESSON_MIN, PLANS } from "./plans";
 import { unsubscribeUrl as waitlistUnsubscribeUrl } from "./waitlist-welcome";
 
-const { waitlist, tutors, sessions } = schema;
+const { waitlist, tutors, sessions, lessonJobs } = schema;
 
 export { LAUNCH_AT };
 /** Friday 9 October 2026, 9:00am BST. */
@@ -46,6 +57,9 @@ const CAMPAIGN_WINDOW_MS = 24 * 60 * 60 * 1000;
 /** The sweeps only look this far back, so one address that keeps failing isn't retried forever. */
 const SWEEP_LOOKBACK = "2 days";
 const TRIAL_ENDED_DELAY = "1 hour";
+const NUDGE_DELAY = "1 day";
+const CHECK_IN_DELAY = "3 days";
+const FIRST_RECAP_DELAY = "1 hour";
 
 const BATCH = 100;
 /** Batches per kind per run: 1,000 emails, well inside a scheduled function's 30s. */
@@ -58,6 +72,11 @@ const PUBLIC_ORIGIN =
 /** Unsubscribe link for tutor emails, keyed on tutors.email_token. */
 export function tutorUnsubscribeUrl(token: string): string {
   return `${PUBLIC_ORIGIN}/api/email/unsubscribe?${new URLSearchParams({ token })}`;
+}
+
+/** One-click answer link for the check-in email (src/app/api/email/check-in). */
+export function checkInAnswerUrl(token: string, answer: StuckReason): string {
+  return `${PUBLIC_ORIGIN}/api/email/check-in?${new URLSearchParams({ token, answer })}`;
 }
 
 export type SendOutcome = { kind: string; sent: number; rejected: string[]; failed: string | null };
@@ -159,7 +178,9 @@ function firstNameOf(t: TutorClaimed): string | null {
   return first && !first.includes("@") ? first : null;
 }
 
-function claimTutors(column: "welcomeSentAt" | "trialEndedSentAt", where: SQL | undefined) {
+type TutorColumn = "welcomeSentAt" | "trialEndedSentAt" | "nudgeSentAt" | "checkInSentAt" | "firstRecapSentAt";
+
+function claimTutors(column: TutorColumn, where: SQL | undefined) {
   return (): Promise<TutorClaimed[]> =>
     db
       .update(tutors)
@@ -178,7 +199,7 @@ function claimTutors(column: "welcomeSentAt" | "trialEndedSentAt", where: SQL | 
       .returning(tutorReturning);
 }
 
-function releaseTutors(column: "welcomeSentAt" | "trialEndedSentAt") {
+function releaseTutors(column: TutorColumn) {
   return (ids: string[]) => db.update(tutors).set({ [column]: null }).where(inArray(tutors.id, ids));
 }
 
@@ -228,6 +249,68 @@ export function sweepTrialEnded(): Promise<SendOutcome> {
   });
 }
 
+/** Anything recorded: a lesson, or one still in the transcription queue. */
+const hasRecorded = sql`(exists (select 1 from ${sessions} where ${sessions.tutorId} = ${tutors.id})
+  or exists (select 1 from ${lessonJobs} where ${lessonJobs.tutorId} = ${tutors.id}))`;
+
+/** Accounts created at least `delay` ago, but no more than the lookback before that. */
+function signedUpAgo(delay: string) {
+  return and(
+    lte(tutors.createdAt, sql`now() - interval '${sql.raw(delay)}'`),
+    gte(tutors.createdAt, sql`now() - interval '${sql.raw(delay)}' - interval '${sql.raw(SWEEP_LOOKBACK)}'`),
+  );
+}
+
+/** Email 6: a day after sign-up, if nothing's been recorded. */
+export function sweepFirstLessonNudge(): Promise<SendOutcome> {
+  return claimAndSend({
+    kind: "first-lesson-nudge",
+    claim: claimTutors(
+      "nudgeSentAt",
+      and(signedUpAgo(NUDGE_DELAY), isNull(tutors.marketingOptOutAt), sql`not ${hasRecorded}`),
+    ),
+    build: (t) => firstLessonNudgeEmail(t.email, firstNameOf(t), tutorUnsubscribeUrl(t.emailToken)),
+    release: releaseTutors("nudgeSentAt"),
+  });
+}
+
+/** Email 7: Millie's check-in, three days after sign-up, if still nothing's been recorded. */
+export function sweepCheckIn(): Promise<SendOutcome> {
+  return claimAndSend({
+    kind: "check-in",
+    claim: claimTutors(
+      "checkInSentAt",
+      and(signedUpAgo(CHECK_IN_DELAY), isNull(tutors.marketingOptOutAt), sql`not ${hasRecorded}`),
+    ),
+    build: (t) =>
+      checkInEmail(t.email, firstNameOf(t), tutorUnsubscribeUrl(t.emailToken), (a) => checkInAnswerUrl(t.emailToken, a)),
+    release: releaseTutors("checkInSentAt"),
+  });
+}
+
+/**
+ * Email 8: what the student gets, an hour after the tutor's first lesson. Not
+ * for a free-plan tutor who has already used both trial lessons by then: email
+ * 5 is about to land, and two at once is one too many.
+ */
+export function sweepFirstRecap(): Promise<SendOutcome> {
+  const firstLesson = sql`(select min(${sessions.createdAt}) from ${sessions} where ${sessions.tutorId} = ${tutors.id})`;
+  return claimAndSend({
+    kind: "first-recap",
+    claim: claimTutors(
+      "firstRecapSentAt",
+      and(
+        isNull(tutors.marketingOptOutAt),
+        lte(firstLesson, sql`now() - interval '${sql.raw(FIRST_RECAP_DELAY)}'`),
+        gte(firstLesson, sql`now() - interval '${sql.raw(SWEEP_LOOKBACK)}'`),
+        sql`not (${tutors.plan} = 'free' and ${tutors.lessonsCreated} >= ${PLANS.free.lessons})`,
+      ),
+    ),
+    build: (t) => firstRecapEmail(t.email, firstNameOf(t), tutorUnsubscribeUrl(t.emailToken)),
+    release: releaseTutors("firstRecapSentAt"),
+  });
+}
+
 function due(at: Date, now: Date): boolean {
   const since = now.getTime() - at.getTime();
   return since >= 0 && since < CAMPAIGN_WINDOW_MS;
@@ -238,6 +321,9 @@ export async function runLifecycleEmails(now = new Date()): Promise<SendOutcome[
   const jobs: [string, () => Promise<SendOutcome>][] = [
     ["account-welcome", sweepAccountWelcomes],
     ["trial-ended", sweepTrialEnded],
+    ["first-lesson-nudge", sweepFirstLessonNudge],
+    ["check-in", sweepCheckIn],
+    ["first-recap", sweepFirstRecap],
   ];
   if (due(LAUNCH_AT, now)) jobs.push(["launch-live", sendLaunchLive]);
   if (due(BENEFITS_AT, now)) jobs.push(["launch-benefits", sendLaunchBenefits]);
@@ -264,10 +350,18 @@ export async function countWaitlistPending(): Promise<{ live: number; benefits: 
   return row ?? { live: 0, benefits: 0 };
 }
 
-/** Opt a tutor out of the sequence emails (4 and 5), by their unsubscribe token. */
+/** Opt a tutor out of the sequence emails (5-8), by their unsubscribe token. */
 export async function optOutTutor(token: string): Promise<void> {
   await db
     .update(tutors)
     .set({ marketingOptOutAt: new Date() })
     .where(and(eq(tutors.emailToken, token), isNull(tutors.marketingOptOutAt)));
+}
+
+/** Record a tutor's answer to the check-in email, by their email token. The latest answer wins. */
+export async function recordStuckReason(token: string, answer: StuckReason): Promise<void> {
+  await db
+    .update(tutors)
+    .set({ stuckReason: answer, stuckReasonAt: new Date() })
+    .where(eq(tutors.emailToken, token));
 }

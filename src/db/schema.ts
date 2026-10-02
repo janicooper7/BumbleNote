@@ -103,6 +103,13 @@ export const tutors = pgTable("tutors", {
   // so it can't be guessed (same reasoning as the waitlist's unsubscribeUrl).
   welcomeSentAt: timestamp("welcome_sent_at", { withTimezone: true }),
   trialEndedSentAt: timestamp("trial_ended_sent_at", { withTimezone: true }),
+  nudgeSentAt: timestamp("nudge_sent_at", { withTimezone: true }),
+  checkInSentAt: timestamp("check_in_sent_at", { withTimezone: true }),
+  firstRecapSentAt: timestamp("first_recap_sent_at", { withTimezone: true }),
+  // The tutor's one-click answer to the check-in email's "what's in the way?"
+  // (src/lib/check-in.ts). The latest click wins.
+  stuckReason: text("stuck_reason"),
+  stuckReasonAt: timestamp("stuck_reason_at", { withTimezone: true }),
   marketingOptOutAt: timestamp("marketing_opt_out_at", { withTimezone: true }),
   emailToken: uuid("email_token").notNull().unique().defaultRandom(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -4,17 +4,20 @@
 // re-run: rows are claimed before sending, so nobody gets an email twice.
 //
 //   npx tsx scripts/send-lifecycle-email.ts                    (dry run: who's still due)
-//   npx tsx scripts/send-lifecycle-email.ts --test you@x.com   (all five, to you only)
+//   npx tsx scripts/send-lifecycle-email.ts --test you@x.com   (emails 1-8, to you only)
 //   npx tsx scripts/send-lifecycle-email.ts --send live        (email 2 to the waitlist now)
 //   npx tsx scripts/send-lifecycle-email.ts --send benefits    (email 3 to the waitlist now)
 //
 // Needs DATABASE_URL and RESEND_API_KEY from .env.local, pointed at production,
-// and migration 0028 applied there. Set MARKETING_EMAIL_FROM to send from
+// and migrations 0028 and 0029 applied there. Set MARKETING_EMAIL_FROM to send from
 // somewhere other than EMAIL_FROM.
 
 import { config } from "dotenv";
 import {
   accountWelcomeEmail,
+  checkInEmail,
+  firstLessonNudgeEmail,
+  firstRecapEmail,
   launchBenefitsEmail,
   launchLiveEmail,
   sendLifecycleBatch,
@@ -22,6 +25,7 @@ import {
   waitlistWelcomeEmail,
 } from "../src/lib/email";
 import {
+  checkInAnswerUrl,
   countWaitlistPending,
   sendLaunchBenefits,
   sendLaunchLive,
@@ -59,8 +63,11 @@ async function main() {
       launchBenefitsEmail(test, unsubscribeUrl(NOBODY)),
       accountWelcomeEmail(test, "Millie", tutorUnsubscribeUrl(NOBODY)),
       trialEndedEmail(test, "Millie", tutorUnsubscribeUrl(NOBODY)),
+      firstLessonNudgeEmail(test, "Millie", tutorUnsubscribeUrl(NOBODY)),
+      checkInEmail(test, "Millie", tutorUnsubscribeUrl(NOBODY), (a) => checkInAnswerUrl(NOBODY, a)),
+      firstRecapEmail(test, "Millie", tutorUnsubscribeUrl(NOBODY)),
     ]);
-    console.log(`Previews of emails 1-5 sent to ${test}.`);
+    console.log(`Previews of emails 1-8 sent to ${test}.`);
     return;
   }
 
