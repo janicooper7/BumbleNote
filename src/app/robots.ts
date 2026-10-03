@@ -7,7 +7,7 @@
 // be one we haven't launched yet. Once SITE_PASSWORD is cleared the site is
 // public and this opens up on its own, with no second switch to remember.
 //
-// /dashboard and /api stay disallowed either way. Both require auth so a crawler
+// /dashboard, /admin and /api stay disallowed either way. All three require auth so a crawler
 // can't read them regardless; keeping them out of robots.txt just stops the
 // sign-in redirects showing up as crawl errors.
 
@@ -24,7 +24,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/api/", "/dashboard/", "/enter", "/reset", "/forgot"],
+      disallow: ["/api/", "/dashboard/", "/admin/", "/enter", "/reset", "/forgot"],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,
